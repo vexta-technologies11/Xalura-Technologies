@@ -37,6 +37,18 @@ function mergeEmployeeStats(e: Employee): Employee {
   return { ...e, stats: fallback ?? [] };
 }
 
+/** DB rows may carry legacy display names; public copy stays aligned with DEFAULT_EMPLOYEES for known ids */
+function withCanonicalTeamIdentity(e: Employee): Employee {
+  const def = DEFAULT_EMPLOYEES.find((d) => d.id === e.id);
+  if (!def) return e;
+  return {
+    ...e,
+    name: def.name,
+    role: def.role,
+    role_badge: def.role_badge,
+  };
+}
+
 function hasSupabaseEnv() {
   return (
     !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -117,10 +129,12 @@ export async function getEmployees(): Promise<Employee[]> {
       .order("display_order");
     if (error || !data?.length) return DEFAULT_EMPLOYEES;
     return (data as Employee[]).map((e) =>
-      mergeEmployeeStats({
-        ...e,
-        avatar_url: e.avatar_url ?? null,
-      }),
+      mergeEmployeeStats(
+        withCanonicalTeamIdentity({
+          ...e,
+          avatar_url: e.avatar_url ?? null,
+        }),
+      ),
     );
   } catch {
     return DEFAULT_EMPLOYEES;
