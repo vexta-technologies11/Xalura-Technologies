@@ -1978,6 +1978,15 @@ blockquote:not(.founder-quote) {
   color: rgba(255, 255, 255, 0.85);
 }
 
+.agent-terminal-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
 /* Pin terminal to bottom when cards share a grid row */
 .pillar .agent-terminal {
   margin-top: auto;
@@ -1988,6 +1997,11 @@ blockquote:not(.founder-quote) {
   flex-direction: column;
 }
 
+.pillar .employee-live-stack .agent-terminal {
+  margin-top: auto;
+  width: 100%;
+}
+
 .pillar .agent-terminal-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -1995,7 +2009,7 @@ blockquote:not(.founder-quote) {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding-right: 2px;
+  padding-inline: 3px;
   scrollbar-width: thin;
   scrollbar-color: rgba(107, 139, 245, 0.35) transparent;
 }
@@ -2429,20 +2443,28 @@ footer {
     text-align: center;
   }
 
-  #ai-employees .pillar--team .live-activity-graph,
-  #ai-employees .pillar--team .agent-terminal {
+  #ai-employees .pillar--team .live-activity-graph {
     width: 100%;
     max-width: 100%;
     align-self: stretch;
+  }
+
+  #ai-employees .pillar--team .agent-terminal {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+    text-align: left;
+  }
+
+  #ai-employees .pillar--team .agent-terminal-chrome {
+    justify-content: center;
   }
 
   #ai-employees .pillar--team .live-graph-header {
     justify-content: center;
     gap: 12px;
     flex-wrap: wrap;
-  }
-
-  #ai-employees .pillar--team .agent-terminal {
-    text-align: left;
   }
 }

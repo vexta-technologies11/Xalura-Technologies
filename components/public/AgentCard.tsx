@@ -114,60 +114,51 @@ export function AgentCard({ employee }: { employee: Employee }) {
             ))}
           </div>
         ) : null}
-      </div>
-      <div className="agent-terminal">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            marginBottom: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="live-dot text-emerald-500">●</span>
-            <span
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.45)",
-              }}
-            >
-              Live
-            </span>
-          </span>
-          <span
-            style={{
-              fontSize: 9,
-              fontFamily: "ui-monospace, monospace",
-              color: "rgba(255,255,255,0.35)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            {SHELL_BY_ROLE[poolKey]}
-          </span>
-        </div>
-        <div ref={terminalScrollRef} className="agent-terminal-body">
-          {lines.map((line, i) => (
-            <div key={`${line.at}-${i}`} className="agent-terminal-line">
+        <div className="agent-terminal">
+          <div className="agent-terminal-chrome">
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="live-dot text-emerald-500">●</span>
               <span
-                className={i === lines.length - 1 ? "cursor-blink" : undefined}
                 style={{
-                  flex: 1,
-                  wordBreak: "break-word",
-                  color: "rgba(190, 230, 200, 0.92)",
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.45)",
                 }}
               >
-                {line.text}
+                Live
               </span>
-              <span style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }}>
-                {formatAgo(line.at)}
-              </span>
-            </div>
-          ))}
+            </span>
+            <span
+              style={{
+                fontSize: 9,
+                fontFamily: "ui-monospace, monospace",
+                color: "rgba(255,255,255,0.35)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {SHELL_BY_ROLE[poolKey]}
+            </span>
+          </div>
+          <div ref={terminalScrollRef} className="agent-terminal-body">
+            {lines.map((line, i) => (
+              <div key={`${line.at}-${i}`} className="agent-terminal-line">
+                <span
+                  className={i === lines.length - 1 ? "cursor-blink" : undefined}
+                  style={{
+                    flex: 1,
+                    wordBreak: "break-word",
+                    color: "rgba(190, 230, 200, 0.92)",
+                  }}
+                >
+                  {line.text}
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }}>
+                  {formatAgo(line.at)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
