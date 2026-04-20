@@ -55,7 +55,7 @@ insert into employees (name, role, role_badge, description, icon_type, avatar_ur
   'SEO Manager',
   'Maldita audits the GearMedic site every day for SEO: where deeper internal links belong, which sentences and headings can rank better, and whether pages send the right signals to search. She finds deeplinking opportunities and reworks copy so the same traffic works harder — not keyword stuffing, just sharper on-page SEO.',
   'seo',
-  '/avatars/maldita.png',
+  '/avatars/maldita.svg',
   2
 ),
 (

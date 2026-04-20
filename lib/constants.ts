@@ -67,7 +67,7 @@ export const DEFAULT_EMPLOYEES: Employee[] = [
     description:
       "Maldita audits the GearMedic site every day for SEO: where deeper internal links belong, which sentences and headings can rank better, and whether pages send the right signals to search. She finds deeplinking opportunities and reworks copy so the same traffic works harder — not keyword stuffing, just sharper on-page SEO.",
     icon_type: "seo",
-    avatar_url: "/avatars/maldita.png",
+    avatar_url: "/avatars/maldita.svg",
     stats: EMPLOYEE_STATS_BY_NAME.Maldita,
     is_active: true,
     display_order: 2,
