@@ -1,0 +1,6 @@
+/** Copy for Maldita's SEO audit visual — daily site pass, deeplinks, sentence-level SEO */
+export const MALDITA_AUDIT_PARAGRAPH = `Every scheduled audit walks the published site like a search engine would: which hubs sit too thin, where a reader should hop to a related guide, and whether internal routes form loops instead of ladders. Deeplinking is scored by intent overlap — symptoms pointing to diagnostics, diagnostics to parts, parts back to safety context — so every extra anchor earns its click without turning the page into a link farm.
+
+Sentence work is deliberate. Titles and ledes are checked against live query language, H2s are aligned to sub-intents, and thin boilerplate gets cut or merged so crawl budget lands on paragraphs that actually answer the question. Snippet and CTR language gets a second pass because rankings without clicks are half the job.
+
+This run compares yesterday’s index to today’s deploy: new URLs, redirects that need tightening, and pages that slipped after template edits. When the batch closes, the queue holds concrete text tweaks and link insertions for the next publish cycle — part of the daily rhythm that keeps GearMedic readable for people and legible to search.`;

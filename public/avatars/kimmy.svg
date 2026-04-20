@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" fill="none">
+  <defs>
+    <linearGradient id="k" x1="0" y1="56" x2="112" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C8F5E0"/>
+      <stop offset="1" stop-color="#3EB489"/>
+    </linearGradient>
+  </defs>
+  <circle cx="56" cy="56" r="56" fill="url(#k)"/>
+  <circle cx="56" cy="56" r="55.5" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+  <text x="56" y="68" text-anchor="middle" font-family="system-ui,-apple-system,BlinkMacSystemFont,sans-serif" font-size="30" font-weight="600" fill="white">Ki</text>
+</svg>

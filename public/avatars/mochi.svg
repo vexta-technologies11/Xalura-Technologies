@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" fill="none">
+  <defs>
+    <linearGradient id="m" x1="22" y1="18" x2="94" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C7D9FF"/>
+      <stop offset="1" stop-color="#5B8DEF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="56" cy="56" r="56" fill="url(#m)"/>
+  <circle cx="56" cy="56" r="55.5" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+  <text x="56" y="68" text-anchor="middle" font-family="system-ui,-apple-system,BlinkMacSystemFont,sans-serif" font-size="32" font-weight="600" fill="white">Mo</text>
+</svg>
