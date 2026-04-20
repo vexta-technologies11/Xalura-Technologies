@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans, Libre_Bodoni } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -59,6 +60,7 @@ export default function RootLayout({
       </head>
       <body className={`${dmSans.variable} ${cormorant.variable} ${founderBodoni.variable}`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );
