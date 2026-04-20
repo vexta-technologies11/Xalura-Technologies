@@ -2143,3 +2143,207 @@ footer {
     align-items: center;
   }
 }
+
+.closing-section {
+  padding: 80px var(--p);
+}
+
+/* —— Mobile: center content, comfortable type, safe areas —— */
+@media (max-width: 768px) {
+  .closing-section {
+    padding: 56px max(20px, env(safe-area-inset-left)) 48px max(20px, env(safe-area-inset-right));
+  }
+
+  nav {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .nav-brand {
+    gap: 10px;
+  }
+
+  .logo {
+    font-size: clamp(15px, 4.2vw, 20px);
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-pill {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .wrap {
+    padding-top: 64px;
+    padding-bottom: 64px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+
+  .h1 {
+    font-size: clamp(32px, 10vw, 64px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+  }
+
+  .h2 {
+    font-size: clamp(24px, 7vw, 40px);
+    line-height: 1.15;
+  }
+
+  .body-text {
+    font-size: 15px;
+    line-height: 1.72;
+  }
+
+  /* Hero: center stack */
+  .hero {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-top: 96px;
+    padding-bottom: 56px;
+  }
+
+  .hero--bento {
+    align-items: center;
+  }
+
+  .hero-content {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    max-width: min(36rem, 100%);
+  }
+
+  .hero--bento .label {
+    text-align: center;
+  }
+
+  .hero--bento .body-text {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 34rem;
+  }
+
+  .hero-btns {
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-btns .btn {
+    width: 100%;
+    max-width: min(280px, 100%);
+    box-sizing: border-box;
+  }
+
+  .hero-bento-hint {
+    padding: 0 12px;
+  }
+
+  /* Section intros */
+  .mission .label,
+  .mission .h2,
+  .mission .body-text,
+  #ai-employees .label,
+  #ai-employees .h2,
+  #ai-employees .body-text,
+  #dashboard .label,
+  #dashboard .h2,
+  #dashboard .body-text,
+  .product-section > .label,
+  .product-section > .h2,
+  .tech-stack .label,
+  .tech-stack .h2,
+  .tech-stack .body-text,
+  #founder .label,
+  .partners .label,
+  .partners .h2,
+  .partners .body-text {
+    text-align: center;
+  }
+
+  .mission .body-text,
+  #ai-employees .body-text,
+  #dashboard .body-text,
+  .tech-stack .body-text,
+  .partners .body-text {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .stats {
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .product-info {
+    text-align: center;
+  }
+
+  .product-info .product-tag {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .product-link {
+    justify-content: center;
+  }
+
+  .feat-list {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 28rem;
+    text-align: left;
+  }
+
+  .founder-inner {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #founder .label,
+  .founder-header {
+    text-align: center;
+  }
+
+  .founder-quote {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+  }
+
+  .dash-grid {
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .stack-row {
+    justify-content: center;
+  }
+
+  .footer-top,
+  .footer-cols {
+    text-align: center;
+    align-items: center;
+  }
+
+  .footer-cols {
+    justify-content: center;
+  }
+
+  .footer-col {
+    min-width: 140px;
+  }
+
+  .footer-bottom {
+    align-items: center;
+    text-align: center;
+  }
+}

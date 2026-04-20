@@ -6,9 +6,9 @@ export function Closing({ content }: { content: PageContentMap["closing"] }) {
   const b = parts[1] ?? "";
   return (
     <section
+      className="closing-section"
       style={{
         background: "var(--black)",
-        padding: "80px var(--p)",
         textAlign: "center",
       }}
     >

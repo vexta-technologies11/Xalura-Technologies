@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans, Libre_Bodoni } from "next/font/google";
 import "./globals.css";
 
@@ -31,6 +31,13 @@ export const metadata: Metadata = {
   title: "Xalura Tech",
   description:
     "Practical AI systems for real-world operations — autonomous content, diagnostics, and operations.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
