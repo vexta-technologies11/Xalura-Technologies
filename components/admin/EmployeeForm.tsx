@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { IconType } from "@/types/employee";
 
@@ -35,6 +35,31 @@ const defaultRow: Row = {
   is_active: true,
 };
 
+/** PostgREST PGRST204 / stale cache — missing column in API layer */
+function isPostgrestSchemaOrMissingColumn(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("schema cache") ||
+    m.includes("pgrst204") ||
+    m.includes("pgrst205") ||
+    (m.includes("could not find") && m.includes("column"))
+  );
+}
+
+const SUPABASE_EMPLOYEES_FIX_SQL = `alter table employees add column if not exists avatar_url text;
+alter table employees add column if not exists stats jsonb default '[]'::jsonb;
+notify pgrst, 'reload schema';`;
+
+const EMPLOYEE_FORM_NOTICE_KEY = "xalura_employee_form_notice";
+
+/** PostgREST PGRST204 / stale cache — not a bad avatar string */
+function formatSupabaseEmployeeError(message: string): string {
+  if (isPostgrestSchemaOrMissingColumn(message)) {
+    return `${message}\n\nRun in Supabase → SQL Editor:\n\n${SUPABASE_EMPLOYEES_FIX_SQL}`;
+  }
+  return message;
+}
+
 export function EmployeeForm({ initial }: { initial?: Record<string, unknown> }) {
   const router = useRouter();
   const [row, setRow] = useState<Row>(() => {
@@ -53,6 +78,14 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
   });
   const [statsJson, setStatsJson] = useState(() => statsJsonFromInitial(initial));
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem(EMPLOYEE_FORM_NOTICE_KEY);
+    if (pending) {
+      setMsg(pending);
+      sessionStorage.removeItem(EMPLOYEE_FORM_NOTICE_KEY);
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,39 +109,66 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
         typeof (item as { label?: unknown }).label === "string",
     );
     const supabase = createClient();
+    const coreFields = {
+      name: row.name,
+      role: row.role,
+      role_badge: row.role_badge,
+      description: row.description,
+      icon_type: row.icon_type,
+      display_order: row.display_order,
+      is_active: row.is_active,
+    };
     if (row.id) {
-      const { error } = await supabase
-        .from("employees")
-        .update({
-          name: row.name,
-          role: row.role,
-          role_badge: row.role_badge,
-          description: row.description,
-          icon_type: row.icon_type,
-          avatar_url: row.avatar_url.trim() || null,
-          stats: statsClean,
-          display_order: row.display_order,
-          is_active: row.is_active,
-        })
-        .eq("id", row.id);
+      const fullUpdate = {
+        ...coreFields,
+        avatar_url: row.avatar_url.trim() || null,
+        stats: statsClean,
+      };
+      let { error } = await supabase.from("employees").update(fullUpdate).eq("id", row.id);
+      if (error && isPostgrestSchemaOrMissingColumn(error.message)) {
+        const { error: retryErr } = await supabase
+          .from("employees")
+          .update(coreFields)
+          .eq("id", row.id);
+        if (!retryErr) {
+          setMsg(
+            `Saved name, role, and description. Avatar and stats were skipped because the database API does not see those columns yet.\n\nRun in Supabase → SQL Editor, then click Save again:\n\n${SUPABASE_EMPLOYEES_FIX_SQL}`,
+          );
+          router.refresh();
+          return;
+        }
+        error = retryErr;
+      }
       if (error) {
-        setMsg(error.message);
+        setMsg(formatSupabaseEmployeeError(error.message));
         return;
       }
     } else {
-      const { error } = await supabase.from("employees").insert({
-        name: row.name,
-        role: row.role,
-        role_badge: row.role_badge,
-        description: row.description,
-        icon_type: row.icon_type,
+      const insertRow = {
+        ...coreFields,
         avatar_url: row.avatar_url.trim() || null,
         stats: statsClean,
-        display_order: row.display_order,
-        is_active: row.is_active,
-      });
+      };
+      let { error } = await supabase.from("employees").insert(insertRow);
+      if (error && isPostgrestSchemaOrMissingColumn(error.message)) {
+        const { data: created, error: retryErr } = await supabase
+          .from("employees")
+          .insert(coreFields)
+          .select("id")
+          .single();
+        if (!retryErr && created?.id) {
+          sessionStorage.setItem(
+            EMPLOYEE_FORM_NOTICE_KEY,
+            `Employee created without avatar and stats. Add columns in Supabase, then save again.\n\n${SUPABASE_EMPLOYEES_FIX_SQL}`,
+          );
+          router.replace(`/admin/employees/${created.id}`);
+          router.refresh();
+          return;
+        }
+        error = retryErr ?? error;
+      }
       if (error) {
-        setMsg(error.message);
+        setMsg(formatSupabaseEmployeeError(error.message));
         return;
       }
     }
@@ -231,7 +291,20 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
         />
         Active
       </label>
-      {msg ? <p style={{ color: "#b91c1c", fontSize: 13 }}>{msg}</p> : null}
+      {msg ? (
+        <p
+          style={{
+            color:
+              msg.startsWith("Saved ") || msg.startsWith("Employee created")
+                ? "#a16207"
+                : "#b91c1c",
+            fontSize: 13,
+            whiteSpace: "pre-line",
+          }}
+        >
+          {msg}
+        </p>
+      ) : null}
       <button
         type="submit"
         style={{
