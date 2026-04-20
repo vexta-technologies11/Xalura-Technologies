@@ -79,7 +79,7 @@ drop trigger if exists trg_page_content_updated_at on page_content;
 create trigger trg_page_content_updated_at
   before update on page_content
   for each row
-  execute procedure public.set_page_content_updated_at ();
+  execute function public.set_page_content_updated_at ();
 
 -- -----------------------------------------------------------------------------
 -- 2. SEED DATA (only if tables are empty — avoids duplicate rows on re-run)
