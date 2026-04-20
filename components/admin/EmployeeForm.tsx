@@ -1,8 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  EMPLOYEE_AVATAR_BUCKET,
+  extensionForFile,
+  validateAvatarFile,
+} from "@/lib/employeeAvatarUpload";
 import type { IconType } from "@/types/employee";
 
 type Row = {
@@ -62,6 +67,8 @@ function formatSupabaseEmployeeError(message: string): string {
 
 export function EmployeeForm({ initial }: { initial?: Record<string, unknown> }) {
   const router = useRouter();
+  const draftFolder = useRef(crypto.randomUUID());
+  const [uploading, setUploading] = useState(false);
   const [row, setRow] = useState<Row>(() => {
     if (!initial) return defaultRow;
     return {
@@ -87,15 +94,52 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
     }
   }, []);
 
+  async function handleAvatarPick(file: File | null) {
+    if (!file) return;
+    const v = validateAvatarFile(file);
+    if (v) {
+      setMsg(v);
+      return;
+    }
+    setUploading(true);
+    setMsg(null);
+    try {
+      const supabase = createClient();
+      const ext = extensionForFile(file);
+      const folder = row.id ?? `draft-${draftFolder.current}`;
+      const path = `${folder}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(EMPLOYEE_AVATAR_BUCKET).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "image/jpeg",
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from(EMPLOYEE_AVATAR_BUCKET).getPublicUrl(path);
+      setRow((r) => ({ ...r, avatar_url: data.publicUrl }));
+    } catch (err: unknown) {
+      setMsg(
+        err instanceof Error
+          ? `${err.message}\n\nIf uploads fail, create the "${EMPLOYEE_AVATAR_BUCKET}" storage bucket in Supabase (see supabase/schema.sql).`
+          : "Upload failed.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
     let statsPayload: unknown;
-    try {
-      statsPayload = JSON.parse(statsJson.trim() || "[]");
-    } catch {
-      setMsg("Stats must be valid JSON (array of { value, label }).");
-      return;
+    if (!statsJson.trim()) {
+      statsPayload = [];
+    } else {
+      try {
+        statsPayload = JSON.parse(statsJson);
+      } catch {
+        setMsg("Stats must be valid JSON (array of { value, label }), or leave empty for [].");
+        return;
+      }
     }
     if (!Array.isArray(statsPayload)) {
       setMsg("Stats must be a JSON array.");
@@ -179,92 +223,100 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
   return (
     <form
       onSubmit={onSubmit}
+      className="admin-card admin-card-pad"
       style={{
         maxWidth: 560,
         display: "flex",
         flexDirection: "column",
         gap: 16,
-        background: "#fff",
-        padding: 24,
-        borderRadius: 12,
-        border: "1px solid #e5e5e5",
       }}
     >
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Name
         <input
-          required
+          className="admin-input"
           value={row.name}
           onChange={(e) => setRow({ ...row, name: e.target.value })}
-          style={inputStyle}
         />
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Role
         <input
-          required
+          className="admin-input"
           value={row.role}
           onChange={(e) => setRow({ ...row, role: e.target.value })}
-          style={inputStyle}
         />
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Role badge
         <input
-          required
+          className="admin-input"
           value={row.role_badge}
           onChange={(e) => setRow({ ...row, role_badge: e.target.value })}
-          style={inputStyle}
         />
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-        Avatar URL
+      <div className="admin-label">
+        Photo
+        <input
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+          className="admin-input"
+          style={{ padding: 10 }}
+          disabled={uploading}
+          onChange={(e) => void handleAvatarPick(e.target.files?.[0] ?? null)}
+        />
+        <span className="admin-help">
+          Upload from your phone (JPEG, PNG, WebP, HEIC). Stored in Supabase Storage bucket{" "}
+          <code>{EMPLOYEE_AVATAR_BUCKET}</code>. You can still paste a URL below instead.
+        </span>
+      </div>
+      <label className="admin-label">
+        Avatar URL (optional override)
         <input
           type="text"
-          inputMode="url"
+          inputMode="text"
           autoComplete="off"
-          placeholder="/avatars/mochi.png or https://… (optional)"
+          placeholder="/avatars/mochi.png or https://…"
           value={row.avatar_url}
           onChange={(e) => setRow({ ...row, avatar_url: e.target.value })}
-          style={inputStyle}
+          className="admin-input"
         />
-        <span style={{ fontSize: 11, color: "#737373", fontWeight: 400 }}>
-          Optional — leave empty to use initials on the site. Path under <code>public/</code>{" "}
-          (e.g. <code>/avatars/mochi.png</code>) or a full image URL.
+        <span className="admin-help">
+          Filled automatically after upload, or set manually. Leave empty for initials on the site.
         </span>
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Stats (JSON)
         <textarea
           rows={6}
           value={statsJson}
           onChange={(e) => setStatsJson(e.target.value)}
           placeholder={`[\n  { "value": "6", "label": "Research drafts in your queue" }\n]`}
-          style={{ ...inputStyle, resize: "vertical", fontFamily: "ui-monospace, monospace", fontSize: 12 }}
+          className="admin-textarea"
+          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}
         />
-        <span style={{ fontSize: 11, color: "#737373", fontWeight: 400 }}>
+        <span className="admin-help">
           <code>value</code> = bold figure (e.g. <code>70+</code>), <code>label</code> = the rest of the line.
-          Leave <code>[]</code> for built-in defaults by name.
+          Leave empty for <code>[]</code> (defaults by name on the site).
         </span>
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Description
         <textarea
-          required
           rows={5}
           value={row.description}
           onChange={(e) => setRow({ ...row, description: e.target.value })}
-          style={{ ...inputStyle, resize: "vertical" }}
+          className="admin-textarea"
         />
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Icon type
         <select
           value={row.icon_type}
           onChange={(e) =>
             setRow({ ...row, icon_type: e.target.value as IconType })
           }
-          style={inputStyle}
+          className="admin-select"
         >
           <option value="writer">writer</option>
           <option value="seo">seo</option>
@@ -272,7 +324,7 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
           <option value="designer">designer</option>
         </select>
       </label>
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+      <label className="admin-label">
         Display order
         <input
           type="number"
@@ -280,10 +332,10 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
           onChange={(e) =>
             setRow({ ...row, display_order: Number(e.target.value) })
           }
-          style={inputStyle}
+          className="admin-input"
         />
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+      <label className="admin-label" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <input
           type="checkbox"
           checked={row.is_active}
@@ -293,39 +345,17 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
       </label>
       {msg ? (
         <p
-          style={{
-            color:
-              msg.startsWith("Saved ") || msg.startsWith("Employee created")
-                ? "#a16207"
-                : "#b91c1c",
-            fontSize: 13,
-            whiteSpace: "pre-line",
-          }}
+          className={`admin-msg ${
+            msg.startsWith("Saved ") || msg.startsWith("Employee created") ? "admin-msg--warn" : "admin-msg--err"
+          }`}
+          style={{ whiteSpace: "pre-line" }}
         >
           {msg}
         </p>
       ) : null}
-      <button
-        type="submit"
-        style={{
-          background: "#0a0a0a",
-          color: "#fff",
-          padding: "12px 20px",
-          borderRadius: 100,
-          border: "none",
-          cursor: "pointer",
-          alignSelf: "flex-start",
-        }}
-      >
+      <button type="submit" className="admin-btn admin-btn--primary" style={{ alignSelf: "flex-start" }}>
         Save
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #e5e5e5",
-  fontSize: 14,
-};

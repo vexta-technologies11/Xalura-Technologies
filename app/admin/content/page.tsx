@@ -1,15 +1,16 @@
-import { ContentEditor } from "@/components/admin/ContentEditor";
+import { HomepageEditor } from "@/components/admin/HomepageEditor";
 
 export default function ContentAdminPage() {
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>Page Content</h1>
-      <p style={{ color: "#52524f", marginBottom: 24, maxWidth: 560 }}>
-        Edit public landing copy. Values are stored in the <code>page_content</code> table
-        (JSON per section). Hero section below; extend the form as you add rows for other
-        sections.
+      <h1 className="admin-page-title">Homepage</h1>
+      <p className="admin-page-lead">
+        Edit every public section of the landing page. Use the tabs to switch layers.{" "}
+        <strong>Save all</strong> writes to the <code>page_content</code> table.{" "}
+        <strong>Cancel</strong> discards edits since last load or save. <strong>Exit</strong> returns to
+        the dashboard (you will be warned if there are unsaved changes). Blank fields are saved as empty.
       </p>
-      <ContentEditor />
+      <HomepageEditor />
     </div>
   );
 }

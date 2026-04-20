@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/admin/AdminNav";
+import "@/components/admin/admin-ui.css";
 
 export default async function AdminLayout({
   children,
@@ -12,14 +13,16 @@ export default async function AdminLayout({
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
     return (
-      <div style={{ padding: 40, fontFamily: "system-ui", maxWidth: 560 }}>
-        <h1 style={{ fontSize: 20, marginBottom: 12 }}>Admin unavailable</h1>
+      <div className="admin-root">
+        <div className="admin-main" style={{ paddingTop: 40 }}>
+        <h1 className="admin-page-title">Admin unavailable</h1>
         <p style={{ color: "#52524f", lineHeight: 1.6 }}>
           Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
           <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to <code>.env.local</code>, then restart
           the dev server. See <code>.env.local.example</code> in the repo.
         </p>
         {children}
+        </div>
       </div>
     );
   }
@@ -34,11 +37,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa" }}>
+    <div className="admin-root">
       <AdminNav email={user.email ?? ""} />
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px 80px" }}>
-        {children}
-      </main>
+      <main className="admin-main">{children}</main>
     </div>
   );
 }

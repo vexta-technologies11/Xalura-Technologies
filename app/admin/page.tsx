@@ -16,42 +16,27 @@ export default async function AdminHome() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>Dashboard</h1>
-      <p style={{ color: "#52524f", marginBottom: 32 }}>
-        Overview of your Xalura site configuration.
-      </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 40,
-        }}
-      >
-        <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 12, padding: 20 }}>
-          <p style={{ fontSize: 12, color: "#737373", marginBottom: 8 }}>AI Employees</p>
-          <p style={{ fontSize: 28, fontWeight: 600 }}>{empCount ?? "—"}</p>
+      <h1 className="admin-page-title">Dashboard</h1>
+      <p className="admin-page-lead">Overview of your Xalura site configuration.</p>
+      <div className="admin-stat-grid">
+        <div className="admin-stat-card">
+          <p className="admin-stat-label">AI Employees</p>
+          <p className="admin-stat-value">{empCount ?? "—"}</p>
         </div>
-        <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 12, padding: 20 }}>
-          <p style={{ fontSize: 12, color: "#737373", marginBottom: 8 }}>Partners</p>
-          <p style={{ fontSize: 28, fontWeight: 600 }}>{partnerCount ?? "—"}</p>
+        <div className="admin-stat-card">
+          <p className="admin-stat-label">Partners</p>
+          <p className="admin-stat-value">{partnerCount ?? "—"}</p>
         </div>
       </div>
-      <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+      <ul className="admin-link-list">
         <li>
-          <Link href="/admin/employees" style={{ color: "#1740e0" }}>
-            Manage AI Employees →
-          </Link>
+          <Link href="/admin/employees">Manage AI Employees →</Link>
         </li>
         <li>
-          <Link href="/admin/content" style={{ color: "#1740e0" }}>
-            Edit landing page copy →
-          </Link>
+          <Link href="/admin/content">Edit homepage →</Link>
         </li>
         <li>
-          <Link href="/admin/partners" style={{ color: "#1740e0" }}>
-            Manage partners →
-          </Link>
+          <Link href="/admin/partners">Manage partners →</Link>
         </li>
       </ul>
     </div>

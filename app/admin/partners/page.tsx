@@ -16,10 +16,10 @@ export default async function PartnersAdminPage() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>Partners</h1>
-      <p style={{ color: "#52524f", marginBottom: 24, maxWidth: 640 }}>
-        Partner logos live in <code>public/logos/</code>. Update names and order here; upload
-        flows can be wired to Supabase Storage later.
+      <h1 className="admin-page-title">Partners</h1>
+      <p className="admin-page-lead">
+        Partner logos usually live under <code>public/logos/</code>. Edit names, paths, and order
+        here; blank fields can be saved.
       </p>
       <PartnerEditor initial={rows ?? []} />
     </div>

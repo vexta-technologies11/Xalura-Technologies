@@ -17,7 +17,7 @@ export function PartnerEditor({ initial }: { initial: Partner[] }) {
 
   const sorted = useMemo(
     () => [...rows].sort((a, b) => a.display_order - b.display_order),
-    [rows]
+    [rows],
   );
 
   async function save(p: Partner) {
@@ -41,66 +41,61 @@ export function PartnerEditor({ initial }: { initial: Partner[] }) {
       {sorted.map((p) => (
         <div
           key={p.id}
-          style={{
-            background: "#fff",
-            border: "1px solid #e5e5e5",
-            borderRadius: 12,
-            padding: 16,
-            display: "grid",
-            gap: 10,
-            gridTemplateColumns: "1fr 1fr",
-          }}
+          className="admin-card admin-card-pad admin-partner-grid"
         >
-          <label style={lbl}>
+          <label className="admin-label">
             Name
             <input
-              style={inp}
+              className="admin-input"
               value={p.name}
               onChange={(e) =>
                 setRows((prev) =>
-                  prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x))
+                  prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)),
                 )
               }
             />
           </label>
-          <label style={lbl}>
+          <label className="admin-label">
             Logo path
             <input
-              style={inp}
+              className="admin-input"
               value={p.logo_url ?? ""}
               onChange={(e) =>
                 setRows((prev) =>
                   prev.map((x) =>
-                    x.id === p.id ? { ...x, logo_url: e.target.value || null } : x
-                  )
+                    x.id === p.id ? { ...x, logo_url: e.target.value || null } : x,
+                  ),
                 )
               }
             />
           </label>
-          <label style={lbl}>
+          <label className="admin-label">
             Order
             <input
               type="number"
-              style={inp}
+              className="admin-input"
               value={p.display_order}
               onChange={(e) =>
                 setRows((prev) =>
                   prev.map((x) =>
-                    x.id === p.id ? { ...x, display_order: Number(e.target.value) } : x
-                  )
+                    x.id === p.id ? { ...x, display_order: Number(e.target.value) } : x,
+                  ),
                 )
               }
             />
           </label>
-          <label style={{ ...lbl, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <label
+            className="admin-label"
+            style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+          >
             <input
               type="checkbox"
               checked={p.is_active}
               onChange={(e) =>
                 setRows((prev) =>
                   prev.map((x) =>
-                    x.id === p.id ? { ...x, is_active: e.target.checked } : x
-                  )
+                    x.id === p.id ? { ...x, is_active: e.target.checked } : x,
+                  ),
                 )
               }
             />
@@ -109,37 +104,15 @@ export function PartnerEditor({ initial }: { initial: Partner[] }) {
           <div style={{ gridColumn: "1 / -1" }}>
             <button
               type="button"
+              className="admin-btn admin-btn--primary"
               onClick={() => void save(rows.find((x) => x.id === p.id)!)}
-              style={{
-                background: "#0a0a0a",
-                color: "#fff",
-                padding: "8px 14px",
-                borderRadius: 100,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
             >
               Save {p.name}
             </button>
           </div>
         </div>
       ))}
-      {msg ? <p style={{ fontSize: 13 }}>{msg}</p> : null}
+      {msg ? <p className="admin-msg admin-msg--ok">{msg}</p> : null}
     </div>
   );
 }
-
-const lbl: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6,
-  fontSize: 13,
-};
-
-const inp: React.CSSProperties = {
-  padding: "8px 10px",
-  borderRadius: 8,
-  border: "1px solid #e5e5e5",
-  fontSize: 14,
-};

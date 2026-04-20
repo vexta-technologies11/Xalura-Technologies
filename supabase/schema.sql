@@ -148,3 +148,34 @@ create policy "agent_activity_write_authenticated"
   to authenticated
   using (true)
   with check (true);
+
+-- Storage: employee avatar uploads (create bucket + policies in Supabase SQL or Dashboard → Storage)
+insert into storage.buckets (id, name, public)
+values ('employee-avatars', 'employee-avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "employee_avatars_public_read" on storage.objects;
+drop policy if exists "employee_avatars_authenticated_insert" on storage.objects;
+drop policy if exists "employee_avatars_authenticated_update" on storage.objects;
+drop policy if exists "employee_avatars_authenticated_delete" on storage.objects;
+
+create policy "employee_avatars_public_read"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_authenticated_insert"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_authenticated_update"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'employee-avatars')
+  with check (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_authenticated_delete"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'employee-avatars');

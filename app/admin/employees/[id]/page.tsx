@@ -20,7 +20,10 @@ export default async function EditEmployeePage({
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Edit Employee</h1>
+      <h1 className="admin-page-title">Edit employee</h1>
+      <p className="admin-page-lead" style={{ marginBottom: 20 }}>
+        All fields are optional to clear; upload a JPEG or other photo, or paste a URL.
+      </p>
       <EmployeeForm initial={data} />
     </div>
   );

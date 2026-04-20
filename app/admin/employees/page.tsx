@@ -16,20 +16,21 @@ export default async function EmployeesAdminPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 600 }}>AI Employees</h1>
-        <Link
-          href="/admin/employees/new"
-          style={{
-            background: "#0a0a0a",
-            color: "#fff",
-            padding: "10px 18px",
-            borderRadius: 100,
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          Add New Employee
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <h1 className="admin-page-title" style={{ marginBottom: 0 }}>
+          AI Employees
+        </h1>
+        <Link href="/admin/employees/new" className="admin-btn admin-btn--primary" style={{ textDecoration: "none" }}>
+          Add employee
         </Link>
       </div>
       <div style={{ overflowX: "auto", border: "1px solid #e5e5e5", borderRadius: 12, background: "#fff" }}>
