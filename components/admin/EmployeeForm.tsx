@@ -160,15 +160,17 @@ export function EmployeeForm({ initial }: { initial?: Record<string, unknown> })
       <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
         Avatar URL
         <input
-          type="url"
-          placeholder="/avatars/mochi.png or https://…"
+          type="text"
+          inputMode="url"
+          autoComplete="off"
+          placeholder="/avatars/mochi.png or https://… (optional)"
           value={row.avatar_url}
           onChange={(e) => setRow({ ...row, avatar_url: e.target.value })}
           style={inputStyle}
         />
         <span style={{ fontSize: 11, color: "#737373", fontWeight: 400 }}>
-          Path under <code>public/</code> or full image URL. Replace example files in{" "}
-          <code>public/avatars/</code> anytime.
+          Optional — leave empty to use initials on the site. Path under <code>public/</code>{" "}
+          (e.g. <code>/avatars/mochi.png</code>) or a full image URL.
         </span>
       </label>
       <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
