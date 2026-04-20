@@ -2276,6 +2276,50 @@ footer {
     margin-right: auto;
   }
 
+  /* Team / agent cards: center avatar, name, role, copy, and live visuals */
+  #ai-employees .pillar-header-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #ai-employees .pillar-header-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  #ai-employees .pillar-name-row {
+    justify-content: center;
+  }
+
+  #ai-employees .pillar-body {
+    text-align: center;
+  }
+
+  #ai-employees .employee-live-stack {
+    width: 100%;
+    max-width: min(28rem, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    align-items: center;
+  }
+
+  #ai-employees .achievement-stack {
+    align-items: center;
+    width: 100%;
+  }
+
+  #ai-employees .achievement-line {
+    justify-content: center;
+    text-align: center;
+  }
+
+  #ai-employees .pillar .live-activity-graph,
+  #ai-employees .pillar .agent-terminal {
+    width: 100%;
+  }
+
   .stats {
     max-width: 420px;
     margin-left: auto;
