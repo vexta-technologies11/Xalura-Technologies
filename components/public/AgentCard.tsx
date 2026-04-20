@@ -70,7 +70,7 @@ export function AgentCard({ employee }: { employee: Employee }) {
   }, [lines]);
 
   return (
-    <div className="pillar">
+    <div className="pillar pillar--team">
       <div className="pillar-header-row">
         <EmployeeAvatar
           name={employee.name}

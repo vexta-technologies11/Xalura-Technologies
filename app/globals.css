@@ -2276,50 +2276,6 @@ footer {
     margin-right: auto;
   }
 
-  /* Team / agent cards: center avatar, name, role, copy, and live visuals */
-  #ai-employees .pillar-header-row {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  #ai-employees .pillar-header-text {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-  }
-
-  #ai-employees .pillar-name-row {
-    justify-content: center;
-  }
-
-  #ai-employees .pillar-body {
-    text-align: center;
-  }
-
-  #ai-employees .employee-live-stack {
-    width: 100%;
-    max-width: min(28rem, 100%);
-    margin-left: auto;
-    margin-right: auto;
-    align-items: center;
-  }
-
-  #ai-employees .achievement-stack {
-    align-items: center;
-    width: 100%;
-  }
-
-  #ai-employees .achievement-line {
-    justify-content: center;
-    text-align: center;
-  }
-
-  #ai-employees .pillar .live-activity-graph,
-  #ai-employees .pillar .agent-terminal {
-    width: 100%;
-  }
-
   .stats {
     max-width: 420px;
     margin-left: auto;
@@ -2389,5 +2345,104 @@ footer {
   .footer-bottom {
     align-items: center;
     text-align: center;
+  }
+}
+
+/* Team / agent cards: phones + narrow tablets / in-app browsers (often >768px wide) */
+@media (max-width: 900px) {
+  #ai-employees .label,
+  #ai-employees .h2,
+  #ai-employees .body-text {
+    text-align: center;
+  }
+
+  #ai-employees .body-text {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #ai-employees .pillar--team {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  #ai-employees .pillar--team .pillar-header-row {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  #ai-employees .pillar--team .pillar-header-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  #ai-employees .pillar--team .pillar-name-row {
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  #ai-employees .pillar--team .pillar-title {
+    text-align: center;
+    width: 100%;
+  }
+
+  #ai-employees .pillar--team .pillar-body {
+    text-align: center;
+    width: 100%;
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #ai-employees .pillar--team .employee-live-stack {
+    width: 100%;
+    max-width: min(28rem, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    align-items: stretch;
+  }
+
+  #ai-employees .pillar--team .achievement-stack {
+    align-items: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  #ai-employees .pillar--team .achievement-line {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35em;
+    text-align: center;
+  }
+
+  #ai-employees .pillar--team .achievement-figure,
+  #ai-employees .pillar--team .achievement-copy {
+    flex: none;
+    width: 100%;
+    max-width: 22rem;
+    text-align: center;
+  }
+
+  #ai-employees .pillar--team .live-activity-graph,
+  #ai-employees .pillar--team .agent-terminal {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
+
+  #ai-employees .pillar--team .live-graph-header {
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  #ai-employees .pillar--team .agent-terminal {
+    text-align: left;
   }
 }
