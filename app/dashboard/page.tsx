@@ -158,7 +158,10 @@ export default async function PublicDashboardPage() {
                     marginBottom: 8,
                   }}
                 >
-                  {nameById.get(a.employee_id) ?? "Agent"} ·{" "}
+                  {nameById.get(a.employee_id ?? "") ??
+                    a.agent_external_id ??
+                    "Agent"}{" "}
+                  ·{" "}
                   {new Date(a.created_at).toLocaleString()}
                 </div>
                 <p style={{ margin: 0, lineHeight: 1.6 }}>{a.activity_text}</p>

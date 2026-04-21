@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +11,16 @@ type Body = {
 };
 
 export async function POST(request: Request) {
-  const auth = request.headers.get("authorization");
-  const token =
-    auth?.startsWith("Bearer ") ? auth.slice(7).trim() : null;
+  const token = extractIngestBearerToken(request);
 
   if (!token) {
-    return NextResponse.json({ error: "Missing Bearer token" }, { status: 401 });
+    return NextResponse.json(
+      {
+        error:
+          "Missing credentials: send Authorization: Bearer <token> or header X-Xalura-Ingest-Token (same value as AGENT_INGEST_SECRET in Vercel).",
+      },
+      { status: 401 },
+    );
   }
 
   const service = createServiceClient();
@@ -33,7 +38,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const agentId = typeof body.agent_id === "string" ? body.agent_id : "";
+  const rawAgentId = typeof body.agent_id === "string" ? body.agent_id : "";
+  const agentId = rawAgentId.trim().slice(0, 200);
   const activityText =
     typeof body.activity_text === "string" ? body.activity_text.trim() : "";
   const activityType =
@@ -48,6 +54,35 @@ export async function POST(request: Request) {
     );
   }
 
+  const sharedSecret = getSharedIngestSecret();
+
+  if (sharedSecret && token === sharedSecret) {
+    const { data: inserted, error: insErr } = await service
+      .from("agent_updates")
+      .insert({
+        employee_id: null,
+        agent_external_id: agentId,
+        activity_text: activityText,
+        activity_type: activityType,
+        review_status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (insErr) {
+      return NextResponse.json(
+        { error: insErr.message ?? "Insert failed" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      id: inserted?.id,
+      mode: "shared_secret",
+    });
+  }
+
   const { data: keyRow, error: keyErr } = await service
     .from("agent_api_keys")
     .select("id, employee_id, is_active, api_key")
@@ -55,7 +90,22 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (keyErr || !keyRow) {
-    return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    if (!sharedSecret) {
+      return NextResponse.json(
+        {
+          error:
+            "Ingest not configured: set AGENT_INGEST_SECRET (or XALURA_INGEST_TOKEN / XALURA_AGENT_BEARER) on this Vercel project and redeploy. Admin UI does not show this value — set it in Vercel → Environment Variables.",
+        },
+        { status: 401 },
+      );
+    }
+    return NextResponse.json(
+      {
+        error:
+          "Invalid API key: Bearer token did not match AGENT_INGEST_SECRET (check copy/paste, no extra spaces/quotes) and is not a per-agent xal_ key.",
+      },
+      { status: 401 },
+    );
   }
 
   if (!keyRow.is_active) {
@@ -64,15 +114,24 @@ export async function POST(request: Request) {
 
   if (keyRow.employee_id !== agentId) {
     return NextResponse.json(
-      { error: "agent_id does not match this API key" },
+      { error: "agent_id must match the UUID for this per-agent API key" },
       { status: 403 },
     );
   }
 
+  const { data: emp } = await service
+    .from("employees")
+    .select("name")
+    .eq("id", keyRow.employee_id)
+    .maybeSingle();
+
+  const externalLabel = (emp?.name || agentId).trim().slice(0, 200);
+
   const { data: inserted, error: insErr } = await service
     .from("agent_updates")
     .insert({
-      employee_id: agentId,
+      employee_id: keyRow.employee_id,
+      agent_external_id: externalLabel,
       activity_text: activityText,
       activity_type: activityType,
       review_status: "pending",
@@ -87,5 +146,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, id: inserted?.id });
+  return NextResponse.json({ ok: true, id: inserted?.id, mode: "api_key" });
 }

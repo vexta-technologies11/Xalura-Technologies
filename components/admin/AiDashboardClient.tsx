@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { approveAgentUpdate } from "@/app/admin/ai-dashboard/actions";
 import type { AgentUpdateRow } from "@/types/agent-dashboard";
 
 type EmployeeMini = { id: string; name: string };
@@ -51,6 +52,19 @@ export function AiDashboardClient({
     for (const e of employees) m.set(e.id, e.name);
     return m;
   }, [employees]);
+
+  function rowAgentLabel(u: AgentUpdateRow): string {
+    if (u.employee_id) {
+      return (
+        nameById.get(u.employee_id) ??
+        (u.agent_external_id?.trim() || "Agent")
+      );
+    }
+    if (u.agent_external_id?.trim()) {
+      return `${u.agent_external_id.trim()} (not registered yet)`;
+    }
+    return "Unknown agent";
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -111,14 +125,14 @@ export function AiDashboardClient({
     return { rows, max };
   }, [workloadState, employees]);
 
-  async function review(id: string, review_status: "approved" | "declined") {
+  async function decline(id: string) {
     setErr(null);
     setBusyId(id);
     const supabase = createClient();
     const { error } = await supabase
       .from("agent_updates")
       .update({
-        review_status,
+        review_status: "declined",
         reviewed_at: new Date().toISOString(),
       })
       .eq("id", id);
@@ -132,12 +146,24 @@ export function AiDashboardClient({
         u.id === id
           ? {
               ...u,
-              review_status,
+              review_status: "declined",
               reviewed_at: new Date().toISOString(),
             }
           : u,
       ),
     );
+    router.refresh();
+  }
+
+  async function approve(id: string) {
+    setErr(null);
+    setBusyId(id);
+    const res = await approveAgentUpdate(id);
+    setBusyId(null);
+    if (!res.ok) {
+      setErr(res.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -149,8 +175,10 @@ export function AiDashboardClient({
             AI Dashboard Manager
           </h1>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            Pending agent updates stream in via Realtime. Approve or decline
-            before they appear on the public dashboard.
+            Pending updates can arrive for any <code>agent_id</code> when you use{" "}
+            <code>AGENT_INGEST_SECRET</code>. Approve to register a new name in
+            Supabase (or match an existing employee by name) and publish to the
+            public dashboard.
           </p>
         </div>
         <div className="admin-toolbar-actions">
@@ -240,16 +268,16 @@ export function AiDashboardClient({
         <div className="admin-pending-list">
           {pending.length === 0 ? (
             <p style={{ color: "#64748b", fontSize: "0.9375rem" }}>
-              No pending updates. Ingest via{" "}
-              <code style={{ fontSize: "0.85em" }}>POST /api/agent-update</code>
-              .
+              No pending updates. POST to{" "}
+              <code style={{ fontSize: "0.85em" }}>/api/agent-update</code> with
+              Bearer <code>AGENT_INGEST_SECRET</code> or a per-agent key.
             </p>
           ) : (
             pending.map((u) => (
               <div key={u.id} className="admin-pending-item">
                 <div className="admin-pending-meta">
-                  {nameById.get(u.employee_id) ?? "Agent"} · {u.activity_type}{" "}
-                  · {new Date(u.created_at).toLocaleString()}
+                  {rowAgentLabel(u)} · {u.activity_type} ·{" "}
+                  {new Date(u.created_at).toLocaleString()}
                 </div>
                 <p style={{ margin: 0, lineHeight: 1.55, color: "#0f172a" }}>
                   {u.activity_text}
@@ -259,15 +287,15 @@ export function AiDashboardClient({
                     type="button"
                     className="admin-btn admin-btn--primary"
                     disabled={busyId === u.id}
-                    onClick={() => void review(u.id, "approved")}
+                    onClick={() => void approve(u.id)}
                   >
-                    Approve
+                    Approve & register
                   </button>
                   <button
                     type="button"
                     className="admin-btn admin-btn--secondary"
                     disabled={busyId === u.id}
-                    onClick={() => void review(u.id, "declined")}
+                    onClick={() => void decline(u.id)}
                   >
                     Decline
                   </button>
@@ -293,9 +321,7 @@ export function AiDashboardClient({
                 color: "#334155",
               }}
             >
-              <strong style={{ color: "#0f172a" }}>
-                {nameById.get(u.employee_id) ?? "Agent"}
-              </strong>
+              <strong style={{ color: "#0f172a" }}>{rowAgentLabel(u)}</strong>
               {" · "}
               <span
                 style={{
@@ -335,7 +361,7 @@ export function AiDashboardClient({
                 }}
               >
                 <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                  {nameById.get(u.employee_id)} ·{" "}
+                  {rowAgentLabel(u)} ·{" "}
                   {new Date(u.created_at).toLocaleDateString()}
                 </div>
                 {u.activity_text}

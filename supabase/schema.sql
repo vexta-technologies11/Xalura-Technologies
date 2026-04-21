@@ -107,13 +107,17 @@ create table if not exists agent_api_keys (
 
 create table if not exists agent_updates (
   id uuid default gen_random_uuid() primary key,
-  employee_id uuid not null references employees (id) on delete cascade,
+  employee_id uuid references employees (id) on delete cascade,
+  agent_external_id text not null default '',
   activity_text text not null,
   activity_type text not null default 'status',
   review_status text not null default 'pending'
     check (review_status in ('pending', 'approved', 'declined')),
   reviewed_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint agent_updates_has_identifier check (
+    employee_id is not null or length(trim(agent_external_id)) > 0
+  )
 );
 
 create table if not exists agent_workload_daily (
@@ -133,7 +137,8 @@ as $$
 begin
   if tg_op = 'UPDATE'
      and new.review_status = 'approved'
-     and (old.review_status is distinct from 'approved') then
+     and (old.review_status is distinct from 'approved')
+     and new.employee_id is not null then
     insert into agent_workload_daily (employee_id, day, update_count)
     values (
       new.employee_id,
@@ -153,6 +158,29 @@ create trigger tr_agent_updates_workload
   for each row
   execute function public.agent_updates_workload_on_approve();
 
+-- Upgrade older agent_updates tables (nullable employee_id + external id for open ingest)
+alter table agent_updates add column if not exists agent_external_id text not null default '';
+
+update agent_updates u
+set agent_external_id = left(
+  case
+    when trim(coalesce(e.name, '')) <> '' then trim(e.name)
+    else u.employee_id::text
+  end,
+  200
+)
+from employees e
+where u.employee_id is not null
+  and e.id = u.employee_id
+  and trim(coalesce(u.agent_external_id, '')) = '';
+
+alter table agent_updates alter column employee_id drop not null;
+
+alter table agent_updates drop constraint if exists agent_updates_has_identifier;
+alter table agent_updates add constraint agent_updates_has_identifier check (
+  employee_id is not null or length(trim(agent_external_id)) > 0
+);
+
 alter table agent_api_keys enable row level security;
 alter table agent_updates enable row level security;
 alter table agent_workload_daily enable row level security;
@@ -170,7 +198,7 @@ create policy "agent_updates_authenticated" on agent_updates
 
 create policy "agent_updates_public_approved" on agent_updates
   for select to anon
-  using (review_status = 'approved');
+  using (review_status = 'approved' and employee_id is not null);
 
 create policy "agent_workload_daily_select" on agent_workload_daily
   for select to anon, authenticated using (true);

@@ -1,6 +1,7 @@
 export type AgentUpdateRow = {
   id: string;
-  employee_id: string;
+  employee_id: string | null;
+  agent_external_id: string;
   activity_text: string;
   activity_type: string;
   review_status: "pending" | "approved" | "declined";
