@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAgentIngestSecurityActive } from "@/lib/agentUpdateIngestBootstrap";
-import { getSharedIngestSecret, isAgentUpdateOpenIngest } from "@/lib/ingestAuth";
+import {
+  getSharedIngestSecret,
+  isAgentUpdateAcceptAny,
+  isAgentUpdateOpenIngest,
+} from "@/lib/ingestAuth";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const sharedConfigured = !!getSharedIngestSecret();
   const openIngest = isAgentUpdateOpenIngest();
+  const acceptAny = isAgentUpdateAcceptAny();
   const service = createServiceClient();
   const serviceOk = !!service;
   const probe = service
@@ -27,11 +32,15 @@ export async function GET(request: Request) {
   const postUrl = `${proto}://${host}/api/agent-update`;
 
   const unauthenticatedOk =
-    supabaseAcceptsServiceRole && (openIngest || !ingestLocked);
+    supabaseAcceptsServiceRole &&
+    (openIngest || !ingestLocked || acceptAny);
 
   const instructions = (() => {
     if (!serviceOk) {
       return "Set SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL on Vercel and redeploy.";
+    }
+    if (acceptAny) {
+      return "TEST MODE: AGENT_UPDATE_ACCEPT_ANY=true — wrong/missing Bearer still inserts pending rows. Disable after GearMedic works.";
     }
     if (!supabaseAcceptsServiceRole) {
       return /invalid api key/i.test(probeMsg)
@@ -54,8 +63,9 @@ export async function GET(request: Request) {
     ok: true,
     shared_ingest_secret_configured: sharedConfigured,
     agent_update_open_ingest: openIngest,
-    /** After any agent update is approved or declined in Admin, Bearer is required (unless open ingest). */
-    ingest_credentials_required: ingestLocked && !openIngest,
+    /** After any agent update is approved or declined in Admin, Bearer is required (unless open ingest or accept_any). */
+    ingest_credentials_required: ingestLocked && !openIngest && !acceptAny,
+    agent_update_accept_any: acceptAny,
     unauthenticated_ingest_allowed: unauthenticatedOk,
     supabase_service_role_configured: serviceOk,
     /** False when PostgREST rejects the key (same root cause as 500 Invalid API key on insert). */

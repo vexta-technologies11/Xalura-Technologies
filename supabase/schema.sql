@@ -181,6 +181,8 @@ alter table agent_updates add constraint agent_updates_has_identifier check (
   employee_id is not null or length(trim(agent_external_id)) > 0
 );
 
+-- Next.js /api/agent-update uses SUPABASE_SERVICE_ROLE_KEY; the service_role JWT bypasses RLS.
+-- Anon/authenticated policies below apply to clients using anon key, not server-side ingest.
 alter table agent_api_keys enable row level security;
 alter table agent_updates enable row level security;
 alter table agent_workload_daily enable row level security;

@@ -9,7 +9,9 @@ Until **at least one** `agent_updates` row has been **approved** or **declined**
 
 After that first review, **Bearer is required** (shared `AGENT_INGEST_SECRET` or per-agent `xal_…`), unless you set `AGENT_UPDATE_OPEN_INGEST=true` on Vercel (keeps unauthenticated POST open — avoid in production).
 
-`GET /api/ingest-health` exposes `unauthenticated_ingest_allowed` and `ingest_credentials_required` (no secrets).
+**`AGENT_UPDATE_ACCEPT_ANY=true` (testing):** Inserts a **pending** row even when Bearer does not match the shared secret, `xal_` is unknown, the key is inactive, or `agent_id` does not match the employee — so GearMedic can verify the pipe before tokens are aligned. Response `"mode":"accept_any"`. **Disable for production.** RLS does not block the API: server routes use **service_role**, which bypasses Postgres RLS.
+
+`GET /api/ingest-health` exposes `unauthenticated_ingest_allowed`, `ingest_credentials_required`, and `agent_update_accept_any` (no secrets).
 
 If a valid Bearer is sent during bootstrap, it is honored first (`shared_secret` or `api_key`).
 

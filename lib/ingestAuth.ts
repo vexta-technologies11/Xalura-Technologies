@@ -36,6 +36,14 @@ export function isAgentUpdateOpenIngest(): boolean {
   return process.env.AGENT_UPDATE_OPEN_INGEST === "true";
 }
 
+/**
+ * When true, mismatched Bearer / wrong xal_ / inactive key / bad agent_id still insert a
+ * pending row (employee_id null) so partners can test. **Turn off for production.**
+ */
+export function isAgentUpdateAcceptAny(): boolean {
+  return process.env.AGENT_UPDATE_ACCEPT_ANY === "true";
+}
+
 /** Server-only hint for admins: never exposes full secret. */
 export type IngestSecretFingerprint = {
   configured: boolean;

@@ -4,6 +4,7 @@ import { isAgentIngestSecurityActive } from "@/lib/agentUpdateIngestBootstrap";
 import {
   extractIngestBearerToken,
   getSharedIngestSecret,
+  isAgentUpdateAcceptAny,
   isAgentUpdateOpenIngest,
 } from "@/lib/ingestAuth";
 import { parseAgentUpdateBody } from "@/lib/parseAgentUpdateBody";
@@ -20,6 +21,7 @@ type Body = {
 
 export async function POST(request: Request) {
   const openForce = isAgentUpdateOpenIngest();
+  const acceptAny = isAgentUpdateAcceptAny();
   const token = extractIngestBearerToken(request);
 
   const service = createServiceClient();
@@ -31,8 +33,9 @@ export async function POST(request: Request) {
   }
 
   const securityActive = await isAgentIngestSecurityActive(service);
+  const allowRelaxed = !securityActive || openForce || acceptAny;
 
-  if (securityActive && !openForce && !token) {
+  if (securityActive && !openForce && !acceptAny && !token) {
     return NextResponse.json(
       {
         error:
@@ -46,10 +49,7 @@ export async function POST(request: Request) {
   let body: Body;
   if (parsed.ok) {
     body = parsed.body as Body;
-  } else if (
-    (!securityActive || openForce) &&
-    parsed.payload.reason === "empty_body"
-  ) {
+  } else if (allowRelaxed && parsed.payload.reason === "empty_body") {
     body = {};
   } else {
     return NextResponse.json(parsed.payload, { status: 400 });
@@ -64,8 +64,7 @@ export async function POST(request: Request) {
       ? body.activity_type.trim()
       : "status";
 
-  const permissiveDefaults = !securityActive || openForce;
-  if (permissiveDefaults) {
+  if (allowRelaxed) {
     if (!agentId) agentId = "guest";
     if (!activityText) activityText = "(no activity_text)";
   } else if (!agentId || !activityText) {
@@ -111,45 +110,46 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (keyRow && !keyRow.is_active) {
-      return NextResponse.json({ error: "API key is inactive" }, { status: 403 });
-    }
-
-    if (keyRow && keyRow.is_active) {
+      if (!acceptAny) {
+        return NextResponse.json({ error: "API key is inactive" }, { status: 403 });
+      }
+    } else if (keyRow && keyRow.is_active) {
       const resolved = await resolveEmployeeForApiKey(service, keyRow, agentId);
-      if (!resolved.ok) {
+      if (resolved.ok) {
+        const { data: emp } = await service
+          .from("employees")
+          .select("name")
+          .eq("id", resolved.employeeId)
+          .maybeSingle();
+
+        const externalLabel = (emp?.name || agentId).trim().slice(0, 200);
+
+        const { data: inserted, error: insErr } = await service
+          .from("agent_updates")
+          .insert({
+            employee_id: resolved.employeeId,
+            agent_external_id: externalLabel,
+            activity_text: activityText,
+            activity_type: activityType,
+            review_status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (insErr) {
+          const mapped = responseBodyForSupabaseWriteError(insErr);
+          return NextResponse.json(mapped.body, { status: mapped.status });
+        }
+
+        return NextResponse.json({ ok: true, id: inserted?.id, mode: "api_key" });
+      }
+      if (!acceptAny) {
         return NextResponse.json({ error: resolved.message }, { status: 403 });
       }
-
-      const { data: emp } = await service
-        .from("employees")
-        .select("name")
-        .eq("id", resolved.employeeId)
-        .maybeSingle();
-
-      const externalLabel = (emp?.name || agentId).trim().slice(0, 200);
-
-      const { data: inserted, error: insErr } = await service
-        .from("agent_updates")
-        .insert({
-          employee_id: resolved.employeeId,
-          agent_external_id: externalLabel,
-          activity_text: activityText,
-          activity_type: activityType,
-          review_status: "pending",
-        })
-        .select("id")
-        .single();
-
-      if (insErr) {
-        const mapped = responseBodyForSupabaseWriteError(insErr);
-        return NextResponse.json(mapped.body, { status: mapped.status });
-      }
-
-      return NextResponse.json({ ok: true, id: inserted?.id, mode: "api_key" });
     }
 
     if (keyErr || !keyRow) {
-      if (securityActive && !openForce) {
+      if (securityActive && !openForce && !acceptAny) {
         if (!sharedSecret) {
           return NextResponse.json(
             {
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!securityActive || openForce) {
+  if (allowRelaxed) {
     const { data: inserted, error: insErr } = await service
       .from("agent_updates")
       .insert({
@@ -198,10 +198,16 @@ export async function POST(request: Request) {
       return NextResponse.json(mapped.body, { status: mapped.status });
     }
 
+    const mode = acceptAny
+      ? "accept_any"
+      : openForce
+        ? "open_ingest"
+        : "bootstrap";
+
     return NextResponse.json({
       ok: true,
       id: inserted?.id,
-      mode: openForce ? "open_ingest" : "bootstrap",
+      mode,
     });
   }
 
