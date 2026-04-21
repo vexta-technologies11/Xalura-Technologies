@@ -1,77 +1,106 @@
-# GearMedic / server-to-server — `POST /api/agent-update`
+# GearMedic — `POST /api/agent-update` (canonical)
 
-Use this if you get **400 Invalid JSON** or need a **reliable** integration path.
+**URL:** `https://www.xaluratech.com/api/agent-update`  
+**Method:** `POST`
 
-## What changed (why JSON failed before)
+---
 
-Some clients and proxies interact badly with the default `request.json()` path. The route now:
+## 1) JSON request (preferred)
 
-1. Reads the body with **`request.text()`**, strips **UTF-8 BOM**, trims whitespace, then **`JSON.parse`**.
-2. Returns **400** with a small **`reason`** field: `empty_body`, `syntax`, `expected_object`, etc., plus **`body_bytes`** when useful (never echoes your payload).
-3. Supports an alternate encoding if raw JSON POSTs keep failing (see **Form fallback**).
+Headers:
 
-## Auth (unchanged)
+- `Authorization: Bearer <token>` — either **`AGENT_INGEST_SECRET`** (shared) **or** per-agent **`xal_…`** key from Admin → AI Dashboard → Settings  
+- `Accept: application/json` (optional; ignored by server)  
+- `Content-Type: application/json; charset=utf-8`
 
-- **`Authorization: Bearer <AGENT_INGEST_SECRET>`** (case-insensitive `Bearer`), or  
-- **`X-Xalura-Ingest-Token: <same secret>`** or **`X-Ingest-Token`**
-
-Secret must match **Xalura Vercel** `AGENT_INGEST_SECRET` (compare **length + last 4** in Admin → AI Dashboard blue banner).
-
-## JSON body (required fields)
-
-Root must be a **JSON object** `{}`, not an array.
+Body (object):
 
 ```json
 {
   "agent_id": "Kimmy",
-  "activity_text": "Plain text update.",
+  "activity_text": "Saved research packet (5 topics) and emailed you@example.com",
   "activity_type": "daily_summary"
 }
 ```
 
 - **Required:** `agent_id`, `activity_text`  
-- **Optional:** `activity_type` (defaults to `"status"`)
+- **Optional:** `activity_type` (defaults to `"status"` if omitted)
 
-## Recommended curl (copy as one line)
+### `agent_id` rules
 
-Replace `SECRET` with your ingest secret (no angle brackets in the real command):
+| Auth token | `agent_id` value |
+|------------|------------------|
+| **Shared** `AGENT_INGEST_SECRET` | Any stable string (e.g. `Kimmy`, `Mochi`) — pending until you approve in Admin. |
+| **Per-agent** `xal_…` key | **Employee UUID** *or* **that employee’s display name** in Supabase (case-insensitive, trimmed). Example: `"Kimmy"` works for Kimmy’s key if `employees.name` is `Kimmy`. |
 
-```bash
-curl -sS -w '\nHTTP:%{http_code}\n' -X POST 'https://www.xaluratech.com/api/agent-update' -H 'Authorization: Bearer SECRET' -H 'Content-Type: application/json; charset=utf-8' --data-raw '{"agent_id":"Kimmy","activity_text":"test ingest","activity_type":"daily_summary"}'
-```
-
-**Use `--data-raw`** (not `-d` with fragile quoting) to avoid shell eating characters.
-
-### Body from file (avoids shell escaping)
+### Example curl (shared secret)
 
 ```bash
-printf '%s' '{"agent_id":"Kimmy","activity_text":"test ingest","activity_type":"daily_summary"}' > /tmp/xalura.json
-curl -sS -w '\nHTTP:%{http_code}\n' -X POST 'https://www.xaluratech.com/api/agent-update' -H 'Authorization: Bearer SECRET' -H 'Content-Type: application/json' --data-binary @/tmp/xalura.json
+curl -sS -w '\nHTTP:%{http_code}\n' -X POST 'https://www.xaluratech.com/api/agent-update' \
+  -H 'Authorization: Bearer YOUR_AGENT_INGEST_SECRET' \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data-raw '{"agent_id":"Kimmy","activity_text":"Codex verification test","activity_type":"daily_summary"}'
 ```
 
-## Form fallback (if JSON POST body is still empty upstream)
+Optional duplicate header (same value as Bearer, for picky clients):
 
-`Content-Type: application/x-www-form-urlencoded`  
-Form field **`payload`** (or **`json`** / **`data`**) = **URL-encoded JSON string**.
+`X-Xalura-Ingest-Token: YOUR_AGENT_INGEST_SECRET`
 
-Example:
+### Example curl (per-agent `xal_` key + display name)
 
 ```bash
-curl -sS -X POST 'https://www.xaluratech.com/api/agent-update' \
-  -H 'Authorization: Bearer SECRET' \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-urlencode 'payload={"agent_id":"Kimmy","activity_text":"test ingest","activity_type":"daily_summary"}'
+curl -sS -w '\nHTTP:%{http_code}\n' -X POST 'https://www.xaluratech.com/api/agent-update' \
+  -H 'Authorization: Bearer YOUR_xal_KEY' \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data-raw '{"agent_id":"Kimmy","activity_text":"Draft created and emailed: Title (slug: my-slug)","activity_type":"daily_summary"}'
 ```
 
-## Success
+Use **`--data-raw`** or **`--data-binary @file`** to avoid shell mangling JSON.
 
-**HTTP 200** — `{"ok":true,"id":"<uuid>","mode":"shared_secret"}` (or `"api_key"` for per-agent keys).
+---
 
-## Diagnostics
+## 2) Form-encoded fallback (if JSON returns 4xx from proxies)
 
-- **`GET /api/ingest-health`** — confirms shared secret + service role are configured (no secrets returned).
-- **400 responses** now include **`reason`** to distinguish empty body vs bad syntax vs wrong root type.
+Same Bearer; body in form field **`payload`** (or **`json`** / **`data`**):
 
-## Per-agent `xal_` keys (different mode)
+```bash
+curl -sS -w '\nHTTP:%{http_code}\n' -X POST 'https://www.xaluratech.com/api/agent-update' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=utf-8' \
+  --data-urlencode 'payload={"agent_id":"Kimmy","activity_text":"Saved research packet (5 topics)","activity_type":"daily_summary"}'
+```
 
-Bearer = `xal_…` from Admin → AI Dashboard → Settings, and **`agent_id` must be that employee’s UUID** — not the display name. This is **separate** from the shared ingest secret.
+---
+
+## 3) Parsing & errors
+
+The route reads the raw body (BOM-stripped), not only `request.json()`. **400** responses may include:
+
+- `reason`: `empty_body`, `syntax`, `expected_object`, …  
+- `body_bytes`: length received (never echoes your payload)
+
+**401** — bad/missing token, or ingest secret not set on Vercel.  
+**403** — inactive `xal_` key, or `agent_id` doesn’t match UUID/name for that key.
+
+---
+
+## 4) Success
+
+**HTTP 200:**
+
+```json
+{"ok":true,"id":"<uuid>","mode":"shared_secret"}
+```
+
+or `"mode":"api_key"` for per-agent keys.
+
+---
+
+## 5) Diagnostics
+
+`GET https://www.xaluratech.com/api/ingest-health` — `shared_ingest_secret_configured` + `supabase_service_role_configured` (no secrets).
+
+Admin → AI Dashboard **blue banner** — length + last 4 of server-side shared secret for cross-check with Vercel.

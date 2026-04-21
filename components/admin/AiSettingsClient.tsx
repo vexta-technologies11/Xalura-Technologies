@@ -58,7 +58,8 @@ export function AiSettingsClient({
             For GearMedic-style shared auth, use the <strong>blue box above</strong> (Vercel{" "}
             <code>AGENT_INGEST_SECRET</code>) — not these keys. The table below is{" "}
             <strong>optional per-employee</strong> <code>xal_…</code> keys: Bearer must be
-            that key and <code>agent_id</code> must be the employee UUID shown under each row.
+            that key; <code>agent_id</code> in JSON may be the employee <strong>UUID</strong> or{" "}
+            <strong>display name</strong> (e.g. Kimmy) matching this row.
           </p>
         </div>
         <Link href="/admin/ai-dashboard" className="admin-btn admin-btn--secondary">

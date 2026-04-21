@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveEmployeeForApiKey } from "@/lib/agentUpdateResolveEmployee";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
 import { parseAgentUpdateBody } from "@/lib/parseAgentUpdateBody";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Invalid per-agent key: no xal_ key in this Supabase project, or key was rotated. Regenerate in Admin → AI Dashboard → Settings. JSON agent_id must be that employee's UUID (not the display name). Shared AGENT_INGEST_SECRET is a different token — do not mix them.",
+            "Invalid per-agent key: no xal_ key in this Supabase project, or key was rotated. Regenerate in Admin → AI Dashboard → Settings. Shared AGENT_INGEST_SECRET is a different token — do not mix them.",
         },
         { status: 401 },
       );
@@ -122,17 +123,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "API key is inactive" }, { status: 403 });
   }
 
-  if (keyRow.employee_id !== agentId) {
-    return NextResponse.json(
-      { error: "agent_id must match the UUID for this per-agent API key" },
-      { status: 403 },
-    );
+  const resolved = await resolveEmployeeForApiKey(service, keyRow, agentId);
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.message }, { status: 403 });
   }
 
   const { data: emp } = await service
     .from("employees")
     .select("name")
-    .eq("id", keyRow.employee_id)
+    .eq("id", resolved.employeeId)
     .maybeSingle();
 
   const externalLabel = (emp?.name || agentId).trim().slice(0, 200);
@@ -140,7 +139,7 @@ export async function POST(request: Request) {
   const { data: inserted, error: insErr } = await service
     .from("agent_updates")
     .insert({
-      employee_id: keyRow.employee_id,
+      employee_id: resolved.employeeId,
       agent_external_id: externalLabel,
       activity_text: activityText,
       activity_type: activityType,
