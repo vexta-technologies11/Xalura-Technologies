@@ -4,7 +4,7 @@ export function Nav() {
   return (
     <nav>
       <div className="nav-brand">
-        <a className="logo logo--with-mark" href="#">
+        <a className="logo logo--with-mark" href="/">
           <LogoMark />
           <span className="logo-wordmark">Xalura Tech</span>
         </a>
@@ -20,19 +20,22 @@ export function Nav() {
       <div className="nav-right">
         <ul className="nav-links">
           <li>
-            <a href="#mission">Mission</a>
+            <a href="/#mission">Mission</a>
           </li>
           <li>
-            <a href="#ai-employees">AI Employees</a>
+            <a href="/#ai-employees">AI Employees</a>
           </li>
           <li>
-            <a href="#products">Products</a>
+            <a href="/dashboard">Dashboard</a>
           </li>
           <li>
-            <a href="#founder">Founder</a>
+            <a href="/articles">Articles</a>
+          </li>
+          <li>
+            <a href="/courses">Courses</a>
           </li>
         </ul>
-        <a className="nav-pill" href="#contact">
+        <a className="nav-pill" href="/#contact">
           Contact
         </a>
       </div>

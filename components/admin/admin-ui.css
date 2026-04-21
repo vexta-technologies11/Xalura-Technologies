@@ -397,3 +397,108 @@
   gap: 14px;
   grid-template-columns: 1fr 1fr;
 }
+
+/* AI Dashboard — workload chart + pending queue */
+.admin-ai-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .admin-ai-grid {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: start;
+  }
+}
+
+.admin-ai-chart {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+
+.admin-ai-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 140px;
+  padding-top: 8px;
+}
+
+.admin-ai-bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px 8px 2px 2px;
+  background: linear-gradient(180deg, #1740e0 0%, #6366f1 100%);
+  opacity: 0.92;
+  position: relative;
+}
+
+.admin-ai-bar span {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.admin-ai-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-ai-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.admin-ai-breakdown-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.admin-ai-breakdown-bar > i {
+  display: block;
+  height: 100%;
+  background: #0f172a;
+  border-radius: 999px;
+}
+
+.admin-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-pending-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fafafa;
+}
+
+.admin-pending-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.admin-pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}

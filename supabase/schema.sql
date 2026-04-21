@@ -94,4 +94,257 @@ create policy "employee_avatars_authenticated_insert" on storage.objects for ins
 create policy "employee_avatars_authenticated_update" on storage.objects for update to authenticated using (bucket_id = 'employee-avatars') with check (bucket_id = 'employee-avatars');
 create policy "employee_avatars_authenticated_delete" on storage.objects for delete to authenticated using (bucket_id = 'employee-avatars');
 
+-- ── Agent AI dashboard (API ingest + admin review + workload) ───────────────
+
+create table if not exists agent_api_keys (
+  id uuid default gen_random_uuid() primary key,
+  employee_id uuid not null references employees (id) on delete cascade,
+  api_key text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (employee_id)
+);
+
+create table if not exists agent_updates (
+  id uuid default gen_random_uuid() primary key,
+  employee_id uuid not null references employees (id) on delete cascade,
+  activity_text text not null,
+  activity_type text not null default 'status',
+  review_status text not null default 'pending'
+    check (review_status in ('pending', 'approved', 'declined')),
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists agent_workload_daily (
+  id uuid default gen_random_uuid() primary key,
+  employee_id uuid not null references employees (id) on delete cascade,
+  day date not null default (timezone('utc', now()))::date,
+  update_count integer not null default 0,
+  unique (employee_id, day)
+);
+
+create or replace function public.agent_updates_workload_on_approve()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE'
+     and new.review_status = 'approved'
+     and (old.review_status is distinct from 'approved') then
+    insert into agent_workload_daily (employee_id, day, update_count)
+    values (
+      new.employee_id,
+      (new.created_at at time zone 'utc')::date,
+      1
+    )
+    on conflict (employee_id, day)
+    do update set update_count = agent_workload_daily.update_count + 1;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists tr_agent_updates_workload on agent_updates;
+create trigger tr_agent_updates_workload
+  after update on agent_updates
+  for each row
+  execute function public.agent_updates_workload_on_approve();
+
+alter table agent_api_keys enable row level security;
+alter table agent_updates enable row level security;
+alter table agent_workload_daily enable row level security;
+
+drop policy if exists "agent_api_keys_authenticated" on agent_api_keys;
+drop policy if exists "agent_updates_authenticated" on agent_updates;
+drop policy if exists "agent_updates_public_approved" on agent_updates;
+drop policy if exists "agent_workload_daily_select" on agent_workload_daily;
+
+create policy "agent_api_keys_authenticated" on agent_api_keys
+  for all to authenticated using (true) with check (true);
+
+create policy "agent_updates_authenticated" on agent_updates
+  for all to authenticated using (true) with check (true);
+
+create policy "agent_updates_public_approved" on agent_updates
+  for select to anon
+  using (review_status = 'approved');
+
+create policy "agent_workload_daily_select" on agent_workload_daily
+  for select to anon, authenticated using (true);
+
+-- Realtime (idempotent): any row in `employees` can have keys/updates — not tied to seed names.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'agent_updates'
+  ) then
+    execute 'alter publication supabase_realtime add table public.agent_updates';
+  end if;
+end
+$$;
+
+-- ── Articles / courses (public site subpages) ────────────────────────────────
+
+create table if not exists articles (
+  id uuid default gen_random_uuid() primary key,
+  slug text not null unique,
+  title text not null,
+  excerpt text,
+  body text,
+  cover_image_url text,
+  author text,
+  published_at timestamptz,
+  is_published boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists courses (
+  id uuid default gen_random_uuid() primary key,
+  slug text not null unique,
+  title text not null,
+  description text,
+  cover_image_url text,
+  is_published boolean not null default false,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists lessons (
+  id uuid default gen_random_uuid() primary key,
+  course_id uuid not null references courses (id) on delete cascade,
+  title text not null,
+  body text,
+  video_url text,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table articles enable row level security;
+alter table courses enable row level security;
+alter table lessons enable row level security;
+
+drop policy if exists "articles_select_public" on articles;
+drop policy if exists "articles_write_authenticated" on articles;
+drop policy if exists "courses_select_public" on courses;
+drop policy if exists "courses_write_authenticated" on courses;
+drop policy if exists "lessons_select_public" on lessons;
+drop policy if exists "lessons_write_authenticated" on lessons;
+
+create policy "articles_select_public" on articles
+  for select to anon, authenticated using (is_published = true);
+
+create policy "articles_write_authenticated" on articles
+  for all to authenticated using (true) with check (true);
+
+create policy "courses_select_public" on courses
+  for select to anon, authenticated using (is_published = true);
+
+create policy "courses_write_authenticated" on courses
+  for all to authenticated using (true) with check (true);
+
+create policy "lessons_select_public" on lessons
+  for select to anon, authenticated using (
+    exists (
+      select 1 from courses c
+      where c.id = lessons.course_id and c.is_published = true
+    )
+  );
+
+create policy "lessons_write_authenticated" on lessons
+  for all to authenticated using (true) with check (true);
+
+insert into articles (slug, title, excerpt, body, author, is_published, published_at)
+select * from (values
+  (
+    'internal-links-that-rank',
+    'Internal links that actually rank',
+    'How Maldita maps pages to stronger anchors without stuffing keywords.',
+    'Maldita audits the GearMedic library for missed internal links: pages that should reference each other, anchors that describe intent, and headings that reinforce the topic cluster. The goal is not volume — it is clarity for readers and crawlers alike.',
+    'Maldita',
+    true,
+    now() - interval '3 days'
+  ),
+  (
+    'research-to-publish-pipeline',
+    'From research spike to published draft',
+    'Turning Kimmy''s briefs into shippable articles the same week they matter.',
+    'When a topic spikes, the window is short. This walkthrough covers how briefs land in the queue, how Mochi drafts against a tight outline, and how Maldita tightens on-page signals before publish — so the same traffic works harder.',
+    'Maldita',
+    true,
+    now() - interval '8 days'
+  ),
+  (
+    'thumbnail-readability-checklist',
+    'Thumbnail readability checklist',
+    'Milka''s quick pass for contrast, subject, and title legibility at small sizes.',
+    'Before a thumbnail ships, it has to read on a phone in a noisy feed. This checklist covers safe margins, type weight, brand color balance, and when to simplify the scene so the title stays legible.',
+    'Maldita',
+    true,
+    now() - interval '14 days'
+  )
+) as v(slug, title, excerpt, body, author, is_published, published_at)
+where not exists (select 1 from articles where slug = v.slug);
+
+insert into courses (slug, title, description, is_published, display_order)
+select * from (values
+  (
+    'automotive-content-ops',
+    'Automotive content operations',
+    'End-to-end workflow: research, drafting, SEO pass, and publish — tuned for GearMedic.',
+    true,
+    1
+  ),
+  (
+    'visual-system-for-articles',
+    'Visual system for articles',
+    'Covers, social crops, and in-article graphics that stay on brand.',
+    true,
+    2
+  )
+) as v(slug, title, description, is_published, display_order)
+where not exists (select 1 from courses where slug = v.slug);
+
+insert into lessons (course_id, title, body, display_order)
+select c.id, v.title, v.body, v.display_order
+from courses c
+cross join (values
+  (
+    'automotive-content-ops',
+    'Research signals that matter',
+    'How to read spikes, seasonality, and intent before you commit a headline.',
+    1
+  ),
+  (
+    'automotive-content-ops',
+    'Drafting with a fixed outline',
+    'Keep sections parallel, claims sourced, and CTAs honest.',
+    2
+  ),
+  (
+    'visual-system-for-articles',
+    'Cover hierarchy',
+    'Title, subtitle, and focal subject — what wins in the first 500ms.',
+    1
+  ),
+  (
+    'visual-system-for-articles',
+    'Export presets',
+    'Safe margins for YouTube, X, and in-feed cards.',
+    2
+  )
+) as v(course_slug, title, body, display_order)
+where c.slug = v.course_slug
+  and not exists (
+    select 1 from lessons l
+    where l.course_id = c.id and l.display_order = v.display_order
+  );
+
 notify pgrst, 'reload schema';

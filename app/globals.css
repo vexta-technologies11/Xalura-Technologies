@@ -2493,3 +2493,9 @@ footer {
     flex-wrap: wrap;
   }
 }
+
+/* Standalone public routes (articles, courses, dashboard) — sits below fixed nav */
+.public-page {
+  min-height: 100vh;
+  background: var(--white);
+}

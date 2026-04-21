@@ -44,7 +44,13 @@ export function Footer({ content }: { content: PageContentMap["footer"] }) {
                 <a href="#ai-employees">AI Employees</a>
               </li>
               <li>
-                <a href="#dashboard">Dashboard</a>
+                <a href="/dashboard">Dashboard</a>
+              </li>
+              <li>
+                <a href="/articles">Articles</a>
+              </li>
+              <li>
+                <a href="/courses">Courses</a>
               </li>
             </ul>
           </div>
