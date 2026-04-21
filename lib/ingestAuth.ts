@@ -27,6 +27,15 @@ export function getSharedIngestSecret(): string {
   );
 }
 
+/**
+ * When true, POST /api/agent-update accepts requests with no Bearer token and inserts
+ * pending rows with loose defaults. **Public internet can spam your DB** — use only if you
+ * understand the risk; prefer AGENT_INGEST_SECRET in production.
+ */
+export function isAgentUpdateOpenIngest(): boolean {
+  return process.env.AGENT_UPDATE_OPEN_INGEST === "true";
+}
+
 /** Server-only hint for admins: never exposes full secret. */
 export type IngestSecretFingerprint = {
   configured: boolean;
