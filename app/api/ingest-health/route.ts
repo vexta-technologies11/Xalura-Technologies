@@ -21,6 +21,10 @@ export async function GET(request: Request) {
     : { error: { message: "no client" } as { message: string } };
   const supabaseAcceptsServiceRole = serviceOk && !probe.error;
   const probeMsg = probe.error?.message ?? "";
+  const probeCode =
+    probe.error && typeof probe.error === "object" && "code" in probe.error
+      ? String((probe.error as { code?: string }).code ?? "")
+      : "";
 
   const ingestLocked =
     supabaseAcceptsServiceRole && service
@@ -70,6 +74,9 @@ export async function GET(request: Request) {
     supabase_service_role_configured: serviceOk,
     /** False when PostgREST rejects the key (same root cause as 500 Invalid API key on insert). */
     supabase_service_role_accepted_by_api: supabaseAcceptsServiceRole,
+    /** Verbatim PostgREST error when probe fails (no secrets). Use to confirm "Invalid API key" vs missing table. */
+    supabase_probe_error: supabaseAcceptsServiceRole ? null : probeMsg || null,
+    supabase_probe_code: supabaseAcceptsServiceRole ? null : probeCode || null,
     post_url: postUrl,
     instructions,
   });
