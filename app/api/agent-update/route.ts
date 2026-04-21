@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
+import { parseAgentUpdateBody } from "@/lib/parseAgentUpdateBody";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -31,12 +32,12 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Body;
-  try {
-    body = (await request.json()) as Body;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const parsed = await parseAgentUpdateBody(request);
+  if (!parsed.ok) {
+    return NextResponse.json(parsed.payload, { status: 400 });
   }
+
+  const body = parsed.body as Body;
 
   const rawAgentId = typeof body.agent_id === "string" ? body.agent_id : "";
   const agentId = rawAgentId.trim().slice(0, 200);
