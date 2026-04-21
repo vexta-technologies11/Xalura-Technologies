@@ -1,50 +1,51 @@
 import { createClient } from "@/lib/supabase/server";
 import { AiDashboardClient } from "@/components/admin/AiDashboardClient";
 import { IngestConfigBanner } from "@/components/admin/IngestConfigBanner";
+import { isAgentKvConfigured } from "@/lib/agentKvConfig";
+import { getWorkloadDailySinceKv } from "@/lib/agentWorkloadKv";
 import { getIngestSecretFingerprint } from "@/lib/ingestAuth";
+import {
+  getTrafficLog,
+  listAgentUpdatesRecent,
+} from "@/lib/agentUpdatesStore";
 import type { AgentUpdateRow } from "@/types/agent-dashboard";
 
 export default async function AdminAiDashboardPage() {
   const supabase = createClient();
   const ingestFp = getIngestSecretFingerprint();
+  const kvOk = isAgentKvConfigured();
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 21);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [
-    { data: employees, error: employeesError },
-    { data: updates, error: updatesError },
-    { data: workload, error: workloadError },
-  ] = await Promise.all([
-    supabase.from("employees").select("id, name").order("display_order"),
-    supabase
-      .from("agent_updates")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("agent_workload_daily")
-      .select("employee_id, day, update_count")
-      .gte("day", sinceStr)
-      .order("day", { ascending: true }),
-  ]);
+  const { data: employees, error: employeesError } = await supabase
+    .from("employees")
+    .select("id, name")
+    .order("display_order");
 
-  const wl =
-    workload?.map((w) => ({
-      employee_id: w.employee_id as string,
-      day: w.day as string,
-      update_count: Number(w.update_count),
-    })) ?? [];
+  const updates = kvOk ? await listAgentUpdatesRecent(200) : [];
+  const workload = kvOk ? await getWorkloadDailySinceKv(sinceStr) : [];
+  const traffic = kvOk ? await getTrafficLog(40) : [];
 
-  const loadError =
-    employeesError?.message ||
-    updatesError?.message ||
-    workloadError?.message ||
-    null;
+  const wl = workload.map((w) => ({
+    employee_id: w.employee_id,
+    day: w.day,
+    update_count: w.update_count,
+  }));
+
+  const loadError = !kvOk
+    ? "Agent ingest KV is not configured. Add Vercel KV / Redis and set KV_REST_API_URL + KV_REST_API_TOKEN, then redeploy."
+    : employeesError?.message || null;
+
+  const stats = {
+    pending: updates.filter((u) => u.review_status === "pending").length,
+    approved: updates.filter((u) => u.review_status === "approved").length,
+    declined: updates.filter((u) => u.review_status === "declined").length,
+  };
 
   return (
     <>
-      <IngestConfigBanner fp={ingestFp} />
+      <IngestConfigBanner fp={ingestFp} kvConfigured={kvOk} />
       {loadError ? (
         <div
           className="admin-card admin-card-pad"
@@ -55,15 +56,9 @@ export default async function AdminAiDashboardPage() {
             color: "#991b1b",
           }}
         >
-          <strong>Could not load dashboard data from Supabase.</strong>
+          <strong>Agent pipeline</strong>
           <p style={{ margin: "8px 0 0", fontSize: "0.875rem", lineHeight: 1.5 }}>
             {loadError}
-          </p>
-          <p style={{ margin: "12px 0 0", fontSize: "0.8125rem", opacity: 0.9 }}>
-            If you see “relation agent_updates does not exist”, run{" "}
-            <code>supabase/schema.sql</code> in the SQL editor. If ingest returns 200 but
-            this list stays empty with no error, confirm Vercel{" "}
-            <code>NEXT_PUBLIC_SUPABASE_URL</code> matches the project where you run SQL.
           </p>
         </div>
       ) : null}
@@ -71,6 +66,8 @@ export default async function AdminAiDashboardPage() {
         initialUpdates={(updates ?? []) as AgentUpdateRow[]}
         employees={employees ?? []}
         workload={wl}
+        initialTraffic={traffic}
+        trafficStats={stats}
       />
     </>
   );

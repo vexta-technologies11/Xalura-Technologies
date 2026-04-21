@@ -5,6 +5,7 @@ import {
   getPageContent,
 } from "@/lib/data";
 import {
+  enrichAgentRowsWithEmployeeNames,
   getApprovedAgentUpdates,
   getWorkloadDailySince,
 } from "@/lib/data-dashboard";
@@ -16,7 +17,7 @@ export const metadata = {
 };
 
 export default async function PublicDashboardPage() {
-  const [pageContent, employees, activity, workload] = await Promise.all([
+  const [pageContent, employees, rawActivity, workload] = await Promise.all([
     getPageContent(),
     getEmployees(),
     getApprovedAgentUpdates(40),
@@ -26,6 +27,8 @@ export default async function PublicDashboardPage() {
       return getWorkloadDailySince(since.toISOString().slice(0, 10));
     })(),
   ]);
+
+  const activity = await enrichAgentRowsWithEmployeeNames(rawActivity);
 
   const nameById = new Map(employees.map((e) => [e.id, e.name]));
 

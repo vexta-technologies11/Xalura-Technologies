@@ -4,7 +4,14 @@ import type { IngestSecretFingerprint } from "@/lib/ingestAuth";
  * Shows whether shared ingest is configured on **this deployment** (reads Vercel env server-side).
  * Lets you verify the same secret as GearMedic/.env without exposing the full token.
  */
-export function IngestConfigBanner({ fp }: { fp: IngestSecretFingerprint }) {
+export function IngestConfigBanner({
+  fp,
+  kvConfigured = false,
+}: {
+  fp: IngestSecretFingerprint;
+  /** Agent ingest uses Vercel KV — not Supabase. */
+  kvConfigured?: boolean;
+}) {
   return (
     <div
       className="admin-card admin-card-pad"
@@ -18,12 +25,21 @@ export function IngestConfigBanner({ fp }: { fp: IngestSecretFingerprint }) {
         Shared ingest (GearMedic / automations)
       </p>
       <p style={{ margin: "0 0 12px", fontSize: "0.9375rem", lineHeight: 1.6, color: "#0f172a" }}>
-        <strong>AGENT_INGEST_SECRET</strong> lives only in{" "}
-        <strong>Vercel → Environment Variables</strong> — it is{" "}
-        <strong>not</strong> shown anywhere in Supabase and{" "}
-        <strong>not</strong> the same as the per-agent <code>xal_…</code> keys below.
-        You create the secret once and paste the identical value into Vercel and GearMedic.
+        <strong>AGENT_INGEST_SECRET</strong> is only in{" "}
+        <strong>Vercel → Environment Variables</strong>. Agent POSTs are stored in{" "}
+        <strong>Vercel KV / Redis</strong> (not Supabase). Supabase is for human login and the
+        public team directory — not for GearMedic ingest.
       </p>
+      {kvConfigured ? (
+        <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#15803d" }}>
+          KV storage is configured for this deployment.
+        </p>
+      ) : (
+        <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#b91c1c" }}>
+          <strong>KV not configured.</strong> Add Redis/KV from Vercel Marketplace and set{" "}
+          <code>KV_REST_API_URL</code> + <code>KV_REST_API_TOKEN</code>, then redeploy.
+        </p>
+      )}
       {fp.configured ? (
         <>
           <p style={{ margin: "0 0 8px", fontSize: "0.9375rem", color: "#0f172a" }}>

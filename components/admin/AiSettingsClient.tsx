@@ -5,30 +5,16 @@ import Link from "next/link";
 import { generateAgentApiKey } from "@/app/admin/ai-dashboard/settings/actions";
 
 type EmployeeRow = { id: string; name: string; role: string };
-type KeyRow = {
-  employee_id: string;
-  api_key: string;
-  is_active: boolean;
-  created_at: string;
-};
-
-function maskKey(k: string) {
-  if (k.length <= 12) return "••••••••";
-  return `${k.slice(0, 4)}…${k.slice(-6)}`;
-}
-
 export function AiSettingsClient({
   employees,
-  keys,
+  hasKeyByEmployee,
 }: {
   employees: EmployeeRow[];
-  keys: KeyRow[];
+  hasKeyByEmployee: Record<string, boolean>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
-
-  const keyByEmployee = new Map(keys.map((k) => [k.employee_id, k]));
 
   async function onGenerate(employeeId: string) {
     setMsg(null);
@@ -76,10 +62,10 @@ export function AiSettingsClient({
       <div className="admin-card admin-card-pad">
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {employees.map((e) => {
-            const row = keyByEmployee.get(e.id);
+            const hasKey = hasKeyByEmployee[e.id];
             const fullReveal = revealed[e.id];
             const displayText =
-              fullReveal ?? (row ? maskKey(row.api_key) : null);
+              fullReveal ?? (hasKey ? "xal_•••••••• (stored in KV — generate new to rotate)" : null);
             return (
               <li
                 key={e.id}
@@ -139,7 +125,7 @@ export function AiSettingsClient({
                     disabled={busy === e.id}
                     onClick={() => void onGenerate(e.id)}
                   >
-                    {row ? "Regenerate key" : "Generate key"}
+                    {hasKey ? "Regenerate key" : "Generate key"}
                   </button>
                 </div>
               </li>

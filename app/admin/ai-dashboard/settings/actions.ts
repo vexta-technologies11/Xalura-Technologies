@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
+import { putAgentApiKeyForEmployee } from "@/lib/agentApiKeysKv";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateAgentApiKey(employeeId: string) {
@@ -13,19 +14,22 @@ export async function generateAgentApiKey(employeeId: string) {
     return { ok: false as const, error: "Unauthorized" };
   }
 
-  const apiKey = `xal_${randomBytes(24).toString("hex")}`;
-  const { error } = await supabase.from("agent_api_keys").upsert(
-    {
-      employee_id: employeeId,
-      api_key: apiKey,
-      is_active: true,
-    },
-    { onConflict: "employee_id" },
-  );
+  const { data: emp, error: empErr } = await supabase
+    .from("employees")
+    .select("name")
+    .eq("id", employeeId)
+    .single();
 
-  if (error) {
-    return { ok: false as const, error: error.message };
+  if (empErr || !emp) {
+    return { ok: false as const, error: "Employee not found" };
   }
+
+  const apiKey = `xal_${randomBytes(24).toString("hex")}`;
+  await putAgentApiKeyForEmployee(employeeId, apiKey, {
+    employee_id: employeeId,
+    employee_display_name: emp.name.trim(),
+    is_active: true,
+  });
 
   revalidatePath("/admin/ai-dashboard/settings");
   revalidatePath("/admin/ai-dashboard");

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
-import { resolveEmployeeForApiKey } from "@/lib/agentUpdateResolveEmployee";
+import {
+  getAgentApiKeyRecord,
+  resolveAgentIdForKvKey,
+} from "@/lib/agentApiKeysKv";
+import { isAgentKvConfigured } from "@/lib/agentKvConfig";
 import { isAgentIngestSecurityActive } from "@/lib/agentUpdateIngestBootstrap";
+import {
+  createAgentUpdate,
+} from "@/lib/agentUpdatesStore";
 import {
   extractIngestBearerToken,
   getSharedIngestSecret,
@@ -8,8 +15,6 @@ import {
   isAgentUpdateOpenIngest,
 } from "@/lib/ingestAuth";
 import { parseAgentUpdateBody } from "@/lib/parseAgentUpdateBody";
-import { responseBodyForSupabaseWriteError } from "@/lib/supabaseIngestErrors";
-import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
@@ -19,27 +24,28 @@ type Body = {
   activity_type?: string;
 };
 
+const KV_503 = {
+  error:
+    "Agent ingest storage is not configured. In Vercel: create a Redis/KV store (Marketplace), link it so KV_REST_API_URL and KV_REST_API_TOKEN are set, then redeploy. Agent traffic does not use Supabase.",
+};
+
 export async function POST(request: Request) {
+  if (!isAgentKvConfigured()) {
+    return NextResponse.json(KV_503, { status: 503 });
+  }
+
   const openForce = isAgentUpdateOpenIngest();
   const acceptAny = isAgentUpdateAcceptAny();
   const token = extractIngestBearerToken(request);
 
-  const service = createServiceClient();
-  if (!service) {
-    return NextResponse.json(
-      { error: "Server misconfigured: SUPABASE_SERVICE_ROLE_KEY" },
-      { status: 500 },
-    );
-  }
-
-  const securityActive = await isAgentIngestSecurityActive(service);
+  const securityActive = await isAgentIngestSecurityActive();
   const allowRelaxed = !securityActive || openForce || acceptAny;
 
   if (securityActive && !openForce && !acceptAny && !token) {
     return NextResponse.json(
       {
         error:
-          "Missing credentials: send Authorization: Bearer <token> or header X-Xalura-Ingest-Token (same value as AGENT_INGEST_SECRET in Vercel). Ingest was locked after the first review in Admin — use the shared secret or an xal_ key.",
+          "Missing credentials: send Authorization: Bearer <token> or header X-Xalura-Ingest-Token (same value as AGENT_INGEST_SECRET in Vercel). Ingest locked after the first review in Admin — use the shared secret or an xal_ key.",
       },
       { status: 401 },
     );
@@ -77,84 +83,67 @@ export async function POST(request: Request) {
   const sharedSecret = getSharedIngestSecret();
 
   if (sharedSecret && token && token === sharedSecret) {
-    const { data: inserted, error: insErr } = await service
-      .from("agent_updates")
-      .insert({
-        employee_id: null,
-        agent_external_id: agentId,
-        activity_text: activityText,
-        activity_type: activityType,
-        review_status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (insErr) {
-      const mapped = responseBodyForSupabaseWriteError(insErr);
-      return NextResponse.json(mapped.body, { status: mapped.status });
+    const res = await createAgentUpdate({
+      employee_id: null,
+      agent_external_id: agentId,
+      activity_text: activityText,
+      activity_type: activityType,
+      review_status: "pending",
+      ingest_mode: "shared_secret",
+    });
+    if ("error" in res) {
+      return NextResponse.json(
+        { error: res.error === "KV_NOT_CONFIGURED" ? KV_503.error : "Write failed" },
+        { status: res.error === "KV_NOT_CONFIGURED" ? 503 : 500 },
+      );
     }
-
     return NextResponse.json({
       ok: true,
-      id: inserted?.id,
+      id: res.id,
       mode: "shared_secret",
     });
   }
 
   if (token) {
     const authToken = token;
-    const { data: keyRow, error: keyErr } = await service
-      .from("agent_api_keys")
-      .select("id, employee_id, is_active, api_key")
-      .eq("api_key", authToken)
-      .maybeSingle();
+    const keyRow = await getAgentApiKeyRecord(authToken);
 
     if (keyRow && !keyRow.is_active) {
       if (!acceptAny) {
         return NextResponse.json({ error: "API key is inactive" }, { status: 403 });
       }
     } else if (keyRow && keyRow.is_active) {
-      const resolved = await resolveEmployeeForApiKey(service, keyRow, agentId);
+      const resolved = resolveAgentIdForKvKey(keyRow, agentId);
       if (resolved.ok) {
-        const { data: emp } = await service
-          .from("employees")
-          .select("name")
-          .eq("id", resolved.employeeId)
-          .maybeSingle();
-
-        const externalLabel = (emp?.name || agentId).trim().slice(0, 200);
-
-        const { data: inserted, error: insErr } = await service
-          .from("agent_updates")
-          .insert({
-            employee_id: resolved.employeeId,
-            agent_external_id: externalLabel,
-            activity_text: activityText,
-            activity_type: activityType,
-            review_status: "pending",
-          })
-          .select("id")
-          .single();
-
-        if (insErr) {
-          const mapped = responseBodyForSupabaseWriteError(insErr);
-          return NextResponse.json(mapped.body, { status: mapped.status });
+        const externalLabel = (keyRow.employee_display_name || agentId).trim().slice(0, 200);
+        const ins = await createAgentUpdate({
+          employee_id: resolved.employeeId,
+          agent_external_id: externalLabel,
+          activity_text: activityText,
+          activity_type: activityType,
+          review_status: "pending",
+          ingest_mode: "api_key",
+        });
+        if ("error" in ins) {
+          return NextResponse.json(
+            { error: ins.error === "KV_NOT_CONFIGURED" ? KV_503.error : "Write failed" },
+            { status: ins.error === "KV_NOT_CONFIGURED" ? 503 : 500 },
+          );
         }
-
-        return NextResponse.json({ ok: true, id: inserted?.id, mode: "api_key" });
+        return NextResponse.json({ ok: true, id: ins.id, mode: "api_key" });
       }
       if (!acceptAny) {
         return NextResponse.json({ error: resolved.message }, { status: 403 });
       }
     }
 
-    if (keyErr || !keyRow) {
+    if (!keyRow) {
       if (securityActive && !openForce && !acceptAny) {
         if (!sharedSecret) {
           return NextResponse.json(
             {
               error:
-                "Ingest not configured: set AGENT_INGEST_SECRET (or XALURA_INGEST_TOKEN / XALURA_AGENT_BEARER) on this Vercel project and redeploy. Admin UI does not show this value — set it in Vercel → Environment Variables.",
+                "Ingest not configured: set AGENT_INGEST_SECRET (or XALURA_INGEST_TOKEN / XALURA_AGENT_BEARER) on this Vercel project and redeploy.",
             },
             { status: 401 },
           );
@@ -164,7 +153,7 @@ export async function POST(request: Request) {
             {
               error: "Unknown xal_ key",
               detail:
-                "Your Authorization Bearer starts with xal_ but that exact key is not in this site's database. Common fixes: (1) Xalura Admin → AI Dashboard → Settings → Generate key for the agent, copy the full key into GearMedic/Vercel with no extra spaces. (2) If you rotated keys, update the new xal_… everywhere. (3) If you meant SHARED ingest (one token for all agents), use AGENT_INGEST_SECRET from Vercel as Bearer — it does NOT start with xal_. (4) Confirm GearMedic points at the same Supabase project as www.xaluratech.com.",
+                "Bearer starts with xal_ but that key is not registered. Generate a new key in Admin → AI Dashboard → Settings (stored in Vercel KV, not Supabase).",
             },
             { status: 401 },
           );
@@ -172,7 +161,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "Invalid API key: token did not match AGENT_INGEST_SECRET / X-Xalura-Ingest-Token (compare length + last 4 chars in Admin → AI Dashboard) and is not a valid xal_ key.",
+              "Invalid API key: token did not match AGENT_INGEST_SECRET / X-Xalura-Ingest-Token and is not a registered xal_ key.",
           },
           { status: 401 },
         );
@@ -181,32 +170,28 @@ export async function POST(request: Request) {
   }
 
   if (allowRelaxed) {
-    const { data: inserted, error: insErr } = await service
-      .from("agent_updates")
-      .insert({
-        employee_id: null,
-        agent_external_id: agentId,
-        activity_text: activityText,
-        activity_type: activityType,
-        review_status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (insErr) {
-      const mapped = responseBodyForSupabaseWriteError(insErr);
-      return NextResponse.json(mapped.body, { status: mapped.status });
+    const ins = await createAgentUpdate({
+      employee_id: null,
+      agent_external_id: agentId,
+      activity_text: activityText,
+      activity_type: activityType,
+      review_status: "pending",
+      ingest_mode: acceptAny ? "accept_any" : openForce ? "open_ingest" : "bootstrap",
+    });
+    if ("error" in ins) {
+      return NextResponse.json(
+        { error: ins.error === "KV_NOT_CONFIGURED" ? KV_503.error : "Write failed" },
+        { status: ins.error === "KV_NOT_CONFIGURED" ? 503 : 500 },
+      );
     }
-
     const mode = acceptAny
       ? "accept_any"
       : openForce
         ? "open_ingest"
         : "bootstrap";
-
     return NextResponse.json({
       ok: true,
-      id: inserted?.id,
+      id: ins.id,
       mode,
     });
   }

@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { approveAgentUpdate } from "@/app/admin/ai-dashboard/actions";
+import {
+  approveAgentUpdate,
+  approveAllPendingAgentUpdates,
+  declineAgentUpdate,
+} from "@/app/admin/ai-dashboard/actions";
+import type { TrafficEvent } from "@/lib/agentUpdatesStore";
 import type { AgentUpdateRow } from "@/types/agent-dashboard";
 
 type EmployeeMini = { id: string; name: string };
@@ -28,16 +32,22 @@ export function AiDashboardClient({
   initialUpdates,
   employees,
   workload,
+  initialTraffic,
+  trafficStats,
 }: {
   initialUpdates: AgentUpdateRow[];
   employees: EmployeeMini[];
   workload: WorkloadRow[];
+  initialTraffic: TrafficEvent[];
+  trafficStats: { pending: number; approved: number; declined: number };
 }) {
   const router = useRouter();
   const [updates, setUpdates] = useState<AgentUpdateRow[]>(initialUpdates);
   const [workloadState, setWorkloadState] = useState<WorkloadRow[]>(workload);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [traffic, setTraffic] = useState<TrafficEvent[]>(initialTraffic);
 
   useEffect(() => {
     setWorkloadState(workload);
@@ -46,6 +56,18 @@ export function AiDashboardClient({
   useEffect(() => {
     setUpdates(initialUpdates);
   }, [initialUpdates]);
+
+  useEffect(() => {
+    setTraffic(initialTraffic);
+  }, [initialTraffic]);
+
+  /** KV-backed ingest — refresh list every 4s (no Supabase realtime). */
+  useEffect(() => {
+    const id = setInterval(() => {
+      router.refresh();
+    }, 4000);
+    return () => clearInterval(id);
+  }, [router]);
 
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -65,31 +87,6 @@ export function AiDashboardClient({
     }
     return "Unknown agent";
   }
-
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("agent_updates_realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "agent_updates" },
-        (payload) => {
-          if (payload.eventType === "INSERT" && payload.new) {
-            setUpdates((prev) => [payload.new as AgentUpdateRow, ...prev]);
-          } else if (payload.eventType === "UPDATE" && payload.new) {
-            const row = payload.new as AgentUpdateRow;
-            setUpdates((prev) =>
-              prev.map((u) => (u.id === row.id ? row : u)),
-            );
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, []);
 
   const pending = updates.filter((u) => u.review_status === "pending");
   const approvedHistory = updates.filter((u) => u.review_status === "approved");
@@ -125,36 +122,6 @@ export function AiDashboardClient({
     return { rows, max };
   }, [workloadState, employees]);
 
-  async function decline(id: string) {
-    setErr(null);
-    setBusyId(id);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("agent_updates")
-      .update({
-        review_status: "declined",
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-    setBusyId(null);
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    setUpdates((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? {
-              ...u,
-              review_status: "declined",
-              reviewed_at: new Date().toISOString(),
-            }
-          : u,
-      ),
-    );
-    router.refresh();
-  }
-
   async function approve(id: string) {
     setErr(null);
     setBusyId(id);
@@ -163,6 +130,35 @@ export function AiDashboardClient({
     if (!res.ok) {
       setErr(res.error);
       return;
+    }
+    router.refresh();
+  }
+
+  async function decline(id: string) {
+    setErr(null);
+    setBusyId(id);
+    const res = await declineAgentUpdate(id);
+    setBusyId(null);
+    if (!res.ok) {
+      setErr(res.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function approveAll() {
+    setErr(null);
+    setBulkBusy(true);
+    const res = await approveAllPendingAgentUpdates();
+    setBulkBusy(false);
+    if (!res.ok) {
+      setErr(res.error);
+      return;
+    }
+    if (res.failed > 0 && res.error_samples.length) {
+      setErr(
+        `Approved ${res.approved}; ${res.failed} failed. ${res.error_samples.join("; ")}`,
+      );
     }
     router.refresh();
   }
@@ -176,9 +172,10 @@ export function AiDashboardClient({
           </h1>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
             Pending updates can arrive for any <code>agent_id</code> when you use{" "}
-            <code>AGENT_INGEST_SECRET</code>. Approve to register a new name in
-            Supabase (or match an existing employee by name) and publish to the
-            public dashboard.
+            <code>AGENT_INGEST_SECRET</code>. Ingest is stored in{" "}
+            <strong>Vercel KV</strong> (not Supabase). Approve to register a new name in
+            the team directory (Supabase <code>employees</code>) and publish to the public
+            dashboard.
           </p>
         </div>
         <div className="admin-toolbar-actions">
@@ -196,6 +193,71 @@ export function AiDashboardClient({
           {err}
         </p>
       ) : null}
+
+      <div className="admin-card admin-card-pad" style={{ marginBottom: 20 }}>
+        <p className="admin-badge" style={{ marginBottom: 12 }}>
+          Live traffic (KV) · auto-refresh ~4s
+        </p>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 16,
+            marginBottom: 16,
+            fontSize: "0.9375rem",
+          }}
+        >
+          <span>
+            <strong style={{ color: "#ca8a04" }}>{trafficStats.pending}</strong> pending
+          </span>
+          <span>
+            <strong style={{ color: "#15803d" }}>{trafficStats.approved}</strong> approved
+            (in view)
+          </span>
+          <span>
+            <strong style={{ color: "#b91c1c" }}>{trafficStats.declined}</strong> declined
+            (in view)
+          </span>
+        </div>
+        <p className="admin-badge admin-badge--muted" style={{ marginBottom: 8 }}>
+          Recent decisions (newest first)
+        </p>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.8125rem" }}>
+          {traffic.length === 0 ? (
+            <li style={{ color: "#64748b" }}>No events yet.</li>
+          ) : (
+            traffic.map((ev, i) => (
+              <li
+                key={`${ev.t}-${ev.updateId}-${i}`}
+                style={{
+                  padding: "6px 0",
+                  borderBottom: "1px solid #e2e8f0",
+                  color: "#334155",
+                }}
+              >
+                <span style={{ color: "#64748b" }}>
+                  {new Date(ev.t).toLocaleString()}
+                </span>
+                {" · "}
+                <strong
+                  style={{
+                    color:
+                      ev.action === "ingest"
+                        ? "#2563eb"
+                        : ev.action === "approved"
+                          ? "#15803d"
+                          : "#b91c1c",
+                  }}
+                >
+                  {ev.action}
+                </strong>
+                {" · "}
+                <code style={{ fontSize: "0.75em" }}>{ev.updateId.slice(0, 8)}…</code>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
 
       <div className="admin-ai-grid">
         <div className="admin-card admin-card-pad">
@@ -257,13 +319,23 @@ export function AiDashboardClient({
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "baseline",
+            alignItems: "center",
             marginBottom: 16,
             flexWrap: "wrap",
             gap: 8,
           }}
         >
           <p className="admin-badge">Pending review ({pending.length})</p>
+          {pending.length > 0 ? (
+            <button
+              type="button"
+              className="admin-btn admin-btn--primary"
+              disabled={bulkBusy || busyId !== null}
+              onClick={() => void approveAll()}
+            >
+              {bulkBusy ? "Approving…" : "Approve all pending"}
+            </button>
+          ) : null}
         </div>
         <div className="admin-pending-list">
           {pending.length === 0 ? (
@@ -286,7 +358,7 @@ export function AiDashboardClient({
                   <button
                     type="button"
                     className="admin-btn admin-btn--primary"
-                    disabled={busyId === u.id}
+                    disabled={busyId === u.id || bulkBusy}
                     onClick={() => void approve(u.id)}
                   >
                     Approve & register
@@ -294,7 +366,7 @@ export function AiDashboardClient({
                   <button
                     type="button"
                     className="admin-btn admin-btn--secondary"
-                    disabled={busyId === u.id}
+                    disabled={busyId === u.id || bulkBusy}
                     onClick={() => void decline(u.id)}
                   >
                     Decline

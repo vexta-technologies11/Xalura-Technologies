@@ -1,21 +1,32 @@
+import { kv } from "@vercel/kv";
 import { createClient } from "@/lib/supabase/server";
 import { AiSettingsClient } from "@/components/admin/AiSettingsClient";
 import { IngestConfigBanner } from "@/components/admin/IngestConfigBanner";
+import { isAgentKvConfigured } from "@/lib/agentKvConfig";
 import { getIngestSecretFingerprint } from "@/lib/ingestAuth";
 
 export default async function AiDashboardSettingsPage() {
   const supabase = createClient();
-  const [{ data: employees }, { data: keys }] = await Promise.all([
-    supabase.from("employees").select("id, name, role").order("display_order"),
-    supabase.from("agent_api_keys").select("employee_id, api_key, is_active, created_at"),
-  ]);
+  const { data: employees } = await supabase
+    .from("employees")
+    .select("id, name, role")
+    .order("display_order");
+
+  const list = employees ?? [];
+  const hasKeyByEmployee: Record<string, boolean> = {};
+  if (isAgentKvConfigured()) {
+    for (const e of list) {
+      hasKeyByEmployee[e.id] =
+        (await kv.get(`xalura:v1:emp:${e.id}:has_api_key`)) === "1";
+    }
+  }
 
   const fp = getIngestSecretFingerprint();
 
   return (
     <>
-      <IngestConfigBanner fp={fp} />
-      <AiSettingsClient employees={employees ?? []} keys={keys ?? []} />
+      <IngestConfigBanner fp={fp} kvConfigured={isAgentKvConfigured()} />
+      <AiSettingsClient employees={list} hasKeyByEmployee={hasKeyByEmployee} />
     </>
   );
 }

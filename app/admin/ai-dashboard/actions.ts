@@ -2,11 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { incrementWorkloadForApproval } from "@/lib/agentWorkloadKv";
+import { isAgentKvConfigured } from "@/lib/agentKvConfig";
+import {
+  getAgentUpdate,
+  listPendingIds,
+  setAgentUpdateReview,
+} from "@/lib/agentUpdatesStore";
 
 /**
- * Approve a pending update. If it has no `employee_id` yet, links to an existing
- * employee with the same display name (case-insensitive) or creates a new row
- * in `employees`, then marks the update approved (triggers workload).
+ * Approve a pending update (KV). Registers/creates employee in Supabase for the public site.
  */
 export async function approveAgentUpdate(updateId: string) {
   const supabase = createClient();
@@ -17,13 +22,12 @@ export async function approveAgentUpdate(updateId: string) {
     return { ok: false as const, error: "Unauthorized" };
   }
 
-  const { data: row, error: fetchErr } = await supabase
-    .from("agent_updates")
-    .select("id, employee_id, agent_external_id, review_status")
-    .eq("id", updateId)
-    .single();
+  if (!isAgentKvConfigured()) {
+    return { ok: false as const, error: "Agent KV not configured on server" };
+  }
 
-  if (fetchErr || !row || row.review_status !== "pending") {
+  const row = await getAgentUpdate(updateId);
+  if (!row || row.review_status !== "pending") {
     return { ok: false as const, error: "Update not found or not pending" };
   }
 
@@ -76,20 +80,76 @@ export async function approveAgentUpdate(updateId: string) {
     }
   }
 
-  const { error: upErr } = await supabase
-    .from("agent_updates")
-    .update({
-      employee_id: employeeId,
-      review_status: "approved",
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq("id", updateId);
-
-  if (upErr) {
-    return { ok: false as const, error: upErr.message };
+  const upd = await setAgentUpdateReview(updateId, "approved", employeeId);
+  if (!upd.ok) {
+    return { ok: false as const, error: upd.error };
   }
+
+  await incrementWorkloadForApproval(employeeId!, row.created_at);
 
   revalidatePath("/admin/ai-dashboard");
   revalidatePath("/dashboard");
   return { ok: true as const };
+}
+
+export async function declineAgentUpdate(updateId: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+  if (!isAgentKvConfigured()) {
+    return { ok: false as const, error: "Agent KV not configured on server" };
+  }
+  const upd = await setAgentUpdateReview(updateId, "declined");
+  if (!upd.ok) {
+    return { ok: false as const, error: upd.error };
+  }
+  revalidatePath("/admin/ai-dashboard");
+  return { ok: true as const };
+}
+
+export async function approveAllPendingAgentUpdates() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+  if (!isAgentKvConfigured()) {
+    return { ok: false as const, error: "Agent KV not configured on server" };
+  }
+
+  const ids = await listPendingIds();
+  if (!ids.length) {
+    return {
+      ok: true as const,
+      approved: 0,
+      failed: 0,
+      error_samples: [] as string[],
+    };
+  }
+
+  let approved = 0;
+  const errors: string[] = [];
+  for (const id of ids) {
+    const res = await approveAgentUpdate(id);
+    if (res.ok) {
+      approved += 1;
+    } else {
+      errors.push(`${id}: ${res.error}`);
+    }
+  }
+
+  revalidatePath("/admin/ai-dashboard");
+  revalidatePath("/dashboard");
+  return {
+    ok: true as const,
+    approved,
+    failed: ids.length - approved,
+    error_samples: errors.slice(0, 5),
+  };
 }
