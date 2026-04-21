@@ -11,13 +11,44 @@ export async function GET(request: Request) {
   const openIngest = isAgentUpdateOpenIngest();
   const service = createServiceClient();
   const serviceOk = !!service;
+  const probe = service
+    ? await service.from("agent_updates").select("id").limit(1)
+    : { error: { message: "no client" } as { message: string } };
+  const supabaseAcceptsServiceRole = serviceOk && !probe.error;
+  const probeMsg = probe.error?.message ?? "";
+
   const ingestLocked =
-    serviceOk && (await isAgentIngestSecurityActive(service));
+    supabaseAcceptsServiceRole && service
+      ? await isAgentIngestSecurityActive(service)
+      : false;
+
   const host = request.headers.get("host") ?? "localhost:3000";
   const proto = request.headers.get("x-forwarded-proto") ?? "http";
   const postUrl = `${proto}://${host}/api/agent-update`;
 
-  const unauthenticatedOk = openIngest || !ingestLocked;
+  const unauthenticatedOk =
+    supabaseAcceptsServiceRole && (openIngest || !ingestLocked);
+
+  const instructions = (() => {
+    if (!serviceOk) {
+      return "Set SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL on Vercel and redeploy.";
+    }
+    if (!supabaseAcceptsServiceRole) {
+      return /invalid api key/i.test(probeMsg)
+        ? "Supabase rejected SUPABASE_SERVICE_ROLE_KEY (wrong project, revoked, or truncated). Paste service_role from Supabase → Settings → API. Redeploy. HTTP 500 {\"error\":\"Invalid API key\"} on POST usually means this — not your ingest Bearer."
+        : `Supabase query failed: ${probeMsg}. Fix env and redeploy.`;
+    }
+    if (openIngest) {
+      return "DANGER: AGENT_UPDATE_OPEN_INGEST=true — unauthenticated ingest is enabled. Anyone can POST. Turn off when integrations work.";
+    }
+    if (!ingestLocked) {
+      return "Bootstrap: POST without Bearer is allowed until you approve or decline any item in Admin → AI Dashboard. Then set AGENT_INGEST_SECRET and send Authorization: Bearer.";
+    }
+    if (sharedConfigured) {
+      return "POST JSON to post_url with Authorization: Bearer <AGENT_INGEST_SECRET> (or X-Xalura-Ingest-Token) plus agent_id + activity_text.";
+    }
+    return "Set AGENT_INGEST_SECRET on this Vercel project and redeploy. Value is chosen by you — not shown in admin.";
+  })();
 
   return NextResponse.json({
     ok: true,
@@ -27,13 +58,9 @@ export async function GET(request: Request) {
     ingest_credentials_required: ingestLocked && !openIngest,
     unauthenticated_ingest_allowed: unauthenticatedOk,
     supabase_service_role_configured: serviceOk,
+    /** False when PostgREST rejects the key (same root cause as 500 Invalid API key on insert). */
+    supabase_service_role_accepted_by_api: supabaseAcceptsServiceRole,
     post_url: postUrl,
-    instructions: openIngest
-      ? "DANGER: AGENT_UPDATE_OPEN_INGEST=true — unauthenticated ingest is enabled. Anyone can POST. Turn off when integrations work."
-      : !ingestLocked
-        ? "Bootstrap: POST without Bearer is allowed until you approve or decline any item in Admin → AI Dashboard. Then set AGENT_INGEST_SECRET and send Authorization: Bearer."
-        : sharedConfigured
-          ? "POST JSON to post_url with Authorization: Bearer <AGENT_INGEST_SECRET> (or X-Xalura-Ingest-Token) plus agent_id + activity_text."
-          : "Set AGENT_INGEST_SECRET on this Vercel project and redeploy. Value is chosen by you — not shown in admin.",
+    instructions,
   });
 }

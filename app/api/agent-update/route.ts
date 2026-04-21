@@ -7,6 +7,7 @@ import {
   isAgentUpdateOpenIngest,
 } from "@/lib/ingestAuth";
 import { parseAgentUpdateBody } from "@/lib/parseAgentUpdateBody";
+import { responseBodyForSupabaseWriteError } from "@/lib/supabaseIngestErrors";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -90,10 +91,8 @@ export async function POST(request: Request) {
       .single();
 
     if (insErr) {
-      return NextResponse.json(
-        { error: insErr.message ?? "Insert failed" },
-        { status: 500 },
-      );
+      const mapped = responseBodyForSupabaseWriteError(insErr);
+      return NextResponse.json(mapped.body, { status: mapped.status });
     }
 
     return NextResponse.json({
@@ -142,10 +141,8 @@ export async function POST(request: Request) {
         .single();
 
       if (insErr) {
-        return NextResponse.json(
-          { error: insErr.message ?? "Insert failed" },
-          { status: 500 },
-        );
+        const mapped = responseBodyForSupabaseWriteError(insErr);
+        return NextResponse.json(mapped.body, { status: mapped.status });
       }
 
       return NextResponse.json({ ok: true, id: inserted?.id, mode: "api_key" });
@@ -197,10 +194,8 @@ export async function POST(request: Request) {
       .single();
 
     if (insErr) {
-      return NextResponse.json(
-        { error: insErr.message ?? "Insert failed" },
-        { status: 500 },
-      );
+      const mapped = responseBodyForSupabaseWriteError(insErr);
+      return NextResponse.json(mapped.body, { status: mapped.status });
     }
 
     return NextResponse.json({

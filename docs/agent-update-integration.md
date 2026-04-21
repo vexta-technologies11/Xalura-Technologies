@@ -138,6 +138,10 @@ or `"mode":"api_key"` for per-agent keys.
 
 ## 6) Diagnostics
 
-`GET https://www.xaluratech.com/api/ingest-health` — `shared_ingest_secret_configured` + `supabase_service_role_configured` (no secrets).
+`GET https://www.xaluratech.com/api/ingest-health` — includes `shared_ingest_secret_configured`, `supabase_service_role_configured`, and **`supabase_service_role_accepted_by_api`** (a real query; if `false`, fix env before debugging ingest Bearer).
 
 Admin → AI Dashboard **blue banner** — length + last 4 of server-side shared secret for cross-check with Vercel.
+
+### HTTP 500 `{"error":"Invalid API key"}` (short message)
+
+That string is usually **PostgREST / Supabase** rejecting **`SUPABASE_SERVICE_ROLE_KEY`** on the server (wrong project, revoked, or pasted incompletely). It is **not** the GearMedic `Authorization: Bearer` value. Fix **Vercel →** `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_URL` from the **same** Supabase project → API → **service_role**, redeploy, then re-test. Newer API responses may spell this out in `detail` and `supabase_message`.
