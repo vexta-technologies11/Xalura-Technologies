@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { AiDashboardClient } from "@/components/admin/AiDashboardClient";
+import { IngestConfigBanner } from "@/components/admin/IngestConfigBanner";
+import { getIngestSecretFingerprint } from "@/lib/ingestAuth";
 import type { AgentUpdateRow } from "@/types/agent-dashboard";
 
 export default async function AdminAiDashboardPage() {
   const supabase = createClient();
+  const ingestFp = getIngestSecretFingerprint();
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 21);
   const sinceStr = since.toISOString().slice(0, 10);
@@ -41,6 +44,7 @@ export default async function AdminAiDashboardPage() {
 
   return (
     <>
+      <IngestConfigBanner fp={ingestFp} />
       {loadError ? (
         <div
           className="admin-card admin-card-pad"

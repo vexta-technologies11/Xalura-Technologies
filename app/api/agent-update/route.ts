@@ -99,10 +99,19 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
+    if (token.startsWith("xal_")) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid per-agent key: no xal_ key in this Supabase project, or key was rotated. Regenerate in Admin → AI Dashboard → Settings. JSON agent_id must be that employee's UUID (not the display name). Shared AGENT_INGEST_SECRET is a different token — do not mix them.",
+        },
+        { status: 401 },
+      );
+    }
     return NextResponse.json(
       {
         error:
-          "Invalid API key: Bearer token did not match AGENT_INGEST_SECRET (check copy/paste, no extra spaces/quotes) and is not a per-agent xal_ key.",
+          "Invalid API key: token did not match AGENT_INGEST_SECRET / X-Xalura-Ingest-Token (compare length + last 4 chars in Admin → AI Dashboard) and is not a valid xal_ key.",
       },
       { status: 401 },
     );

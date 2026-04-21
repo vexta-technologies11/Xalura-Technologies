@@ -26,3 +26,25 @@ export function getSharedIngestSecret(): string {
     ""
   );
 }
+
+/** Server-only hint for admins: never exposes full secret. */
+export type IngestSecretFingerprint = {
+  configured: boolean;
+  length: number | null;
+  suffix: string | null;
+  /** True if secret is short — recommend 32+ random chars. */
+  weak: boolean;
+};
+
+export function getIngestSecretFingerprint(): IngestSecretFingerprint {
+  const s = getSharedIngestSecret();
+  if (!s) {
+    return { configured: false, length: null, suffix: null, weak: false };
+  }
+  return {
+    configured: true,
+    length: s.length,
+    suffix: s.slice(-4),
+    weak: s.length < 24,
+  };
+}

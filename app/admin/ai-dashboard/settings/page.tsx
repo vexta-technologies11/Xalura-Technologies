@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { AiSettingsClient } from "@/components/admin/AiSettingsClient";
+import { IngestConfigBanner } from "@/components/admin/IngestConfigBanner";
+import { getIngestSecretFingerprint } from "@/lib/ingestAuth";
 
 export default async function AiDashboardSettingsPage() {
   const supabase = createClient();
@@ -8,7 +10,12 @@ export default async function AiDashboardSettingsPage() {
     supabase.from("agent_api_keys").select("employee_id, api_key, is_active, created_at"),
   ]);
 
+  const fp = getIngestSecretFingerprint();
+
   return (
-    <AiSettingsClient employees={employees ?? []} keys={keys ?? []} />
+    <>
+      <IngestConfigBanner fp={fp} />
+      <AiSettingsClient employees={employees ?? []} keys={keys ?? []} />
+    </>
   );
 }
