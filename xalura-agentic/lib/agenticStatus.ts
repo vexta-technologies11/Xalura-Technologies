@@ -1,4 +1,8 @@
-import { AGENTIC_IMPLEMENTATION_PHASE } from "../engine/version";
+import {
+  AGENTIC_HEALTH_SCHEMA,
+  AGENTIC_IMPLEMENTATION_PHASE,
+  AGENTIC_RELEASE_ID,
+} from "../engine/version";
 import { loadCycleState } from "../engine/cycleStateStore";
 import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
@@ -10,10 +14,45 @@ import {
 } from "./gemini";
 import { getPhase7Configured, type Phase7Configured } from "./phase7Clients";
 
+const CI_ENV_KEYS = [
+  "CF_PAGES_COMMIT_SHA",
+  "VERCEL_GIT_COMMIT_SHA",
+  "GITHUB_SHA",
+  "COMMIT_REF",
+  "DEPLOYMENT_ID",
+  "CF_VERSION_METADATA",
+  "BUILD_REF",
+] as const;
+
+function deployFingerprint(): string {
+  for (const k of CI_ENV_KEYS) {
+    const v = process.env[k]?.trim();
+    if (v) return v.length > 14 ? `${v.slice(0, 14)}…` : v;
+  }
+  return AGENTIC_RELEASE_ID;
+}
+
+function ciEnvKeyPresence(): Record<string, boolean> {
+  return Object.fromEntries(
+    CI_ENV_KEYS.map((k) => [k, !!process.env[k]?.trim()]),
+  ) as Record<string, boolean>;
+}
+
 export type AgenticHealthPayload = {
   ok: true;
+  /** If this is missing or lower than repo `AGENTIC_HEALTH_SCHEMA`, the Worker is serving an old build. */
+  health_schema: typeof AGENTIC_HEALTH_SCHEMA;
+  /** Always matches `AGENTIC_RELEASE_ID` in `engine/version.ts` (bump each ship). */
+  release_id: typeof AGENTIC_RELEASE_ID;
+  /** First matching CI commit / deploy id, else same as `release_id`. */
+  deploy_fingerprint: string;
   phase: number;
   gemini_configured: boolean;
+  /** `process.env` only — if true but `gemini_configured` is false, key may exist only on Worker `env` (see token debug). */
+  gemini_hints: {
+    process_env_nonempty: boolean;
+    next_runtime: string | null;
+  };
   /** Phase 7 — which optional API keys/bindings are present (no values). */
   phase7: Phase7Configured;
   uptime_hint: "next_route";
@@ -28,6 +67,8 @@ export type AgenticHealthPayload = {
   last_failed?: { ts: string; kind: string; message: string };
   /** Present only when `?debug=` matches `AGENTIC_HEALTH_DEBUG_TOKEN` (no secrets). */
   gemini_env_debug?: GeminiEnvDiagnostics;
+  /** With token debug — which common CI env keys are non-empty (booleans only). */
+  deploy_env_keys?: Record<string, boolean>;
 };
 
 /**
@@ -73,8 +114,15 @@ export async function getAgenticHealth(
 
   const base: AgenticHealthPayload = {
     ok: true,
+    health_schema: AGENTIC_HEALTH_SCHEMA,
+    release_id: AGENTIC_RELEASE_ID,
+    deploy_fingerprint: deployFingerprint(),
     phase: AGENTIC_IMPLEMENTATION_PHASE,
     gemini_configured,
+    gemini_hints: {
+      process_env_nonempty: !!process.env["GEMINI_API_KEY"]?.trim(),
+      next_runtime: process.env["NEXT_RUNTIME"] ?? null,
+    },
     phase7,
     uptime_hint: "next_route",
     agentic_root: getAgenticRoot(cwd),
@@ -88,6 +136,7 @@ export async function getAgenticHealth(
 
   if (options?.includeGeminiDebug) {
     base.gemini_env_debug = await getGeminiEnvDiagnostics();
+    base.deploy_env_keys = ciEnvKeyPresence();
   }
 
   return base;

@@ -20,6 +20,7 @@
     "agentic:all-departments-demo": "tsx xalura-agentic/scripts/all-departments-demo.ts",
     "agentic:handoff-demo": "tsx xalura-agentic/scripts/handoff-chain-demo.ts",
     "agentic:verify": "tsc --noEmit && npm run lint && npm run agentic:dry-run && npm run agentic:publishing-demo && npm run agentic:all-departments-demo",
+    "verify:deploy": "npm run agentic:verify && npm run build",
     "agentic:status": "tsx xalura-agentic/scripts/status.ts"
   },
   "dependencies": {

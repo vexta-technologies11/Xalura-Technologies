@@ -71,7 +71,7 @@
 | **Health payload** | `xalura-agentic/lib/agenticStatus.ts` (`getAgenticHealth`) — includes **`phase7`** |
 | **Phase 7 HTTP** | `xalura-agentic/lib/phase7Clients.ts` |
 | **Worker env read** | `xalura-agentic/lib/resolveWorkerEnv.ts` (shared with Gemini) |
-| HTTP health | `GET /api/agentic-health` |
+| HTTP health | `GET /api/agentic-health` — `health_schema`, `release_id`, `deploy_fingerprint`, `gemini_hints`, `phase7` |
 | CLI status | `npm run agentic:status` |
 
 ---
