@@ -5,7 +5,7 @@ Architecture for the PDF spec: Worker → Manager → Executive → Chief AI, ma
 - **Progress:** `docs/agentic-workflow-architecture-log.md` (update every phase).
 - **Phase 1:** Folders + stubs + `npm run agentic:dry-run` (sample `logs/publishing/cycle-1.md`).
 - **Phase 2:** Cycle counters in `data/cycle-state.json` (gitignored), `recordApproval()` → `cycle-1..10.md`, then `audit-cycle-N.md`; Chief stub → `reports/chief-ai-daily-YYYY-MM-DD.md`. Try `npm run agentic:cycle-demo`.
-- **Phase 3:** Publishing vertical — `runPublishingPipeline()` (Worker → Manager → Executive → `recordApproval`). Optional **`GEMINI_API_KEY`** / **`GEMINI_MODEL`** (`gemini-2.0-flash` default). Try `npm run agentic:publishing-demo`.
+- **Phase 3:** Publishing vertical — `runPublishingPipeline()` (Worker → Manager → Executive → `recordApproval`). Optional **`GEMINI_API_KEY`** / **`GEMINI_MODEL`** (`gemini-2.5-flash-lite` default). Try `npm run agentic:publishing-demo`.
 - **Phase 4:** Marketing (`runMarketingPipeline`) and SEO (`runSeoPipeline`) share **`lib/runDepartmentPipeline`**. Try `npm run agentic:all-departments-demo`.
 - **Phase 5:** **`shared/event-queue.log`** (append-only, gitignored) + **`lib/handoff.ts`** — SEO emits `KEYWORD_READY`; Publishing needs it (or `skipUpstreamCheck`); Publishing emits `ARTICLE_PUBLISHED`; Marketing needs it (or `skipUpstreamCheck`). Try `npm run agentic:handoff-demo`.
 - **Smoke test:** `npm run agentic:verify` (fast checks — add `next build` / `agentic:cycle-demo` manually when needed).

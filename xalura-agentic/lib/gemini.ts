@@ -69,6 +69,42 @@ export async function getGeminiEnvDiagnostics(): Promise<GeminiEnvDiagnostics> {
   };
 }
 
+/**
+ * Non-secret flags for `/api/agentic-health` (no `?debug=` needed).
+ * Interpreting `cf_worker_gemini_key_type`:
+ * - `"string"` and `gemini_configured: false` should not happen (key resolves).
+ * - `"undefined"` and `cf_async_context_ok: true` → set secret **`GEMINI_API_KEY`** on this Worker
+ *   (`wrangler secret put` or Dashboard → **Workers** → *this* worker → Variables).
+ * - `cf_async_context_ok: false` → OpenNext ALS / routing issue, not a missing var name.
+ */
+export type AgenticGeminiSurfaceHints = {
+  process_env_nonempty: boolean;
+  cf_async_context_ok: boolean;
+  /** When `cf_async_context_ok` is true: `typeof` Worker `env.GEMINI_API_KEY`. */
+  cf_worker_gemini_key_type: string;
+};
+
+export async function getAgenticGeminiSurfaceHints(): Promise<AgenticGeminiSurfaceHints> {
+  const process_env_nonempty = !!process.env["GEMINI_API_KEY"]?.trim();
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
+    const cf_worker_gemini_key_type =
+      v === undefined ? "undefined" : v === null ? "null" : typeof v;
+    return {
+      process_env_nonempty,
+      cf_async_context_ok: true,
+      cf_worker_gemini_key_type,
+    };
+  } catch {
+    return {
+      process_env_nonempty,
+      cf_async_context_ok: false,
+      cf_worker_gemini_key_type: "n/a",
+    };
+  }
+}
+
 export async function resolveGeminiApiKey(): Promise<string | undefined> {
   return resolveWorkerEnv("GEMINI_API_KEY");
 }
@@ -156,7 +192,7 @@ async function runGeminiLive(
   const key = apiKey;
   if (!key) throw new Error("GEMINI_API_KEY missing");
   const modelName =
-    process.env["GEMINI_MODEL"]?.trim() || "gemini-2.0-flash";
+    process.env["GEMINI_MODEL"]?.trim() || "gemini-2.5-flash-lite";
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: modelName });
   const prompt = buildPrompt(params);

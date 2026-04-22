@@ -8,8 +8,10 @@ import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
 import { getAgenticRoot } from "./paths";
 import {
+  getAgenticGeminiSurfaceHints,
   getGeminiEnvDiagnostics,
   isGeminiConfigured,
+  type AgenticGeminiSurfaceHints,
   type GeminiEnvDiagnostics,
 } from "./gemini";
 import { getPhase7Configured, type Phase7Configured } from "./phase7Clients";
@@ -48,11 +50,8 @@ export type AgenticHealthPayload = {
   deploy_fingerprint: string;
   phase: number;
   gemini_configured: boolean;
-  /** `process.env` only — if true but `gemini_configured` is false, key may exist only on Worker `env` (see token debug). */
-  gemini_hints: {
-    process_env_nonempty: boolean;
-    next_runtime: string | null;
-  };
+  /** No secrets. See `AgenticGeminiSurfaceHints` in `gemini.ts` for how to read `cf_*` fields. */
+  gemini_hints: AgenticGeminiSurfaceHints & { next_runtime: string | null };
   /** Phase 7 — which optional API keys/bindings are present (no values). */
   phase7: Phase7Configured;
   uptime_hint: "next_route";
@@ -107,9 +106,10 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
-  const [gemini_configured, phase7] = await Promise.all([
+  const [gemini_configured, phase7, geminiSurfaceHints] = await Promise.all([
     isGeminiConfigured(),
     getPhase7Configured(),
+    getAgenticGeminiSurfaceHints(),
   ]);
 
   const base: AgenticHealthPayload = {
@@ -120,7 +120,7 @@ export async function getAgenticHealth(
     phase: AGENTIC_IMPLEMENTATION_PHASE,
     gemini_configured,
     gemini_hints: {
-      process_env_nonempty: !!process.env["GEMINI_API_KEY"]?.trim(),
+      ...geminiSurfaceHints,
       next_runtime: process.env["NEXT_RUNTIME"] ?? null,
     },
     phase7,
