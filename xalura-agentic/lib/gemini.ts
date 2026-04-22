@@ -7,8 +7,20 @@
  * - `AGENTIC_GEMINI_RETRIES` (default 3)
  */
 
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { appendFailedOperation } from "./failedQueue";
 import { withRetries, withTimeout } from "./watchdog";
+
+/** Worker bindings sometimes carry secrets that are not on `process.env` in production. */
+function geminiKeyFromCloudflareEnv(): string | undefined {
+  try {
+    const { env } = getCloudflareContext({ async: false });
+    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
+    return typeof v === "string" && v.trim() ? v.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export type RunAgentParams = {
   role: string;
@@ -20,7 +32,9 @@ export type RunAgentParams = {
 
 /** Bracket form so OpenNext/Next does not inline `undefined` at build when key is runtime-only (e.g. Cloudflare). */
 function geminiApiKey(): string | undefined {
-  return process.env["GEMINI_API_KEY"]?.trim();
+  return (
+    process.env["GEMINI_API_KEY"]?.trim() || geminiKeyFromCloudflareEnv()
+  );
 }
 
 export function isGeminiConfigured(): boolean {
