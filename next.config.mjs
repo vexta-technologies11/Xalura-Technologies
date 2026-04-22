@@ -2,6 +2,8 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for OpenNext (`npm run build` runs `next build` then bundles with --skipNextBuild).
+  output: "standalone",
   images: {
     remotePatterns: [
       {
