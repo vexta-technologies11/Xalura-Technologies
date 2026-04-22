@@ -3,7 +3,10 @@ import { getAgenticHealth } from "../../../xalura-agentic/lib/agenticStatus";
 
 export const dynamic = "force-dynamic";
 
-/** JSON snapshot: cycles, event queue size, failed ops — for uptime / dashboards. */
+/**
+ * JSON snapshot: cycles, event queue size, failed ops — for uptime / dashboards.
+ * Query: `?gemini_ping=1` — one real Gemini request when `GEMINI_API_KEY` resolves (uses quota).
+ */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -12,8 +15,15 @@ export async function GET(request: Request) {
     const includeGeminiDebug =
       !!expected && token.length > 0 && token === expected;
 
+    const pingRaw = (url.searchParams.get("gemini_ping") ?? "").trim();
+    const geminiPing = /^(1|true|yes)$/i.test(pingRaw);
+
     return NextResponse.json(
-      await getAgenticHealth(process.cwd(), { includeGeminiDebug }),
+      await getAgenticHealth(process.cwd(), {
+        includeGeminiDebug,
+        requestUrlOrigin: url.origin,
+        geminiPing,
+      }),
       { status: 200 },
     );
   } catch (e) {

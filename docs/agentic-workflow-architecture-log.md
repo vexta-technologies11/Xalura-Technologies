@@ -68,10 +68,10 @@
 | Handoff chain demo | `npm run agentic:handoff-demo` |
 | **Watchdog (Phase 6)** | `xalura-agentic/lib/watchdog.ts` (`withTimeout`, `withRetries`) |
 | **Failed queue** | `xalura-agentic/lib/failedQueue.ts` → `failed/operations-queue.json` (gitignored) |
-| **Health payload** | `xalura-agentic/lib/agenticStatus.ts` (`getAgenticHealth`) — includes **`phase7`** |
+| **Health payload** | `xalura-agentic/lib/agenticStatus.ts` (`getAgenticHealth`) — **`phase7`**, **`gemini_resolution`** (per-step trace, no secrets) |
 | **Phase 7 HTTP** | `xalura-agentic/lib/phase7Clients.ts` |
-| **Worker env read** | `xalura-agentic/lib/resolveWorkerEnv.ts` (shared with Gemini) |
-| HTTP health | `GET /api/agentic-health` — `health_schema`, `release_id`, `deploy_fingerprint`, `gemini_hints`, `phase7` |
+| **Worker env read** | `xalura-agentic/lib/resolveWorkerEnv.ts` (`resolveWorkerEnv`, `resolveWorkerEnvWithTrace`; shared with Gemini) |
+| HTTP health | `GET /api/agentic-health` — `health_schema` (4+), `release_id`, `deploy_fingerprint`, `gemini_hints`, **`gemini_resolution`**, `phase7`; `?gemini_ping=1` adds **`gemini_live_ping`** (one real Gemini call); token debug adds `phase7_env_resolution`, `health_runtime`, `gemini_model_effective` |
 | CLI status | `npm run agentic:status` |
 
 ---

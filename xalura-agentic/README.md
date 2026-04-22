@@ -9,7 +9,7 @@ Architecture for the PDF spec: Worker → Manager → Executive → Chief AI, ma
 - **Phase 4:** Marketing (`runMarketingPipeline`) and SEO (`runSeoPipeline`) share **`lib/runDepartmentPipeline`**. Try `npm run agentic:all-departments-demo`.
 - **Phase 5:** **`shared/event-queue.log`** (append-only, gitignored) + **`lib/handoff.ts`** — SEO emits `KEYWORD_READY`; Publishing needs it (or `skipUpstreamCheck`); Publishing emits `ARTICLE_PUBLISHED`; Marketing needs it (or `skipUpstreamCheck`). Try `npm run agentic:handoff-demo`.
 - **Smoke test:** `npm run agentic:verify` (fast checks — add `next build` / `agentic:cycle-demo` manually when needed).
-- **Phase 6:** `withTimeout` / `withRetries` around live Gemini; failures append **`failed/operations-queue.json`** then fall back to stubs. Tune **`AGENTIC_GEMINI_TIMEOUT_MS`**, **`AGENTIC_GEMINI_RETRIES`**. Health: **`GET /api/agentic-health`**, CLI **`npm run agentic:status`**.
+- **Phase 6:** `withTimeout` / `withRetries` around live Gemini; failures append **`failed/operations-queue.json`** then fall back to stubs. Tune **`AGENTIC_GEMINI_TIMEOUT_MS`**, **`AGENTIC_GEMINI_RETRIES`**. Health: **`GET /api/agentic-health`** (optional **`?gemini_ping=1`** for one live Gemini proof — uses quota), CLI **`npm run agentic:status`**. Local key smoke: **`npm run agentic:gemini-ping`** (uses `.env.local`).
 - **Phase 7:** **`lib/phase7Clients.ts`** — Resend (`sendResendEmail`), Firecrawl (`firecrawlScrape`), Zernio (`zernioListProfiles`), Google Search Console (`gscSearchAnalyticsQuery`). Health JSON includes **`phase7`** booleans. Env: see **`.env.local.example`**.
 
 **Note:** `cycle-1..10.md` are **overwritten** each new window after an audit (same filenames as the PDF). Archive externally if you need history.

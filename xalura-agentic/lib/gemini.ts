@@ -5,6 +5,7 @@
  * Env (optional):
  * - `AGENTIC_GEMINI_TIMEOUT_MS` (default 60000)
  * - `AGENTIC_GEMINI_RETRIES` (default 3)
+ * - `AGENTIC_GEMINI_PING_TIMEOUT_MS` (default 20000) — `GET /api/agentic-health?gemini_ping=1` only
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -69,40 +70,10 @@ export async function getGeminiEnvDiagnostics(): Promise<GeminiEnvDiagnostics> {
   };
 }
 
-/**
- * Non-secret flags for `/api/agentic-health` (no `?debug=` needed).
- * Interpreting `cf_worker_gemini_key_type`:
- * - `"string"` and `gemini_configured: false` should not happen (key resolves).
- * - `"undefined"` and `cf_async_context_ok: true` → set secret **`GEMINI_API_KEY`** on this Worker
- *   (`wrangler secret put` or Dashboard → **Workers** → *this* worker → Variables).
- * - `cf_async_context_ok: false` → OpenNext ALS / routing issue, not a missing var name.
- */
-export type AgenticGeminiSurfaceHints = {
-  process_env_nonempty: boolean;
-  cf_async_context_ok: boolean;
-  /** When `cf_async_context_ok` is true: `typeof` Worker `env.GEMINI_API_KEY`. */
-  cf_worker_gemini_key_type: string;
-};
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite" as const;
 
-export async function getAgenticGeminiSurfaceHints(): Promise<AgenticGeminiSurfaceHints> {
-  const process_env_nonempty = !!process.env["GEMINI_API_KEY"]?.trim();
-  try {
-    const { env } = await getCloudflareContext({ async: true });
-    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
-    const cf_worker_gemini_key_type =
-      v === undefined ? "undefined" : v === null ? "null" : typeof v;
-    return {
-      process_env_nonempty,
-      cf_async_context_ok: true,
-      cf_worker_gemini_key_type,
-    };
-  } catch {
-    return {
-      process_env_nonempty,
-      cf_async_context_ok: false,
-      cf_worker_gemini_key_type: "n/a",
-    };
-  }
+export function getEffectiveGeminiModelName(): string {
+  return process.env["GEMINI_MODEL"]?.trim() || DEFAULT_GEMINI_MODEL;
 }
 
 export async function resolveGeminiApiKey(): Promise<string | undefined> {
@@ -191,8 +162,7 @@ async function runGeminiLive(
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const key = apiKey;
   if (!key) throw new Error("GEMINI_API_KEY missing");
-  const modelName =
-    process.env["GEMINI_MODEL"]?.trim() || "gemini-2.5-flash-lite";
+  const modelName = getEffectiveGeminiModelName();
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: modelName });
   const prompt = buildPrompt(params);
@@ -236,4 +206,88 @@ export async function runAgent(params: RunAgentParams): Promise<string> {
     }
   }
   return runAgentStub(params);
+}
+
+const DEFAULT_GEMINI_PING_TIMEOUT_MS = 20_000;
+
+function geminiPingTimeoutMs(): number {
+  const n = Number(process.env["AGENTIC_GEMINI_PING_TIMEOUT_MS"]);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_GEMINI_PING_TIMEOUT_MS;
+}
+
+/** One minimal `generateContent` for health checks — never log the API key. */
+const GEMINI_HEALTH_PING_PROMPT =
+  'Hello Gemini — this is an automated health check from Xalura agentic. Reply with one short friendly sentence so we know the API key works (you can literally say whether you "hear" us). No markdown, under 40 words.';
+
+export type GeminiLivePingPayload = {
+  requested: true;
+  /** False when `GEMINI_API_KEY` did not resolve — no network call. */
+  executed: boolean;
+  skipped_reason?: "no_api_key";
+  ok?: boolean;
+  ms?: number;
+  model?: string;
+  reply_preview?: string;
+  error_truncated?: string;
+};
+
+/**
+ * Optional live Gemini round-trip for `/api/agentic-health?gemini_ping=1`.
+ * Uses quota; keep off default monitors. Single attempt, bounded timeout.
+ */
+export async function pingGeminiForHealth(): Promise<GeminiLivePingPayload> {
+  const apiKey = await resolveGeminiApiKey();
+  if (!apiKey) {
+    return {
+      requested: true,
+      executed: false,
+      skipped_reason: "no_api_key",
+    };
+  }
+  const model = getEffectiveGeminiModelName();
+  const msBudget = geminiPingTimeoutMs();
+  const started = Date.now();
+  try {
+    const text = await withTimeout(
+      msBudget,
+      "gemini_health_ping",
+      async () => {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const mdl = genAI.getGenerativeModel({ model });
+        const result = await mdl.generateContent(GEMINI_HEALTH_PING_PROMPT);
+        return result.response.text()?.trim() ?? "";
+      },
+    );
+    const ms = Date.now() - started;
+    if (!text) {
+      return {
+        requested: true,
+        executed: true,
+        ok: false,
+        ms,
+        model,
+        error_truncated: "Empty Gemini response",
+      };
+    }
+    const reply_preview = text.length > 280 ? `${text.slice(0, 280)}…` : text;
+    return {
+      requested: true,
+      executed: true,
+      ok: true,
+      ms,
+      model,
+      reply_preview,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      requested: true,
+      executed: true,
+      ok: false,
+      ms: Date.now() - started,
+      model,
+      error_truncated: msg.replace(/\s+/g, " ").slice(0, 400),
+    };
+  }
 }
