@@ -16,13 +16,76 @@ import { withRetries, withTimeout } from "./watchdog";
  * Sync `getCloudflareContext()` often throws outside that scope; async mode resolves
  * the platform context reliably inside App Router handlers.
  */
+function bindingFromEnv(env: Record<string, unknown>): string | undefined {
+  const v = env["GEMINI_API_KEY"];
+  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+}
+
+/** Safe booleans only — for token-gated `/api/agentic-health?debug=…`. */
+export type GeminiEnvDiagnostics = {
+  process_env_key_nonempty: boolean;
+  async_context_ok: boolean;
+  async_cf_gemini_type: string;
+  async_error?: string;
+  sync_context_ok: boolean;
+  sync_cf_gemini_type: string;
+  sync_error?: string;
+};
+
+export async function getGeminiEnvDiagnostics(): Promise<GeminiEnvDiagnostics> {
+  const process_env_key_nonempty = !!process.env["GEMINI_API_KEY"]?.trim();
+  let async_context_ok = false;
+  let async_cf_gemini_type = "not_tried";
+  let async_error: string | undefined;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    async_context_ok = true;
+    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
+    async_cf_gemini_type =
+      v === undefined ? "undefined" : v === null ? "null" : typeof v;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    async_error = msg.replace(/\s+/g, " ").slice(0, 220);
+  }
+
+  let sync_context_ok = false;
+  let sync_cf_gemini_type = "not_tried";
+  let sync_error: string | undefined;
+  try {
+    const { env } = getCloudflareContext({ async: false });
+    sync_context_ok = true;
+    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
+    sync_cf_gemini_type =
+      v === undefined ? "undefined" : v === null ? "null" : typeof v;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    sync_error = msg.replace(/\s+/g, " ").slice(0, 220);
+  }
+
+  return {
+    process_env_key_nonempty,
+    async_context_ok,
+    async_cf_gemini_type,
+    async_error,
+    sync_context_ok,
+    sync_cf_gemini_type,
+    sync_error,
+  };
+}
+
 export async function resolveGeminiApiKey(): Promise<string | undefined> {
   const fromProcess = process.env["GEMINI_API_KEY"]?.trim();
   if (fromProcess) return fromProcess;
   try {
     const { env } = await getCloudflareContext({ async: true });
-    const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
-    return typeof v === "string" && v.trim() ? v.trim() : undefined;
+    const key = bindingFromEnv(env as Record<string, unknown>);
+    if (key) return key;
+  } catch {
+    /* try sync below */
+  }
+  try {
+    const { env } = getCloudflareContext({ async: false });
+    return bindingFromEnv(env as Record<string, unknown>);
   } catch {
     return undefined;
   }

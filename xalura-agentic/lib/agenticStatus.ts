@@ -3,7 +3,11 @@ import { loadCycleState } from "../engine/cycleStateStore";
 import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
 import { getAgenticRoot } from "./paths";
-import { isGeminiConfigured } from "./gemini";
+import {
+  getGeminiEnvDiagnostics,
+  isGeminiConfigured,
+  type GeminiEnvDiagnostics,
+} from "./gemini";
 
 export type AgenticHealthPayload = {
   ok: true;
@@ -19,6 +23,8 @@ export type AgenticHealthPayload = {
   event_queue_length: number;
   failed_operations: number;
   last_failed?: { ts: string; kind: string; message: string };
+  /** Present only when `?debug=` matches `AGENTIC_HEALTH_DEBUG_TOKEN` (no secrets). */
+  gemini_env_debug?: GeminiEnvDiagnostics;
 };
 
 /**
@@ -26,6 +32,7 @@ export type AgenticHealthPayload = {
  */
 export async function getAgenticHealth(
   cwd: string = process.cwd(),
+  options?: { includeGeminiDebug?: boolean },
 ): Promise<AgenticHealthPayload> {
   let departments: AgenticHealthPayload["departments"] = null;
   try {
@@ -56,7 +63,7 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
-  return {
+  const base: AgenticHealthPayload = {
     ok: true,
     phase: AGENTIC_IMPLEMENTATION_PHASE,
     gemini_configured: await isGeminiConfigured(),
@@ -69,4 +76,10 @@ export async function getAgenticHealth(
       ? { ts: last.ts, kind: last.kind, message: last.message }
       : undefined,
   };
+
+  if (options?.includeGeminiDebug) {
+    base.gemini_env_debug = await getGeminiEnvDiagnostics();
+  }
+
+  return base;
 }
