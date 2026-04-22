@@ -18,17 +18,22 @@ export type RunAgentParams = {
   cycleLog?: string;
 };
 
+/** Bracket form so OpenNext/Next does not inline `undefined` at build when key is runtime-only (e.g. Cloudflare). */
+function geminiApiKey(): string | undefined {
+  return process.env["GEMINI_API_KEY"]?.trim();
+}
+
 export function isGeminiConfigured(): boolean {
-  return !!process.env.GEMINI_API_KEY?.trim();
+  return !!geminiApiKey();
 }
 
 function geminiTimeoutMs(): number {
-  const n = Number(process.env.AGENTIC_GEMINI_TIMEOUT_MS);
+  const n = Number(process.env["AGENTIC_GEMINI_TIMEOUT_MS"]);
   return Number.isFinite(n) && n > 0 ? n : 60_000;
 }
 
 function geminiRetryCount(): number {
-  const n = Number(process.env.AGENTIC_GEMINI_RETRIES);
+  const n = Number(process.env["AGENTIC_GEMINI_RETRIES"]);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
@@ -87,9 +92,10 @@ function runAgentStub(params: RunAgentParams): string {
 
 async function runGeminiLive(params: RunAgentParams): Promise<string> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
-  const key = process.env.GEMINI_API_KEY!.trim();
+  const key = geminiApiKey();
+  if (!key) throw new Error("GEMINI_API_KEY missing");
   const modelName =
-    process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+    process.env["GEMINI_MODEL"]?.trim() || "gemini-2.0-flash";
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: modelName });
   const prompt = buildPrompt(params);
