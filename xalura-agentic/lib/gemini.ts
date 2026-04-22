@@ -9,6 +9,7 @@
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { appendFailedOperation } from "./failedQueue";
+import { resolveWorkerEnv } from "./resolveWorkerEnv";
 import { withRetries, withTimeout } from "./watchdog";
 
 /**
@@ -16,11 +17,6 @@ import { withRetries, withTimeout } from "./watchdog";
  * Sync `getCloudflareContext()` often throws outside that scope; async mode resolves
  * the platform context reliably inside App Router handlers.
  */
-function bindingFromEnv(env: Record<string, unknown>): string | undefined {
-  const v = env["GEMINI_API_KEY"];
-  return typeof v === "string" && v.trim() ? v.trim() : undefined;
-}
-
 /** Safe booleans only — for token-gated `/api/agentic-health?debug=…`. */
 export type GeminiEnvDiagnostics = {
   process_env_key_nonempty: boolean;
@@ -74,21 +70,7 @@ export async function getGeminiEnvDiagnostics(): Promise<GeminiEnvDiagnostics> {
 }
 
 export async function resolveGeminiApiKey(): Promise<string | undefined> {
-  const fromProcess = process.env["GEMINI_API_KEY"]?.trim();
-  if (fromProcess) return fromProcess;
-  try {
-    const { env } = await getCloudflareContext({ async: true });
-    const key = bindingFromEnv(env as Record<string, unknown>);
-    if (key) return key;
-  } catch {
-    /* try sync below */
-  }
-  try {
-    const { env } = getCloudflareContext({ async: false });
-    return bindingFromEnv(env as Record<string, unknown>);
-  } catch {
-    return undefined;
-  }
+  return resolveWorkerEnv("GEMINI_API_KEY");
 }
 
 export type RunAgentParams = {

@@ -10,6 +10,6 @@ Architecture for the PDF spec: Worker → Manager → Executive → Chief AI, ma
 - **Phase 5:** **`shared/event-queue.log`** (append-only, gitignored) + **`lib/handoff.ts`** — SEO emits `KEYWORD_READY`; Publishing needs it (or `skipUpstreamCheck`); Publishing emits `ARTICLE_PUBLISHED`; Marketing needs it (or `skipUpstreamCheck`). Try `npm run agentic:handoff-demo`.
 - **Smoke test:** `npm run agentic:verify` (fast checks — add `next build` / `agentic:cycle-demo` manually when needed).
 - **Phase 6:** `withTimeout` / `withRetries` around live Gemini; failures append **`failed/operations-queue.json`** then fall back to stubs. Tune **`AGENTIC_GEMINI_TIMEOUT_MS`**, **`AGENTIC_GEMINI_RETRIES`**. Health: **`GET /api/agentic-health`**, CLI **`npm run agentic:status`**.
-- **More APIs:** Resend, Serper, etc. — Phase 7 per the log.
+- **Phase 7:** **`lib/phase7Clients.ts`** — Resend (`sendResendEmail`), Firecrawl (`firecrawlScrape`), Zernio (`zernioListProfiles`), Google Search Console (`gscSearchAnalyticsQuery`). Health JSON includes **`phase7`** booleans. Env: see **`.env.local.example`**.
 
 **Note:** `cycle-1..10.md` are **overwritten** each new window after an audit (same filenames as the PDF). Archive externally if you need history.

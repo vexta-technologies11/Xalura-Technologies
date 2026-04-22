@@ -2,23 +2,23 @@
 
 **Purpose:** Single place to record what is **implemented** vs **not done** for the agentic engine (Worker → Manager → Executive → Chief AI, 10-cycle audits, markdown logs). **Update this file when a phase ships** so Cursor / humans don’t assume features exist.
 
-**Spec source:** `XALURA_AGENTIC_WORKFLOW_md.pdf` (local download). Optional third-party APIs beyond Gemini are **out of scope** until Phase 7 unless listed below.
+**Spec source:** `XALURA_AGENTIC_WORKFLOW_md.pdf` (local download). Optional third-party APIs beyond Gemini live in **`lib/phase7Clients.ts`** (Phase 7); pipeline hooks into departments are still optional.
 
-**Last updated:** 2026-04-21 (Phase 6 + Phase 7 backlog noted)
+**Last updated:** 2026-04-19 (Phase 7 clients + health flags)
 
 ---
 
-## Phase 7 — API backlog (deferred — pick up after other project)
+## Phase 7 — External HTTP clients (wired)
 
-**Status:** Credentials / accounts may exist, but **no code wiring yet** except **Gemini** (`lib/gemini.ts`). Work on this repo pauses here until we return from **another project** — then implement Phase 7 in priority order.
+**Status:** **`xalura-agentic/lib/phase7Clients.ts`** exposes typed helpers; **`GET /api/agentic-health`** includes **`phase7`** (`resend`, `firecrawl`, `zernio`, `google_search_console`) when keys/bindings are set. Pipelines still call **Gemini** only for LLM text — wire Resend/Firecrawl/Zernio/GSC into department flows as needed.
 
-| Integration | Intended use (when wired) | Env (typical) |
-|-------------|---------------------------|---------------|
-| **Gemini** | Worker / Manager / Executive / Chief | `GEMINI_API_KEY`, `GEMINI_MODEL` — **already integrated** |
-| **Resend** | Email alerts, chief daily report, failure digests | `RESEND_API_KEY` |
-| **Firecrawl** | Crawl/clean URLs for SEO / research context | `FIRECRAWL_API_KEY` |
-| **[Zernio](https://zernio.com/)** | Marketing: multi-platform social post after approved campaign | `ZERNIO_API_KEY` (Bearer) |
-| **Google Search Console API** | SEO: real query/page performance (OAuth + API project) | e.g. `GOOGLE_SC_CLIENT_ID`, `GOOGLE_SC_SECRET`, tokens as designed |
+| Integration | Code | Env (typical) |
+|-------------|------|---------------|
+| **Gemini** | `lib/gemini.ts` | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| **Resend** | `sendResendEmail` | `RESEND_API_KEY`, optional `RESEND_FROM` |
+| **Firecrawl** | `firecrawlScrape` | `FIRECRAWL_API_KEY`, optional `FIRECRAWL_BASE_URL` |
+| **[Zernio](https://zernio.com/)** | `zernioListProfiles` | `ZERNIO_API_KEY`, optional `ZERNIO_API_BASE` |
+| **Google Search Console** | `gscSearchAnalyticsQuery` | `GOOGLE_SC_CLIENT_ID`, `GOOGLE_SC_SECRET`, `GOOGLE_SC_REFRESH_TOKEN`, `GOOGLE_SC_SITE_URL` |
 
 **Explicitly out:** Ghost, Open edX — content stays **on-site**; courses built with **our own AI**, not external LMS publishers.
 
@@ -68,7 +68,9 @@
 | Handoff chain demo | `npm run agentic:handoff-demo` |
 | **Watchdog (Phase 6)** | `xalura-agentic/lib/watchdog.ts` (`withTimeout`, `withRetries`) |
 | **Failed queue** | `xalura-agentic/lib/failedQueue.ts` → `failed/operations-queue.json` (gitignored) |
-| **Health payload** | `xalura-agentic/lib/agenticStatus.ts` (`getAgenticHealth`) |
+| **Health payload** | `xalura-agentic/lib/agenticStatus.ts` (`getAgenticHealth`) — includes **`phase7`** |
+| **Phase 7 HTTP** | `xalura-agentic/lib/phase7Clients.ts` |
+| **Worker env read** | `xalura-agentic/lib/resolveWorkerEnv.ts` (shared with Gemini) |
 | HTTP health | `GET /api/agentic-health` |
 | CLI status | `npm run agentic:status` |
 
@@ -121,10 +123,11 @@
 - [x] Failed queue — `failed/operations-queue.json` (last 200 entries, gitignored)
 - [x] Health — **`GET /api/agentic-health`** (Next) and **`npm run agentic:status`** (CLI JSON)
 
-### Phase 7 — External APIs (later)
+### Phase 7 — External APIs
 
 - [x] `GEMINI_API_KEY` — wired in `lib/gemini.ts` when set
-- [ ] **Deferred:** Resend, Firecrawl, Zernio, Google Search Console — see **Phase 7 — API backlog** above; implement when returning from other project
+- [x] **HTTP clients** — `lib/phase7Clients.ts` (Resend, Firecrawl, Zernio, GSC Search Analytics); health **`phase7`** flags; `lib/resolveWorkerEnv.ts` for Worker `env`
+- [ ] **Pipeline hooks** — call clients from department / chief flows (optional)
 - [ ] ~~Ghost / Open edX~~ — **not used** (on-site + own AI for courses)
 
 ---
@@ -141,6 +144,7 @@
 | 2026-04-21 | **Audit:** tsc, lint, build, all agentic scripts green. **Phase 5:** `eventQueue`, `handoff.ts`, `npm run agentic:handoff-demo`, `npm run agentic:verify`, `AGENTIC_IMPLEMENTATION_PHASE = 5`. |
 | 2026-04-21 | **Phase 6:** `watchdog`, `failedQueue`, resilient `gemini.ts`, `/api/agentic-health`, `npm run agentic:status`, `AGENTIC_IMPLEMENTATION_PHASE = 6`. |
 | 2026-04-21 | **Phase 7 backlog documented** (Resend, Firecrawl, Zernio, GSC; no Ghost/edX). Pausing API wiring until another project is done. |
+| 2026-04-19 | **Phase 7:** `phase7Clients.ts`, `resolveWorkerEnv.ts`, health `phase7`, `AGENTIC_IMPLEMENTATION_PHASE = 7`. |
 
 ---
 

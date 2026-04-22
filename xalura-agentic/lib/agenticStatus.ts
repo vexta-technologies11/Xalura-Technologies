@@ -8,11 +8,14 @@ import {
   isGeminiConfigured,
   type GeminiEnvDiagnostics,
 } from "./gemini";
+import { getPhase7Configured, type Phase7Configured } from "./phase7Clients";
 
 export type AgenticHealthPayload = {
   ok: true;
   phase: number;
   gemini_configured: boolean;
+  /** Phase 7 — which optional API keys/bindings are present (no values). */
+  phase7: Phase7Configured;
   uptime_hint: "next_route";
   agentic_root: string;
   departments: {
@@ -63,10 +66,16 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
+  const [gemini_configured, phase7] = await Promise.all([
+    isGeminiConfigured(),
+    getPhase7Configured(),
+  ]);
+
   const base: AgenticHealthPayload = {
     ok: true,
     phase: AGENTIC_IMPLEMENTATION_PHASE,
-    gemini_configured: await isGeminiConfigured(),
+    gemini_configured,
+    phase7,
     uptime_hint: "next_route",
     agentic_root: getAgenticRoot(cwd),
     departments,
