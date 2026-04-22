@@ -11,10 +11,16 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { appendFailedOperation } from "./failedQueue";
 import { withRetries, withTimeout } from "./watchdog";
 
-/** Worker bindings sometimes carry secrets that are not on `process.env` in production. */
-function geminiKeyFromCloudflareEnv(): string | undefined {
+/**
+ * OpenNext inlines `NEXT_RUNTIME=nodejs` and wires CF `env` via AsyncLocalStorage.
+ * Sync `getCloudflareContext()` often throws outside that scope; async mode resolves
+ * the platform context reliably inside App Router handlers.
+ */
+export async function resolveGeminiApiKey(): Promise<string | undefined> {
+  const fromProcess = process.env["GEMINI_API_KEY"]?.trim();
+  if (fromProcess) return fromProcess;
   try {
-    const { env } = getCloudflareContext({ async: false });
+    const { env } = await getCloudflareContext({ async: true });
     const v = (env as Record<string, unknown>)["GEMINI_API_KEY"];
     return typeof v === "string" && v.trim() ? v.trim() : undefined;
   } catch {
@@ -30,15 +36,8 @@ export type RunAgentParams = {
   cycleLog?: string;
 };
 
-/** Bracket form so OpenNext/Next does not inline `undefined` at build when key is runtime-only (e.g. Cloudflare). */
-function geminiApiKey(): string | undefined {
-  return (
-    process.env["GEMINI_API_KEY"]?.trim() || geminiKeyFromCloudflareEnv()
-  );
-}
-
-export function isGeminiConfigured(): boolean {
-  return !!geminiApiKey();
+export async function isGeminiConfigured(): Promise<boolean> {
+  return !!(await resolveGeminiApiKey());
 }
 
 function geminiTimeoutMs(): number {
@@ -104,9 +103,12 @@ function runAgentStub(params: RunAgentParams): string {
   ].join("\n");
 }
 
-async function runGeminiLive(params: RunAgentParams): Promise<string> {
+async function runGeminiLive(
+  apiKey: string,
+  params: RunAgentParams,
+): Promise<string> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
-  const key = geminiApiKey();
+  const key = apiKey;
   if (!key) throw new Error("GEMINI_API_KEY missing");
   const modelName =
     process.env["GEMINI_MODEL"]?.trim() || "gemini-2.0-flash";
@@ -121,22 +123,26 @@ async function runGeminiLive(params: RunAgentParams): Promise<string> {
   return text;
 }
 
-async function runGeminiLiveResilient(params: RunAgentParams): Promise<string> {
+async function runGeminiLiveResilient(
+  apiKey: string,
+  params: RunAgentParams,
+): Promise<string> {
   const ms = geminiTimeoutMs();
   const attempts = geminiRetryCount();
   return withRetries(
     () =>
       withTimeout(ms, `Gemini|${params.role}|${params.department}`, () =>
-        runGeminiLive(params),
+        runGeminiLive(apiKey, params),
       ),
     { maxAttempts: attempts, label: "gemini" },
   );
 }
 
 export async function runAgent(params: RunAgentParams): Promise<string> {
-  if (isGeminiConfigured()) {
+  const apiKey = await resolveGeminiApiKey();
+  if (apiKey) {
     try {
-      return await runGeminiLiveResilient(params);
+      return await runGeminiLiveResilient(apiKey, params);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`[xalura-agentic] Gemini failed after retries (${msg}) — stub + failed queue.`);

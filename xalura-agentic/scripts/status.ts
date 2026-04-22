@@ -4,4 +4,11 @@
  */
 import { getAgenticHealth } from "../lib/agenticStatus";
 
-console.log(JSON.stringify(getAgenticHealth(process.cwd()), null, 2));
+getAgenticHealth(process.cwd())
+  .then((payload) => {
+    console.log(JSON.stringify(payload, null, 2));
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  });

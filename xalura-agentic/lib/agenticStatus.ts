@@ -24,7 +24,9 @@ export type AgenticHealthPayload = {
 /**
  * Read-only snapshot for `/api/agentic-health` and `npm run agentic:status`.
  */
-export function getAgenticHealth(cwd: string = process.cwd()): AgenticHealthPayload {
+export async function getAgenticHealth(
+  cwd: string = process.cwd(),
+): Promise<AgenticHealthPayload> {
   let departments: AgenticHealthPayload["departments"] = null;
   try {
     const st = loadCycleState(cwd);
@@ -57,7 +59,7 @@ export function getAgenticHealth(cwd: string = process.cwd()): AgenticHealthPayl
   return {
     ok: true,
     phase: AGENTIC_IMPLEMENTATION_PHASE,
-    gemini_configured: isGeminiConfigured(),
+    gemini_configured: await isGeminiConfigured(),
     uptime_hint: "next_route",
     agentic_root: getAgenticRoot(cwd),
     departments,
