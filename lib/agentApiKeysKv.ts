@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/agentKv";
 
 export type AgentApiKeyRecord = {
   employee_id: string;

@@ -18,8 +18,15 @@ export function extractIngestBearerToken(request: Request): string | null {
   return alt?.trim() || null;
 }
 
+/**
+ * Shared password GearMedic sends as `Authorization: Bearer …`.
+ * Pick any string you like (e.g. `abs123`) — same value in `.env` / hosting env and in GearMedic.
+ * Several env names work; `INGEST_PASSWORD` is the simplest to remember.
+ */
 export function getSharedIngestSecret(): string {
   return (
+    process.env.INGEST_PASSWORD?.trim() ||
+    process.env.GEARMEDIC_PASSWORD?.trim() ||
     process.env.AGENT_INGEST_SECRET?.trim() ||
     process.env.XALURA_INGEST_TOKEN?.trim() ||
     process.env.XALURA_AGENT_BEARER?.trim() ||
@@ -44,12 +51,12 @@ export function isAgentUpdateAcceptAny(): boolean {
   return process.env.AGENT_UPDATE_ACCEPT_ANY === "true";
 }
 
-/** Server-only hint for admins: never exposes full secret. */
+/** Server-only hint for admins: never exposes the full password. */
 export type IngestSecretFingerprint = {
   configured: boolean;
   length: number | null;
   suffix: string | null;
-  /** True if secret is short — recommend 32+ random chars. */
+  /** True if the password is short (OK for personal / test sites). */
   weak: boolean;
 };
 

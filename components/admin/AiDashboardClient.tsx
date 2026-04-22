@@ -171,11 +171,10 @@ export function AiDashboardClient({
             AI Dashboard Manager
           </h1>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            Pending updates can arrive for any <code>agent_id</code> when you use{" "}
-            <code>AGENT_INGEST_SECRET</code>. Ingest is stored in{" "}
-            <strong>Vercel KV</strong> (not Supabase). Approve to register a new name in
-            the team directory (Supabase <code>employees</code>) and publish to the public
-            dashboard.
+            GearMedic sends a <strong>password</strong> you choose (<code>INGEST_PASSWORD</code> or{" "}
+            <code>AGENT_INGEST_SECRET</code> in env — same string as{" "}
+            <code>Authorization: Bearer …</code>). Ingest is stored in <strong>KV</strong>. Approve
+            here to register a new name in the team directory and show it on the public dashboard.
           </p>
         </div>
         <div className="admin-toolbar-actions">
@@ -342,7 +341,7 @@ export function AiDashboardClient({
             <p style={{ color: "#64748b", fontSize: "0.9375rem" }}>
               No pending updates. POST to{" "}
               <code style={{ fontSize: "0.85em" }}>/api/agent-update</code> with
-              Bearer <code>AGENT_INGEST_SECRET</code> or a per-agent key.
+              Bearer <code>INGEST_PASSWORD</code> (same string as in env) or a per-agent key.
             </p>
           ) : (
             pending.map((u) => (

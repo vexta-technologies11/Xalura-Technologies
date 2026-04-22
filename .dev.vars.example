@@ -1,0 +1,3 @@
+# Copy to .dev.vars for `npm run cf:preview` (local Workers runtime).
+# Add the same keys as .env.local for Supabase, etc.
+NEXTJS_ENV=development

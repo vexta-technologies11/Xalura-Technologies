@@ -1,0 +1,21 @@
+{
+  "note": "Assign names after deployment. Leave empty to keep unnamed.",
+  "departments": {
+    "marketing": {
+      "worker": { "name": "" },
+      "manager": { "name": "" },
+      "executive": { "name": "" }
+    },
+    "publishing": {
+      "worker": { "name": "Mochi" },
+      "manager": { "name": "" },
+      "executive": { "name": "" }
+    },
+    "seo": {
+      "worker": { "name": "Mary Bernadett" },
+      "manager": { "name": "" },
+      "executive": { "name": "" }
+    }
+  },
+  "chiefAI": { "name": "" }
+}

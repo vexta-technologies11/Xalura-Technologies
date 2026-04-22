@@ -33,15 +33,15 @@ export async function GET(request: Request) {
       return "TEST MODE: AGENT_UPDATE_ACCEPT_ANY=true — wrong/missing Bearer can still insert pending rows. Disable after testing.";
     }
     if (!ingestLocked) {
-      return "Bootstrap: POST without Bearer allowed until first approve/decline in Admin → AI Dashboard. Then use AGENT_INGEST_SECRET.";
+      return "Bootstrap: POST without Bearer allowed until first approve/decline in Admin → AI Dashboard. Then use INGEST_PASSWORD (or AGENT_INGEST_SECRET).";
     }
     if (openIngest) {
       return "DANGER: AGENT_UPDATE_OPEN_INGEST=true — unauthenticated ingest enabled.";
     }
     if (sharedConfigured) {
-      return "POST JSON to post_url with Authorization: Bearer <AGENT_INGEST_SECRET> plus agent_id + activity_text.";
+      return "POST JSON to post_url with Authorization: Bearer <same as INGEST_PASSWORD or AGENT_INGEST_SECRET> plus agent_id + activity_text.";
     }
-    return "Set AGENT_INGEST_SECRET on Vercel and redeploy.";
+    return "Set INGEST_PASSWORD (or AGENT_INGEST_SECRET) in project env and redeploy.";
   })();
 
   return NextResponse.json({

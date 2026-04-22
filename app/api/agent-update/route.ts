@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Missing credentials: send Authorization: Bearer <token> or header X-Xalura-Ingest-Token (same value as AGENT_INGEST_SECRET in Vercel). Ingest locked after the first review in Admin — use the shared secret or an xal_ key.",
+          "Missing password: send header Authorization: Bearer <your password> (same value as INGEST_PASSWORD or AGENT_INGEST_SECRET on the server). After the first approve/decline in Admin, this is required unless you enable open-ingest test flags.",
       },
       { status: 401 },
     );
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               error:
-                "Ingest not configured: set AGENT_INGEST_SECRET (or XALURA_INGEST_TOKEN / XALURA_AGENT_BEARER) on this Vercel project and redeploy.",
+                "No shared password on the server: set INGEST_PASSWORD or AGENT_INGEST_SECRET in your project env and redeploy.",
             },
             { status: 401 },
           );
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
             {
               error: "Unknown xal_ key",
               detail:
-                "Bearer starts with xal_ but that key is not registered. Generate a new key in Admin → AI Dashboard → Settings (stored in Vercel KV, not Supabase).",
+                "Bearer starts with xal_ but that key is not registered. Generate one in Admin → AI Dashboard → Settings — or use shared INGEST_PASSWORD instead.",
             },
             { status: 401 },
           );
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "Invalid API key: token did not match AGENT_INGEST_SECRET / X-Xalura-Ingest-Token and is not a registered xal_ key.",
+              "Wrong password: Bearer did not match INGEST_PASSWORD / AGENT_INGEST_SECRET and is not a registered xal_ key.",
           },
           { status: 401 },
         );

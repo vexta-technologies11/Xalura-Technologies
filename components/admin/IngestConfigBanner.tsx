@@ -1,8 +1,8 @@
 import type { IngestSecretFingerprint } from "@/lib/ingestAuth";
 
 /**
- * Shows whether shared ingest is configured on **this deployment** (reads Vercel env server-side).
- * Lets you verify the same secret as GearMedic/.env without exposing the full token.
+ * Shows whether the shared ingest password is set on this deployment (server-side env).
+ * Shows length + last 4 chars so you can match GearMedic without exposing the full password.
  */
 export function IngestConfigBanner({
   fp,
@@ -25,10 +25,10 @@ export function IngestConfigBanner({
         Shared ingest (GearMedic / automations)
       </p>
       <p style={{ margin: "0 0 12px", fontSize: "0.9375rem", lineHeight: 1.6, color: "#0f172a" }}>
-        <strong>AGENT_INGEST_SECRET</strong> is only in{" "}
-        <strong>Vercel → Environment Variables</strong>. Agent POSTs are stored in{" "}
-        <strong>Vercel KV / Redis</strong> (not Supabase). Supabase is for human login and the
-        public team directory — not for GearMedic ingest.
+        <strong>One shared password</strong> for GearMedic: set env <code>INGEST_PASSWORD</code>{" "}
+        (or <code>AGENT_INGEST_SECRET</code>) in your hosting dashboard — same characters you paste
+        into GearMedic as <code>Authorization: Bearer …</code>. Agent POSTs use KV storage; Supabase
+        is only for admin login and the public team list.
       </p>
       {kvConfigured ? (
         <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#15803d" }}>
@@ -55,17 +55,17 @@ export function IngestConfigBanner({
             </li>
           </ul>
           {fp.weak ? (
-            <p style={{ margin: 0, fontSize: "0.8125rem", color: "#b45309" }}>
-              This secret is short. Prefer <code>openssl rand -hex 32</code> (64 hex chars) to avoid
-              typos and brute force.
+            <p style={{ margin: 0, fontSize: "0.8125rem", color: "#64748b" }}>
+              Short password is fine for a small or test site. Use a longer one if strangers can hit
+              your API.
             </p>
           ) : null}
         </>
       ) : (
         <p style={{ margin: 0, fontSize: "0.9375rem", color: "#b91c1c" }}>
-          <strong>Not configured on this deployment.</strong> Set{" "}
-          <code>AGENT_INGEST_SECRET</code> in Vercel and redeploy. Until then, only per-agent{" "}
-          <code>xal_…</code> keys work (with matching employee UUID in <code>agent_id</code>).
+          <strong>No shared password on this deployment.</strong> Add{" "}
+          <code>INGEST_PASSWORD=yourpassword</code> (or <code>AGENT_INGEST_SECRET</code>) in your
+          host env and redeploy. Until then, only optional per-agent <code>xal_…</code> keys work.
         </p>
       )}
       <p

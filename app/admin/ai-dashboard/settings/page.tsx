@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/agentKv";
 import { createClient } from "@/lib/supabase/server";
 import { AiSettingsClient } from "@/components/admin/AiSettingsClient";
 import { IngestConfigBanner } from "@/components/admin/IngestConfigBanner";

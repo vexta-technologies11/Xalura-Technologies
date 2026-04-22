@@ -41,11 +41,10 @@ export function AiSettingsClient({
             Agent API keys
           </h1>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            For GearMedic-style shared auth, use the <strong>blue box above</strong> (Vercel{" "}
-            <code>AGENT_INGEST_SECRET</code>) — not these keys. The table below is{" "}
-            <strong>optional per-employee</strong> <code>xal_…</code> keys: Bearer must be
-            that key; <code>agent_id</code> in JSON may be the employee <strong>UUID</strong> or{" "}
-            <strong>display name</strong> (e.g. Kimmy) matching this row.
+            Easiest path: one <strong>shared password</strong> in the blue box above (
+            <code>INGEST_PASSWORD</code> in env). The table below is <strong>optional</strong>{" "}
+            per-employee <code>xal_…</code> keys — Bearer is that key; <code>agent_id</code> must be
+            the employee <strong>UUID</strong> or <strong>display name</strong> for that row.
           </p>
         </div>
         <Link href="/admin/ai-dashboard" className="admin-btn admin-btn--secondary">

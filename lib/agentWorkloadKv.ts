@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/agentKv";
 import { isAgentKvConfigured } from "@/lib/agentKvConfig";
 import type { AgentWorkloadDayRow } from "@/types/agent-dashboard";
 

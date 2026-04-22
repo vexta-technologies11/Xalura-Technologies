@@ -8,10 +8,21 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "agentic:dry-run": "node xalura-agentic/scripts/dry-run.mjs",
+    "agentic:cycle-demo": "tsx xalura-agentic/scripts/cycle-demo.ts",
+    "agentic:publishing-demo": "tsx xalura-agentic/scripts/publishing-pipeline-demo.ts",
+    "agentic:all-departments-demo": "tsx xalura-agentic/scripts/all-departments-demo.ts",
+    "agentic:handoff-demo": "tsx xalura-agentic/scripts/handoff-chain-demo.ts",
+    "agentic:verify": "tsc --noEmit && npm run lint && npm run agentic:dry-run && npm run agentic:publishing-demo && npm run agentic:all-departments-demo",
+    "agentic:status": "tsx xalura-agentic/scripts/status.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "@vercel/kv": "^3.0.0",
@@ -22,6 +33,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.14.10",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -29,6 +41,8 @@
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "tsx": "^4.19.2",
+    "typescript": "^5",
+    "wrangler": "^4.84.1"
   }
 }
