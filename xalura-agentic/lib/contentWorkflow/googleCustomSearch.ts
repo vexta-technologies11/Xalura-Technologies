@@ -16,6 +16,34 @@ export type GoogleSearchResultItem = {
   snippet: string;
 };
 
+/** Full message + nested `errors[]` from Custom Search JSON API (no secrets). */
+export function formatGoogleCustomSearchError(
+  json: Record<string, unknown>,
+  httpStatus: number,
+): string {
+  const errObj = json["error"];
+  if (typeof errObj !== "object" || errObj === null) {
+    return `Google Custom Search HTTP ${httpStatus}`;
+  }
+  const o = errObj as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof o["message"] === "string") parts.push(o["message"]);
+  if (typeof o["status"] === "string") parts.push(`API status: ${o["status"]}`);
+  const errs = o["errors"];
+  if (Array.isArray(errs)) {
+    for (const row of errs) {
+      if (!row || typeof row !== "object") continue;
+      const e = row as Record<string, unknown>;
+      const line = [e["domain"], e["reason"], e["message"]]
+        .filter((x) => typeof x === "string")
+        .join(" | ");
+      if (line) parts.push(line);
+    }
+  }
+  const out = parts.join("\n").trim();
+  return (out || `Google Custom Search HTTP ${httpStatus}`).slice(0, 900);
+}
+
 /**
  * [Programmable Search Engine](https://developers.google.com/custom-search/v1/overview)
  * — env: `GOOGLE_CUSTOM_SEARCH_API_KEY` + `GOOGLE_CUSTOM_SEARCH_CX`, or
@@ -55,15 +83,7 @@ export async function googleCustomSearch(
   });
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    const errObj = json["error"];
-    const msg =
-      typeof errObj === "object" &&
-      errObj !== null &&
-      "message" in errObj &&
-      typeof (errObj as { message: string }).message === "string"
-        ? (errObj as { message: string }).message
-        : `Google Search HTTP ${res.status}`;
-    return { error: msg.slice(0, 500) };
+    return { error: formatGoogleCustomSearchError(json, res.status) };
   }
   const itemsRaw = Array.isArray(json["items"]) ? json["items"] : [];
   const items: GoogleSearchResultItem[] = [];
