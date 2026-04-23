@@ -72,6 +72,7 @@
 | **Phase 7 HTTP** | `xalura-agentic/lib/phase7Clients.ts` |
 | **Worker env read** | `xalura-agentic/lib/resolveWorkerEnv.ts` (`resolveWorkerEnv`, `resolveWorkerEnvWithTrace`; shared with Gemini) |
 | HTTP health | `GET /api/agentic-health` — `health_schema` (4+), `release_id`, `deploy_fingerprint`, `gemini_hints`, **`gemini_resolution`**, `phase7`; `?gemini_ping=1` adds **`gemini_live_ping`** (one real Gemini call); token debug adds `phase7_env_resolution`, `health_runtime`, `gemini_model_effective` |
+| HTTP run | `POST /api/agentic/run` — Bearer `AGENTIC_RUN_TOKEN` (or ingest secret); body `department`, `task`, optional `useHandoff`, **`publishToSite`** (Publishing → Supabase `articles`) |
 | CLI status | `npm run agentic:status` |
 
 ---

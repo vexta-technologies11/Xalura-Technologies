@@ -15,6 +15,11 @@ export type ArticlePublishedPayload = {
   url?: string;
 };
 
+export type AuditCompletePayload = {
+  department: string;
+  audit_file: string;
+};
+
 export type AgenticEvent =
   | {
       id: string;
@@ -33,6 +38,12 @@ export type AgenticEvent =
       ts: string;
       type: "WAITING";
       payload: { department: string; reason: string };
+    }
+  | {
+      id: string;
+      ts: string;
+      type: "AUDIT_COMPLETE";
+      payload: AuditCompletePayload;
     };
 
 export type AgenticEventType = AgenticEvent["type"];

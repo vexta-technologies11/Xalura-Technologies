@@ -19,8 +19,11 @@ async function main() {
     }
   } else if (res.status === "rejected") {
     console.log("Status: REJECTED", res.reason);
-  } else {
+  } else if (res.status === "error") {
     console.log("Status: ERROR", res.stage, res.message);
+  } else {
+    console.log("Status:", res.status);
+    console.log(JSON.stringify(res, null, 2));
   }
 }
 

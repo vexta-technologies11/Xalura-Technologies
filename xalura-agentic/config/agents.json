@@ -1,5 +1,5 @@
 {
-  "note": "Assign names after deployment. Leave empty to keep unnamed.",
+  "note": "Assign display names after deploy. Empty strings keep unnamed agents (PDF rule).",
   "departments": {
     "marketing": {
       "worker": { "name": "" },
@@ -7,12 +7,12 @@
       "executive": { "name": "" }
     },
     "publishing": {
-      "worker": { "name": "Mochi" },
+      "worker": { "name": "" },
       "manager": { "name": "" },
       "executive": { "name": "" }
     },
     "seo": {
-      "worker": { "name": "Mary Bernadett" },
+      "worker": { "name": "" },
       "manager": { "name": "" },
       "executive": { "name": "" }
     }
