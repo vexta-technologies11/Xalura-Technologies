@@ -3,6 +3,7 @@ import {
   extractMarkdownTitle,
   publishAgenticArticle,
 } from "@/lib/agenticArticlePublish";
+import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
 import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
@@ -56,7 +57,7 @@ function isDeptId(s: string): s is DepartmentId {
  * - `keyword`: optional
  * - `useHandoff`: optional — SEO/Publishing/Marketing chain gates (see `handoff.ts`)
  * - `skipUpstreamCheck`: optional — only with `useHandoff`, for local tests
- * - `publishToSite`: optional — **Publishing only**: upsert `articles` in Supabase (requires service role env)
+ * - `publishToSite`: optional — **Publishing only**: upsert `articles` in Supabase (requires service role env). Send `false` to opt out when `AGENTIC_AUTO_PUBLISH_TO_SITE=true`.
  * - `articleTitle`, `articleSlug`: optional overrides when publishing
  * - `skipChiefEnrich`: optional — skip live Chief append after a 10-cycle audit
  * - `referenceUrl`: optional — Firecrawl scrape into Worker context (any department)
@@ -104,7 +105,15 @@ export async function POST(request: Request) {
       : undefined;
   const useHandoff = body["useHandoff"] === true;
   const skipUpstreamCheck = body["skipUpstreamCheck"] === true;
-  const publishToSite = body["publishToSite"] === true;
+  const publishExplicit = body["publishToSite"];
+  const publishExplicitTrue = publishExplicit === true;
+  const publishExplicitFalse = publishExplicit === false;
+  const autoPublishToSite =
+    process.env["AGENTIC_AUTO_PUBLISH_TO_SITE"]?.trim().toLowerCase() === "true" &&
+    deptRaw === "publishing" &&
+    !useHandoff;
+  const publishToSite =
+    publishExplicitTrue || (!publishExplicitFalse && autoPublishToSite);
   const skipChiefEnrich = body["skipChiefEnrich"] === true;
   const referenceUrl =
     typeof body["referenceUrl"] === "string" && body["referenceUrl"].trim()
@@ -259,10 +268,25 @@ export async function POST(request: Request) {
       subcategory: contentSubcategory,
     });
 
+    const zernio = await sharePublishedArticleToZernio({
+      title,
+      articlePath: `/articles/${pub.slug}`,
+    });
+
     return NextResponse.json(
       {
         ...base,
-        publish: { ok: true as const, slug: pub.slug, path: `/articles/${pub.slug}` },
+        publish: {
+          ok: true as const,
+          slug: pub.slug,
+          path: `/articles/${pub.slug}`,
+          zernio:
+            "skipped" in zernio
+              ? { skipped: true, reason: zernio.reason }
+              : zernio.ok
+                ? { ok: true as const, status: zernio.status }
+                : { ok: false as const, error: zernio.error },
+        },
       },
       { status: 200 },
     );

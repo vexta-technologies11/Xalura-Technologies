@@ -147,6 +147,56 @@ export async function zernioListProfiles(): Promise<{
   return { profiles };
 }
 
+export type ZernioPlatformTarget = {
+  platform: string;
+  accountId: string;
+};
+
+/**
+ * Create a Zernio post — see https://docs.zernio.com/posts/create-post
+ * Use `queuedFromProfile` **or** `platforms` + `publishNow` per your account setup.
+ */
+export async function zernioCreatePost(input: {
+  title?: string;
+  content: string;
+  publishNow?: boolean;
+  isDraft?: boolean;
+  queuedFromProfile?: string;
+  platforms?: ZernioPlatformTarget[];
+}): Promise<{ ok: true; status: number; body: unknown } | { ok: false; error: string }> {
+  const key = await resolveWorkerEnv("ZERNIO_API_KEY");
+  if (!key) return { ok: false, error: "ZERNIO_API_KEY not set" };
+  const base =
+    (await resolveWorkerEnv("ZERNIO_API_BASE"))?.replace(/\/$/, "") ||
+    ZERNIO_DEFAULT;
+  const payload: Record<string, unknown> = {
+    content: input.content,
+  };
+  if (input.title !== undefined) payload["title"] = input.title;
+  if (input.publishNow !== undefined) payload["publishNow"] = input.publishNow;
+  if (input.isDraft !== undefined) payload["isDraft"] = input.isDraft;
+  if (input.queuedFromProfile) payload["queuedFromProfile"] = input.queuedFromProfile;
+  if (input.platforms?.length) payload["platforms"] = input.platforms;
+
+  const res = await fetch(`${base}/v1/posts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const err =
+      typeof json["error"] === "string"
+        ? json["error"]
+        : `Zernio posts HTTP ${res.status}`;
+    return { ok: false, error: err.slice(0, 500) };
+  }
+  return { ok: true, status: res.status, body: json };
+}
+
 type GscTokenBundle = {
   access_token: string;
   expires_in?: number;
