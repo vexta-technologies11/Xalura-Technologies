@@ -42,7 +42,17 @@ export async function googleCustomSearch(
   u.searchParams.set("cx", cx);
   u.searchParams.set("q", query);
   u.searchParams.set("num", String(Math.min(Math.max(num, 1), 10)));
-  const res = await fetch(u.toString());
+  const referer =
+    (await resolveWorkerEnv("GOOGLE_CUSTOM_SEARCH_HTTP_REFERER"))?.trim() ||
+    (await resolveWorkerEnv("AGENTIC_PUBLIC_BASE_URL"))?.trim() ||
+    (await resolveWorkerEnv("NEXT_PUBLIC_SITE_URL"))?.trim();
+  const headers: Record<string, string> = {};
+  if (referer) {
+    headers["Referer"] = referer.replace(/\/$/, "");
+  }
+  const res = await fetch(u.toString(), {
+    headers: Object.keys(headers).length ? headers : undefined,
+  });
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     const errObj = json["error"];
