@@ -481,10 +481,10 @@ export function AgentOrgChart({
         <div>
           <h2 className="agent-org-title">Agent command tree</h2>
           <p className="agent-org-sub">
-            Same look as your org chart: Chief AI at the top, then executives, directors, then
-            workers. Drag people between rows to move them. Live glow follows KV traffic: new
-            ingest → worker tier, approve → manager then executive flash. Photos and labels save in
-            this browser only.
+            Chief → executives → directors → workers. Drag between tiers. Gold/cyan glow on nodes
+            follows KV traffic (ingest → worker, approve → manager → executive). Names and titles
+            save in this browser only. Use the live rail above for department Worker / Manager /
+            Executive lines tied to the agentic event log.
           </p>
         </div>
         <button

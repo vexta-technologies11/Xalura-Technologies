@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { TrafficEvent } from "@/lib/agentUpdatesStore";
 import type { AgentUpdateRow } from "@/types/agent-dashboard";
+import { AgenticHierarchyLive } from "@/components/admin/AgenticHierarchyLive";
 import { AgenticPublishBar } from "@/components/admin/AgenticPublishBar";
 import { AgentOrgChart } from "@/components/admin/AgentOrgChart";
 import "./agent-org-chart.css";
@@ -48,6 +49,7 @@ export function AiDashboardClient({
         API keys
       </Link>
       <AgenticPublishBar />
+      <AgenticHierarchyLive />
       <AgentOrgChart employees={employees} updates={updates} traffic={traffic} />
     </div>
   );
