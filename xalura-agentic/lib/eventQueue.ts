@@ -7,6 +7,10 @@ const FILE = "event-queue.log";
 export type KeywordReadyPayload = {
   bundle_id: string;
   keywords: string[];
+  /** From topic bank when SEO ran with `useTopicBank`. */
+  content_type?: "article" | "course";
+  subcategory?: string;
+  source_urls?: string[];
 };
 
 export type ArticlePublishedPayload = {
@@ -18,6 +22,11 @@ export type ArticlePublishedPayload = {
 export type AuditCompletePayload = {
   department: string;
   audit_file: string;
+};
+
+export type TopicBankRefreshedPayload = {
+  topic_count: number;
+  crawl_count: number;
 };
 
 export type AgenticEvent =
@@ -44,6 +53,12 @@ export type AgenticEvent =
       ts: string;
       type: "AUDIT_COMPLETE";
       payload: AuditCompletePayload;
+    }
+  | {
+      id: string;
+      ts: string;
+      type: "TOPIC_BANK_REFRESHED";
+      payload: TopicBankRefreshedPayload;
     };
 
 export type AgenticEventType = AgenticEvent["type"];

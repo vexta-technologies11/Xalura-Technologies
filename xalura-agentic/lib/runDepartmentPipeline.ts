@@ -9,6 +9,13 @@ import type { DepartmentId } from "../engine/departments";
 import { executiveDisplayName } from "./agentNames";
 import { enrichAuditWithChief } from "./chiefEnrichAudit";
 import { parseManagerDecision } from "./managerDecision";
+import { bumpArticleCompleted } from "./contentWorkflow/dailyProductionStore";
+import { buildPublishingDailyBriefPrefix } from "./contentWorkflow/publishingBrief";
+import type { TopicBankEntry } from "./contentWorkflow/types";
+import { getNextTopic } from "./contentWorkflow/topicBank";
+import { recordSubcategoryUsed } from "./contentWorkflow/topicRotationStore";
+import { zernioListProfiles } from "./phase7Clients";
+import { buildPhase7WorkerContext } from "./phase7PipelineContext";
 
 const MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
@@ -23,6 +30,30 @@ export type DepartmentPipelineInput = {
   skipChiefEnrich?: boolean;
   /** Handoff wrappers only — skip KEYWORD_READY / ARTICLE_PUBLISHED gates (local tests). */
   skipUpstreamCheck?: boolean;
+  /** Optional page to scrape (Firecrawl) for Worker context — SEO, Publishing, or Marketing. */
+  referenceUrl?: string;
+  /** Skip Firecrawl / GSC fetches (faster tests). */
+  skipPhase7Fetch?: boolean;
+  /** SEO: pull next keyword from topic bank (Google Search + Firecrawl + Gemini rank). */
+  useTopicBank?: boolean;
+  /** SEO: bypass crawl cooldown and refresh bank (still respects crawl logic unless combined with bank rules). */
+  forceTopicBankRefresh?: boolean;
+  /** SEO: when APIs missing, seed a one-topic stub bank (local dev only). */
+  allowStubFallback?: boolean;
+  /** Publishing: prepend daily production brief to Worker task. */
+  useDailyPublishingBrief?: boolean;
+  /** Publishing: increment `state/daily-production.json` on approve. */
+  useDailyProductionTracker?: boolean;
+  /** Publishing: record subcategory for rotation file after approve. */
+  contentSubcategory?: string;
+};
+
+export type ContentWorkflowHandoff = {
+  topic_bank: true;
+  keyword: string;
+  content_type: "article" | "course";
+  subcategory: string;
+  source_urls: string[];
 };
 
 export type DepartmentPipelineResult =
@@ -33,6 +64,12 @@ export type DepartmentPipelineResult =
       executiveSummary: string;
       cycle: RecordApprovalResult;
       managerAttempts: number;
+      phase7?: {
+        zernio:
+          | { ok: true; profileCount: number }
+          | { ok: false; error: string };
+      };
+      contentWorkflow?: ContentWorkflowHandoff;
     }
   | {
       status: "rejected";
@@ -58,7 +95,8 @@ export type DepartmentPipelineResult =
       managerOutputs: string[];
       executiveEscalation: string;
       reason: string;
-    };
+    }
+  | { status: "blocked"; reason: string };
 
 async function guardStep<T>(
   fn: () => Promise<T>,
@@ -103,6 +141,38 @@ export async function runDepartmentPipeline(
     input.executiveName?.trim() ||
     executiveDisplayName(departmentId, cwd);
 
+  let effectiveTask = input.task;
+  let effectiveKeyword = input.keyword;
+  let activeContentTopic: TopicBankEntry | undefined;
+
+  if (departmentId === "seo" && input.useTopicBank) {
+    const gate = await getNextTopic(cwd, {
+      forceRefresh: input.forceTopicBankRefresh === true,
+      allowStubFallback: input.allowStubFallback === true,
+    });
+    if (!gate.ok) {
+      return { status: "blocked", reason: gate.reason };
+    }
+    activeContentTopic = gate.topic;
+    effectiveKeyword = gate.topic.keyword;
+    effectiveTask = [
+      `You are executing a **topic from the Xalura topic bank** (content workflow). Domain: **tech and AI only**; reject off-topic ideas.`,
+      ``,
+      `- Primary keyword: **${gate.topic.keyword}**`,
+      `- Subcategory: ${gate.topic.subcategory}`,
+      `- Planned content type: **${gate.topic.content_type}**`,
+      `- Supporting keywords: ${gate.topic.supporting_keywords.join(", ") || "(none)"}`,
+      `- Source URLs (reference): ${gate.topic.source_urls.join("\n") || "(none)"}`,
+      ``,
+      `## Department task`,
+      input.task,
+    ].join("\n");
+  }
+
+  if (departmentId === "publishing" && input.useDailyPublishingBrief) {
+    effectiveTask = buildPublishingDailyBriefPrefix(cwd) + effectiveTask;
+  }
+
   let escalationPhase = 0;
   let managerOutputs: string[] = [];
   let totalManagerAttempts = 0;
@@ -125,15 +195,47 @@ export async function runDepartmentPipeline(
 
       const workerTask =
         escalationPhase === 0 && attempt === 0
-          ? input.task
-          : `${input.task}${phaseHint}${revisionHint}`;
+          ? effectiveTask
+          : `${effectiveTask}${phaseHint}${revisionHint}`;
+
+      const phase7extras =
+        escalationPhase === 0 && attempt === 0
+          ? await buildPhase7WorkerContext({
+              departmentId,
+              referenceUrl: input.referenceUrl,
+              skipPhase7Fetch: input.skipPhase7Fetch,
+            })
+          : {};
+      const workerContextPieces: Record<string, unknown> = {};
+      if (effectiveKeyword) workerContextPieces.keyword = effectiveKeyword;
+      if (
+        activeContentTopic &&
+        departmentId === "seo" &&
+        escalationPhase === 0 &&
+        attempt === 0
+      ) {
+        workerContextPieces.content_topic = {
+          keyword: activeContentTopic.keyword,
+          subcategory: activeContentTopic.subcategory,
+          content_type: activeContentTopic.content_type,
+          supporting_keywords: activeContentTopic.supporting_keywords,
+          source_urls: activeContentTopic.source_urls,
+        };
+      }
+      if (escalationPhase === 0 && attempt === 0) {
+        Object.assign(workerContextPieces, phase7extras);
+      }
+      const workerContext =
+        Object.keys(workerContextPieces).length > 0
+          ? workerContextPieces
+          : undefined;
 
       const w = await guardStep(() =>
         runWorker({
           role: "Worker",
           department: DEPT,
           task: workerTask,
-          context: input.keyword ? { keyword: input.keyword } : undefined,
+          context: workerContext,
           cycleLog: input.cycleLog,
         }),
       );
@@ -183,9 +285,9 @@ ${workerOutput}`;
           {
             department: departmentId,
             taskType,
-            inputSummary: input.keyword
-              ? `Keyword: ${input.keyword}\n\nTask:\n${input.task}`
-              : input.task,
+            inputSummary: effectiveKeyword
+              ? `Keyword: ${effectiveKeyword}\n\nTask:\n${effectiveTask.slice(0, 4000)}`
+              : effectiveTask.slice(0, 8000),
             outputSummary: workerOutput.slice(0, 12000),
             managerApproved: true,
             managerReason: decision.reason,
@@ -193,6 +295,32 @@ ${workerOutput}`;
           },
           cwd,
         );
+
+        let phase7:
+          | {
+              zernio:
+                | { ok: true; profileCount: number }
+                | { ok: false; error: string };
+            }
+          | undefined;
+        if (departmentId === "marketing") {
+          const z = await zernioListProfiles();
+          phase7 = {
+            zernio: z.error
+              ? { ok: false, error: z.error }
+              : { ok: true, profileCount: z.profiles?.length ?? 0 },
+          };
+        }
+
+        if (departmentId === "publishing" && input.useDailyProductionTracker) {
+          bumpArticleCompleted(
+            cwd,
+            effectiveKeyword || workerOutput.slice(0, 120),
+          );
+        }
+        if (departmentId === "publishing" && input.contentSubcategory?.trim()) {
+          recordSubcategoryUsed(cwd, input.contentSubcategory.trim());
+        }
 
         if (
           cycle.auditTriggered &&
@@ -206,6 +334,17 @@ ${workerOutput}`;
           });
         }
 
+        const contentWorkflow: ContentWorkflowHandoff | undefined =
+          activeContentTopic && input.useTopicBank
+            ? {
+                topic_bank: true,
+                keyword: activeContentTopic.keyword,
+                content_type: activeContentTopic.content_type,
+                subcategory: activeContentTopic.subcategory,
+                source_urls: activeContentTopic.source_urls,
+              }
+            : undefined;
+
         return {
           status: "approved",
           workerOutput,
@@ -213,6 +352,8 @@ ${workerOutput}`;
           executiveSummary,
           cycle,
           managerAttempts: totalManagerAttempts,
+          ...(phase7 ? { phase7 } : {}),
+          ...(contentWorkflow ? { contentWorkflow } : {}),
         };
       }
 

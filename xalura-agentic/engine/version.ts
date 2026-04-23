@@ -5,7 +5,7 @@ export const AGENTIC_IMPLEMENTATION_PHASE = 7 as const;
  * Manual deploy marker when CI does not inject a commit SHA into `process.env`.
  * Bump on every agentic/health–visible release so `/api/agentic-health` proves the Worker picked up the build.
  */
-export const AGENTIC_RELEASE_ID = "p7-20260423-11-pipeline-api" as const;
+export const AGENTIC_RELEASE_ID = "p7-20260423-12-content-workflow" as const;
 
 /** Health JSON contract version — increment when adding/removing top-level health fields. */
-export const AGENTIC_HEALTH_SCHEMA = 4 as const;
+export const AGENTIC_HEALTH_SCHEMA = 5 as const;

@@ -4,6 +4,7 @@ import { runChiefAI } from "../agents/chiefAI";
 import type { DepartmentId } from "../engine/departments";
 import { appendEvent } from "./eventQueue";
 import { getAgenticRoot } from "./paths";
+import { scheduleChiefDigestEmail } from "./phase7Alerts";
 
 /**
  * After `audit-cycle-*.md` is written, append a live Chief AI assessment (uses Gemini when configured).
@@ -59,6 +60,11 @@ ${existing.slice(0, 28_000)}`,
       },
       cwd,
     );
+    scheduleChiefDigestEmail({
+      department: params.department,
+      auditFileRelative: params.auditFileRelative.replace(/\\/g, "/"),
+      cwdLabel: cwd,
+    });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { scheduleFailedOperationResend } from "./phase7Alerts";
 import { getAgenticRoot } from "./paths";
 
 const FILE = "operations-queue.json";
@@ -60,6 +61,7 @@ export function appendFailedOperation(
     data.items = data.items.slice(-200);
   }
   save(data, cwd);
+  scheduleFailedOperationResend(full);
   return full;
 }
 

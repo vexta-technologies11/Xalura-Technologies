@@ -8,6 +8,7 @@ import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
 import { runSeoPipeline } from "@/xalura-agentic/departments/seo";
 import type { DepartmentId } from "@/xalura-agentic/engine/departments";
+import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/publishedTopicsStore";
 import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import {
   runMarketingPipelineWithHandoff,
@@ -22,6 +23,12 @@ import type {
 
 function isWaitingResult(r: DepartmentPipelineResult | WaitingResult): r is WaitingResult {
   return r.status === "waiting";
+}
+
+function isBlockedResult(
+  r: DepartmentPipelineResult | WaitingResult,
+): r is Extract<DepartmentPipelineResult, { status: "blocked" }> {
+  return r.status === "blocked";
 }
 
 export const dynamic = "force-dynamic";
@@ -52,6 +59,11 @@ function isDeptId(s: string): s is DepartmentId {
  * - `publishToSite`: optional — **Publishing only**: upsert `articles` in Supabase (requires service role env)
  * - `articleTitle`, `articleSlug`: optional overrides when publishing
  * - `skipChiefEnrich`: optional — skip live Chief append after a 10-cycle audit
+ * - `referenceUrl`: optional — Firecrawl scrape into Worker context (any department)
+ * - `skipPhase7Fetch`: optional — skip Firecrawl + GSC context fetches
+ * - `useTopicBank`: optional — **SEO only**: topic bank (Google Custom Search + Firecrawl + Gemini)
+ * - `forceTopicBankRefresh`, `allowStubFallback`: optional — SEO topic bank controls
+ * - `useDailyPublishingBrief`, `useDailyProductionTracker`, `contentSubcategory`: optional — **Publishing**
  *
  * `useHandoff` and `publishToSite` cannot both be true (would double-emit queue events).
  */
@@ -94,6 +106,39 @@ export async function POST(request: Request) {
   const skipUpstreamCheck = body["skipUpstreamCheck"] === true;
   const publishToSite = body["publishToSite"] === true;
   const skipChiefEnrich = body["skipChiefEnrich"] === true;
+  const referenceUrl =
+    typeof body["referenceUrl"] === "string" && body["referenceUrl"].trim()
+      ? body["referenceUrl"].trim()
+      : undefined;
+  const skipPhase7Fetch = body["skipPhase7Fetch"] === true;
+  const useTopicBank = body["useTopicBank"] === true;
+  const forceTopicBankRefresh = body["forceTopicBankRefresh"] === true;
+  const allowStubFallback = body["allowStubFallback"] === true;
+  const useDailyPublishingBrief = body["useDailyPublishingBrief"] === true;
+  const useDailyProductionTracker = body["useDailyProductionTracker"] === true;
+  const contentSubcategory =
+    typeof body["contentSubcategory"] === "string" && body["contentSubcategory"].trim()
+      ? body["contentSubcategory"].trim()
+      : undefined;
+
+  if (useTopicBank && deptRaw !== "seo") {
+    return NextResponse.json(
+      { error: "useTopicBank is only valid for department seo" },
+      { status: 400 },
+    );
+  }
+  if (
+    (useDailyPublishingBrief || useDailyProductionTracker || !!contentSubcategory) &&
+    deptRaw !== "publishing"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "useDailyPublishingBrief, useDailyProductionTracker, and contentSubcategory are only valid for department publishing",
+      },
+      { status: 400 },
+    );
+  }
 
   if (useHandoff && publishToSite) {
     return NextResponse.json(
@@ -117,6 +162,14 @@ export async function POST(request: Request) {
     keyword,
     skipChiefEnrich,
     skipUpstreamCheck: useHandoff ? skipUpstreamCheck : undefined,
+    referenceUrl,
+    skipPhase7Fetch,
+    useTopicBank: useTopicBank || undefined,
+    forceTopicBankRefresh: forceTopicBankRefresh || undefined,
+    allowStubFallback: allowStubFallback || undefined,
+    useDailyPublishingBrief: useDailyPublishingBrief || undefined,
+    useDailyProductionTracker: useDailyProductionTracker || undefined,
+    contentSubcategory,
   };
 
   const cwd = process.cwd();
@@ -139,6 +192,13 @@ export async function POST(request: Request) {
   if (isWaitingResult(result)) {
     return NextResponse.json(
       { ok: true, department: deptRaw, result },
+      { status: 200 },
+    );
+  }
+
+  if (isBlockedResult(result)) {
+    return NextResponse.json(
+      { ok: false, blocked: true, department: deptRaw, reason: result.reason },
       { status: 200 },
     );
   }
@@ -184,6 +244,20 @@ export async function POST(request: Request) {
       },
       cwd,
     );
+
+    const pubKw =
+      (result.status === "approved" && result.contentWorkflow?.topic_bank
+        ? result.contentWorkflow.keyword
+        : keyword) || extractMarkdownTitle(result.workerOutput) || task.slice(0, 120);
+    recordArticlePublished(cwd, {
+      keyword: pubKw,
+      slug: pub.slug,
+      content_type:
+        result.status === "approved" && result.contentWorkflow?.topic_bank
+          ? result.contentWorkflow.content_type
+          : "article",
+      subcategory: contentSubcategory,
+    });
 
     return NextResponse.json(
       {

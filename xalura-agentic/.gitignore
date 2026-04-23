@@ -5,6 +5,9 @@ reports/**/*.md
 # Persisted cycle counters (local / server — do not commit live state)
 data/cycle-state.json
 
+# Content workflow (topic bank, rotation, daily production — PDF spec)
+state/*.json
+
 # Append-only inter-department queue (Phase 5)
 shared/event-queue.log
 

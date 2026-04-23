@@ -224,3 +224,49 @@ export async function gscSearchAnalyticsQuery(input: {
   const rows = Array.isArray(json["rows"]) ? json["rows"] : [];
   return { rows };
 }
+
+/**
+ * Search Analytics by **page** URL (for topic-bank audits). Same OAuth + site property as query mode.
+ */
+export async function gscSearchAnalyticsByPage(input: {
+  startDate: string;
+  endDate: string;
+  rowLimit?: number;
+}): Promise<{ rows?: unknown[]; error?: string }> {
+  const siteUrl = await resolveWorkerEnv("GOOGLE_SC_SITE_URL");
+  if (!siteUrl) return { error: "GOOGLE_SC_SITE_URL not set" };
+  const token = await gscAccessToken();
+  if (!token) {
+    return {
+      error:
+        "Google Search Console OAuth not configured (GOOGLE_SC_CLIENT_ID, GOOGLE_SC_SECRET, GOOGLE_SC_REFRESH_TOKEN)",
+    };
+  }
+  const enc = encodeURIComponent(siteUrl);
+  const url = `https://searchconsole.googleapis.com/webmasters/v3/sites/${enc}/searchAnalytics/query`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      startDate: input.startDate,
+      endDate: input.endDate,
+      dimensions: ["page"],
+      rowLimit: input.rowLimit ?? 100,
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const err =
+      typeof json["error"] === "object" &&
+      json["error"] !== null &&
+      typeof (json["error"] as { message?: string }).message === "string"
+        ? (json["error"] as { message: string }).message
+        : `GSC HTTP ${res.status}`;
+    return { error: err };
+  }
+  const rows = Array.isArray(json["rows"]) ? json["rows"] : [];
+  return { rows };
+}

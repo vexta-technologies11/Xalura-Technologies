@@ -35,11 +35,20 @@ export async function runSeoPipelineWithHandoff(
 ): Promise<SeoPipelineResult> {
   const result = await runSeoPipeline(input);
   if (result.status === "approved") {
-    const kw = input.keyword?.trim() || "general";
+    const kw =
+      result.contentWorkflow?.topic_bank && result.contentWorkflow.keyword
+        ? result.contentWorkflow.keyword
+        : input.keyword?.trim() || "general";
     const payload: KeywordReadyPayload = {
       bundle_id: `seo-bundle-${Date.now()}`,
       keywords: [kw],
     };
+    if (result.contentWorkflow?.topic_bank) {
+      const cw = result.contentWorkflow;
+      payload.content_type = cw.content_type;
+      payload.subcategory = cw.subcategory;
+      payload.source_urls = cw.source_urls?.length ? cw.source_urls : undefined;
+    }
     appendEvent({ type: "KEYWORD_READY", payload }, cwd);
   }
   return result;

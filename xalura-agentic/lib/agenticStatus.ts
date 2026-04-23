@@ -6,6 +6,8 @@ import {
 import { loadCycleState } from "../engine/cycleStateStore";
 import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
+import { googleCustomSearchConfigured } from "./contentWorkflow/googleCustomSearch";
+import { topicBankPath } from "./contentWorkflow/paths";
 import { getAgenticRoot } from "./paths";
 import {
   getEffectiveGeminiModelName,
@@ -19,6 +21,7 @@ import {
   resolveWorkerEnvWithTrace,
   type WorkerEnvResolutionTrace,
 } from "./resolveWorkerEnv";
+import fs from "fs";
 
 const CI_ENV_KEYS = [
   "CF_PAGES_COMMIT_SHA",
@@ -92,6 +95,11 @@ export type AgenticHealthPayload = {
   gemini_resolution: WorkerEnvResolutionTrace;
   /** Phase 7 — which optional API keys/bindings are present (no values). */
   phase7: Phase7Configured;
+  /** Content workflow (topic bank) — Google Programmable Search + on-disk bank file. */
+  content_workflow: {
+    google_custom_search: boolean;
+    topic_bank_file_present: boolean;
+  };
   uptime_hint: "next_route";
   agentic_root: string;
   departments: {
@@ -168,9 +176,11 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
-  const [geminiPack, phase7] = await Promise.all([
+  const [geminiPack, phase7, googleCs, topicBankPresent] = await Promise.all([
     resolveWorkerEnvWithTrace("GEMINI_API_KEY"),
     getPhase7Configured(),
+    googleCustomSearchConfigured(),
+    Promise.resolve(fs.existsSync(topicBankPath(cwd))),
   ]);
 
   const gemini_configured = !!geminiPack.value;
@@ -186,6 +196,10 @@ export async function getAgenticHealth(
     gemini_hints: geminiHintsFromTrace(gemini_resolution),
     gemini_resolution,
     phase7,
+    content_workflow: {
+      google_custom_search: googleCs,
+      topic_bank_file_present: topicBankPresent,
+    },
     uptime_hint: "next_route",
     agentic_root: getAgenticRoot(cwd),
     departments,
