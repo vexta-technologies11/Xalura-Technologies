@@ -5,8 +5,6 @@ import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
 import { runSeoPipeline } from "@/xalura-agentic/departments/seo";
 import type { DepartmentId } from "@/xalura-agentic/engine/departments";
-import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/publishedTopicsStore";
-import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import {
   runMarketingPipelineWithHandoff,
   runPublishingPipelineWithHandoff,
