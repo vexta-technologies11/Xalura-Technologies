@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArticleMarkdown } from "@/components/article/ArticleMarkdown";
 import { PublicPageShell } from "@/components/public/PublicPageShell";
 import { getArticleBySlug } from "@/lib/data-learning";
 import { getPageContent } from "@/lib/data";
@@ -36,18 +37,7 @@ export default async function ArticleDetailPage({ params }: Props) {
             ? new Date(article.published_at).toLocaleDateString()
             : null}
         </p>
-        {article.body ? (
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.75,
-              color: "var(--mid)",
-              fontSize: 17,
-            }}
-          >
-            {article.body}
-          </div>
-        ) : null}
+        {article.body ? <ArticleMarkdown source={article.body} /> : null}
         <p style={{ marginTop: 48 }}>
           <Link href="/articles" style={{ color: "var(--blue)", fontWeight: 600 }}>
             ← All articles
