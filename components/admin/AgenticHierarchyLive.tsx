@@ -81,6 +81,10 @@ export function AgenticHierarchyLive() {
               </>
             ) : null}
           </p>
+          <p className="admin-agentic-live__cron-hint">
+            Production: Worker cron every 2h UTC → <code>/api/cron/agentic-publish</code> (needs{" "}
+            <code>AGENTIC_CRON_SECRET</code> + <code>AGENTIC_CRON_BASE_URL</code> on Cloudflare).
+          </p>
         </div>
       </header>
 
