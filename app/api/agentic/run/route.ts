@@ -4,6 +4,7 @@ import {
   publishAgenticArticle,
 } from "@/lib/agenticArticlePublish";
 import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
+import { scheduleChiefPublishCycleEmail } from "@/xalura-agentic/lib/chiefPublishDigest";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
 import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
@@ -58,6 +59,7 @@ function isDeptId(s: string): s is DepartmentId {
  * - `useHandoff`: optional — SEO/Publishing/Marketing chain gates (see `handoff.ts`)
  * - `skipUpstreamCheck`: optional — only with `useHandoff`, for local tests
  * - `publishToSite`: optional — **Publishing only**: upsert `articles` in Supabase (requires service role env). Send `false` to opt out when `AGENTIC_AUTO_PUBLISH_TO_SITE=true`.
+ * After successful publish: optional Chief email when `AGENTIC_CHIEF_EMAIL_ON_PUBLISH` + `AGENTIC_CHIEF_DIGEST_EMAIL` + Resend (see `chiefPublishDigest.ts`).
  * - `articleTitle`, `articleSlug`: optional overrides when publishing
  * - `skipChiefEnrich`: optional — skip live Chief append after a 10-cycle audit
  * - `referenceUrl`: optional — Firecrawl scrape into Worker context (any department)
@@ -271,6 +273,28 @@ export async function POST(request: Request) {
     const zernio = await sharePublishedArticleToZernio({
       title,
       articlePath: `/articles/${pub.slug}`,
+    });
+
+    const zernioLine =
+      "skipped" in zernio
+        ? `Skipped: ${zernio.reason}`
+        : zernio.ok
+          ? `Posted OK (HTTP ${zernio.status})`
+          : `Failed: ${zernio.error}`;
+
+    scheduleChiefPublishCycleEmail({
+      cwd,
+      task,
+      title,
+      slug: pub.slug,
+      articlePath: `/articles/${pub.slug}`,
+      executiveSummary: result.executiveSummary,
+      workerOutputExcerpt: result.workerOutput,
+      managerAttempts: result.managerAttempts,
+      cycleIndex: result.cycle.cycleIndex,
+      auditTriggered: result.cycle.auditTriggered,
+      cycleFileRelative: result.cycle.cycleFileRelative,
+      zernioLine,
     });
 
     return NextResponse.json(
