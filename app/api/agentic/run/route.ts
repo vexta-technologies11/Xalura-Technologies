@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  extractMarkdownTitle,
-  publishAgenticArticle,
-} from "@/lib/agenticArticlePublish";
-import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
-import { scheduleChiefPublishCycleEmail } from "@/xalura-agentic/lib/chiefPublishDigest";
+import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
 import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
@@ -225,91 +220,32 @@ export async function POST(request: Request) {
       typeof body["articleSlug"] === "string" && body["articleSlug"].trim()
         ? body["articleSlug"].trim()
         : undefined;
-    const title =
-      titleOverride ||
-      extractMarkdownTitle(result.workerOutput) ||
-      task.slice(0, 120);
 
-    const pub = await publishAgenticArticle({
-      title,
-      body: result.workerOutput,
-      slug: slugOverride,
-      author: "Xalura Agentic",
+    const site = await sitePublishFromApprovedPublishingRun({
+      cwd,
+      task,
+      keyword,
+      contentSubcategory,
+      articleTitle: titleOverride,
+      articleSlug: slugOverride,
+      result,
     });
 
-    if (!pub.ok) {
+    if (!site.ok) {
       return NextResponse.json(
-        { ok: false, department: deptRaw, result, publish: { ok: false, error: pub.error } },
+        { ok: false, department: deptRaw, result, publish: { ok: false, error: site.error } },
         { status: 502 },
       );
     }
-
-    appendEvent(
-      {
-        type: "ARTICLE_PUBLISHED",
-        payload: {
-          article_id: pub.slug,
-          title,
-          url: `/articles/${pub.slug}`,
-        },
-      },
-      cwd,
-    );
-
-    const pubKw =
-      (result.status === "approved" && result.contentWorkflow?.topic_bank
-        ? result.contentWorkflow.keyword
-        : keyword) || extractMarkdownTitle(result.workerOutput) || task.slice(0, 120);
-    recordArticlePublished(cwd, {
-      keyword: pubKw,
-      slug: pub.slug,
-      content_type:
-        result.status === "approved" && result.contentWorkflow?.topic_bank
-          ? result.contentWorkflow.content_type
-          : "article",
-      subcategory: contentSubcategory,
-    });
-
-    const zernio = await sharePublishedArticleToZernio({
-      title,
-      articlePath: `/articles/${pub.slug}`,
-    });
-
-    const zernioLine =
-      "skipped" in zernio
-        ? `Skipped: ${zernio.reason}`
-        : zernio.ok
-          ? `Posted OK (HTTP ${zernio.status})`
-          : `Failed: ${zernio.error}`;
-
-    scheduleChiefPublishCycleEmail({
-      cwd,
-      task,
-      title,
-      slug: pub.slug,
-      articlePath: `/articles/${pub.slug}`,
-      executiveSummary: result.executiveSummary,
-      workerOutputExcerpt: result.workerOutput,
-      managerAttempts: result.managerAttempts,
-      cycleIndex: result.cycle.cycleIndex,
-      auditTriggered: result.cycle.auditTriggered,
-      cycleFileRelative: result.cycle.cycleFileRelative,
-      zernioLine,
-    });
 
     return NextResponse.json(
       {
         ...base,
         publish: {
           ok: true as const,
-          slug: pub.slug,
-          path: `/articles/${pub.slug}`,
-          zernio:
-            "skipped" in zernio
-              ? { skipped: true, reason: zernio.reason }
-              : zernio.ok
-                ? { ok: true as const, status: zernio.status }
-                : { ok: false as const, error: zernio.error },
+          slug: site.data.slug,
+          path: site.data.path,
+          zernio: site.data.zernio,
         },
       },
       { status: 200 },
