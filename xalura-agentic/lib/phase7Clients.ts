@@ -45,6 +45,10 @@ export async function sendResendEmail(input: {
   subject: string;
   html?: string;
   text?: string;
+  /** Same-thread replies (Resend `reply_to` field). */
+  replyTo?: string | string[];
+  /** e.g. `In-Reply-To` / `References` for email threading. */
+  headers?: Record<string, string>;
 }): Promise<{ id?: string; error?: string }> {
   const key = await resolveWorkerEnv("RESEND_API_KEY");
   if (!key) return { error: "RESEND_API_KEY not set" };
@@ -53,19 +57,26 @@ export async function sendResendEmail(input: {
     (await resolveWorkerEnv("RESEND_FROM")) ||
     "onboarding@resend.dev";
   const to = Array.isArray(input.to) ? input.to : [input.to];
+  const payload: Record<string, unknown> = {
+    from,
+    to,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+  };
+  if (input.replyTo !== undefined) {
+    payload["reply_to"] = Array.isArray(input.replyTo) ? input.replyTo : [input.replyTo];
+  }
+  if (input.headers && Object.keys(input.headers).length > 0) {
+    payload["headers"] = input.headers;
+  }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from,
-      to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-    }),
+    body: JSON.stringify(payload),
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
