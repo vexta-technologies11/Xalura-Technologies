@@ -1,6 +1,6 @@
-import fs from "fs";
 import path from "path";
 import type { DepartmentId } from "./departments";
+import { mkdirRecursiveAgentic, writeFileUtf8Agentic } from "../lib/agenticDisk";
 import { loadCycleState, saveCycleState } from "./cycleStateStore";
 import { getAgenticRoot } from "../lib/paths";
 import { renderAuditLog, renderCycleLog } from "../lib/templates";
@@ -47,7 +47,7 @@ export function recordApproval(
 
   const dateIso = new Date().toISOString().slice(0, 10);
   const dir = logsDir(input.department, cwd);
-  fs.mkdirSync(dir, { recursive: true });
+  mkdirRecursiveAgentic(dir);
 
   const cycleBody = renderCycleLog({
     department: input.department,
@@ -62,7 +62,7 @@ export function recordApproval(
   });
 
   const cycleRel = path.join("logs", input.department, `cycle-${cycleIndex}.md`);
-  fs.writeFileSync(path.join(getAgenticRoot(cwd), cycleRel), cycleBody, "utf8");
+  writeFileUtf8Agentic(path.join(getAgenticRoot(cwd), cycleRel), cycleBody);
 
   let auditTriggered = false;
   let auditRel: string | undefined;
@@ -93,7 +93,7 @@ export function recordApproval(
     });
 
     auditRel = path.join("logs", input.department, `audit-cycle-${auditSeq}.md`);
-    fs.writeFileSync(path.join(getAgenticRoot(cwd), auditRel), auditBody, "utf8");
+    writeFileUtf8Agentic(path.join(getAgenticRoot(cwd), auditRel), auditBody);
   }
 
   saveCycleState(state, cwd);

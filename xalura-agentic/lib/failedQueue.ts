@@ -1,5 +1,9 @@
-import fs from "fs";
 import path from "path";
+import {
+  fileExistsAgentic,
+  readFileUtf8Agentic,
+  writeFileUtf8Agentic,
+} from "./agenticDisk";
 import { scheduleFailedOperationResend } from "./phase7Alerts";
 import { getAgenticRoot } from "./paths";
 
@@ -24,11 +28,12 @@ function queuePath(cwd: string): string {
 
 function load(cwd: string): QueueFile {
   const p = queuePath(cwd);
-  if (!fs.existsSync(p)) {
+  if (!fileExistsAgentic(p)) {
     return { version: 1, items: [] };
   }
   try {
-    const raw = fs.readFileSync(p, "utf8");
+    const raw = readFileUtf8Agentic(p);
+    if (raw == null) return { version: 1, items: [] };
     const parsed = JSON.parse(raw) as Partial<QueueFile>;
     if (parsed.version !== 1 || !Array.isArray(parsed.items)) {
       return { version: 1, items: [] };
@@ -41,8 +46,7 @@ function load(cwd: string): QueueFile {
 
 function save(data: QueueFile, cwd: string): void {
   const p = queuePath(cwd);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), "utf8");
+  writeFileUtf8Agentic(p, JSON.stringify(data, null, 2));
 }
 
 export function appendFailedOperation(

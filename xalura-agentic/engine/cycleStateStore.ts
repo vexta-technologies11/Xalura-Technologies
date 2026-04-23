@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { DepartmentId } from "./departments";
 import { DEPARTMENT_IDS } from "./departments";
+import { isAgenticDiskWritable, writeFileUtf8Agentic } from "../lib/agenticDisk";
 import { getAgenticRoot } from "../lib/paths";
 
 export type DepartmentCycleState = {
@@ -15,6 +16,9 @@ export type CycleStateFile = {
   version: 2;
   departments: Record<DepartmentId, DepartmentCycleState>;
 };
+
+/** In-process cycle state when Workers have no sync fs (see `agenticDisk.ts`). */
+let memoryCycleState: CycleStateFile | null = null;
 
 const FILE = "cycle-state.json";
 
@@ -35,6 +39,10 @@ export function getCycleStatePath(cwd: string = process.cwd()): string {
 }
 
 export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
+  if (!isAgenticDiskWritable()) {
+    if (!memoryCycleState) memoryCycleState = defaultState();
+    return memoryCycleState;
+  }
   const p = getCycleStatePath(cwd);
   if (!fs.existsSync(p)) {
     return defaultState();
@@ -62,7 +70,10 @@ export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
 }
 
 export function saveCycleState(state: CycleStateFile, cwd: string = process.cwd()): void {
+  if (!isAgenticDiskWritable()) {
+    memoryCycleState = state;
+    return;
+  }
   const p = getCycleStatePath(cwd);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(state, null, 2), "utf8");
+  writeFileUtf8Agentic(p, JSON.stringify(state, null, 2));
 }

@@ -1,10 +1,14 @@
-import fs from "fs";
-import path from "path";
+import {
+  fileExistsAgentic,
+  readFileUtf8Agentic,
+  writeFileUtf8Agentic,
+} from "../agenticDisk";
 
 export function readJsonFile<T>(filePath: string, fallback: T): T {
   try {
-    if (!fs.existsSync(filePath)) return fallback;
-    const raw = fs.readFileSync(filePath, "utf8");
+    if (!fileExistsAgentic(filePath)) return fallback;
+    const raw = readFileUtf8Agentic(filePath);
+    if (raw == null) return fallback;
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
@@ -12,6 +16,5 @@ export function readJsonFile<T>(filePath: string, fallback: T): T {
 }
 
 export function writeJsonFile(filePath: string, data: unknown): void {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+  writeFileUtf8Agentic(filePath, JSON.stringify(data, null, 2));
 }

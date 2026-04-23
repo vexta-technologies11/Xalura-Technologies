@@ -1,5 +1,5 @@
-import fs from "fs";
 import path from "path";
+import { appendFileUtf8Agentic, readFileUtf8Agentic } from "./agenticDisk";
 import { runChiefAI } from "../agents/chiefAI";
 import type { DepartmentId } from "../engine/departments";
 import { appendEvent } from "./eventQueue";
@@ -18,7 +18,9 @@ export async function enrichAuditWithChief(params: {
   const abs = path.join(getAgenticRoot(cwd), params.auditFileRelative);
   let existing: string;
   try {
-    existing = fs.readFileSync(abs, "utf8");
+    const raw = readFileUtf8Agentic(abs);
+    if (raw == null) throw new Error("missing audit file");
+    existing = raw;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `read audit: ${msg}` };
@@ -45,10 +47,9 @@ Audit report:
 ${existing.slice(0, 28_000)}`,
       context: { department: params.department, auditPath: params.auditFileRelative },
     });
-    fs.appendFileSync(
+    appendFileUtf8Agentic(
       abs,
       `\n\n---\n\n## Chief AI (live session)\n\n${chiefMd}\n`,
-      "utf8",
     );
     appendEvent(
       {
@@ -68,10 +69,9 @@ ${existing.slice(0, 28_000)}`,
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    fs.appendFileSync(
+    appendFileUtf8Agentic(
       abs,
       `\n\n---\n\n## Chief AI (live session)\n\n_Chief enrichment failed: ${msg.replace(/\s+/g, " ").slice(0, 400)}_\n`,
-      "utf8",
     );
     return { ok: false, error: msg };
   }

@@ -1,5 +1,5 @@
-import fs from "fs";
 import path from "path";
+import { mkdirRecursiveAgentic, writeFileUtf8Agentic } from "../lib/agenticDisk";
 import { DEPARTMENT_IDS } from "./departments";
 import { loadCycleState } from "./cycleStateStore";
 import { getAgenticRoot } from "../lib/paths";
@@ -39,9 +39,9 @@ export function writeChiefDailyReport(cwd: string = process.cwd()): string {
   const body = renderChiefDailyReportMarkdown(cwd);
   const root = getAgenticRoot(cwd);
   const dir = path.join(root, "reports");
-  fs.mkdirSync(dir, { recursive: true });
+  mkdirRecursiveAgentic(dir);
   const name = `chief-ai-daily-${new Date().toISOString().slice(0, 10)}.md`;
   const rel = path.join("reports", name);
-  fs.writeFileSync(path.join(root, rel), body, "utf8");
+  writeFileUtf8Agentic(path.join(root, rel), body);
   return rel.replace(/\\/g, "/");
 }

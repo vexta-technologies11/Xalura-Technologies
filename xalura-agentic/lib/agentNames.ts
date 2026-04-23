@@ -1,6 +1,6 @@
-import fs from "fs";
 import path from "path";
 import type { DepartmentId } from "../engine/departments";
+import { readFileUtf8Agentic } from "./agenticDisk";
 import { getAgenticRoot } from "./paths";
 
 export type AgentNamesConfig = {
@@ -24,7 +24,8 @@ const DEFAULT: AgentNamesConfig = {
 export function loadAgentNamesConfig(cwd: string = process.cwd()): AgentNamesConfig {
   const p = path.join(getAgenticRoot(cwd), "config", "agents.json");
   try {
-    const raw = fs.readFileSync(p, "utf8");
+    const raw = readFileUtf8Agentic(p);
+    if (raw == null) return DEFAULT;
     const parsed = JSON.parse(raw) as AgentNamesConfig;
     if (!parsed?.departments || !parsed.chiefAI) return DEFAULT;
     return parsed;

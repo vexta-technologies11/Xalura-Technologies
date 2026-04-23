@@ -21,7 +21,7 @@ import {
   resolveWorkerEnvWithTrace,
   type WorkerEnvResolutionTrace,
 } from "./resolveWorkerEnv";
-import fs from "fs";
+import { fileExistsAgentic } from "./agenticDisk";
 
 const CI_ENV_KEYS = [
   "CF_PAGES_COMMIT_SHA",
@@ -180,7 +180,7 @@ export async function getAgenticHealth(
     resolveWorkerEnvWithTrace("GEMINI_API_KEY"),
     getPhase7Configured(),
     googleCustomSearchConfigured(),
-    Promise.resolve(fs.existsSync(topicBankPath(cwd))),
+    Promise.resolve(fileExistsAgentic(topicBankPath(cwd))),
   ]);
 
   const gemini_configured = !!geminiPack.value;

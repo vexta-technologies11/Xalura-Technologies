@@ -1,5 +1,10 @@
-import fs from "fs";
 import path from "path";
+import {
+  appendFileUtf8Agentic,
+  fileExistsAgentic,
+  mkdirRecursiveAgentic,
+  readFileUtf8Agentic,
+} from "./agenticDisk";
 import { getAgenticRoot } from "./paths";
 
 const FILE = "event-queue.log";
@@ -68,7 +73,7 @@ function queuePath(cwd: string): string {
 }
 
 function ensureDir(cwd: string): void {
-  fs.mkdirSync(path.dirname(queuePath(cwd)), { recursive: true });
+  mkdirRecursiveAgentic(path.dirname(queuePath(cwd)));
 }
 
 export function appendEvent(
@@ -81,14 +86,15 @@ export function appendEvent(
     id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     ts: new Date().toISOString(),
   } as AgenticEvent;
-  fs.appendFileSync(queuePath(cwd), `${JSON.stringify(full)}\n`, "utf8");
+  appendFileUtf8Agentic(queuePath(cwd), `${JSON.stringify(full)}\n`);
   return full;
 }
 
 export function readEvents(cwd: string = process.cwd()): AgenticEvent[] {
   const p = queuePath(cwd);
-  if (!fs.existsSync(p)) return [];
-  const raw = fs.readFileSync(p, "utf8");
+  if (!fileExistsAgentic(p)) return [];
+  const raw = readFileUtf8Agentic(p);
+  if (raw == null) return [];
   const out: AgenticEvent[] = [];
   for (const line of raw.split("\n")) {
     const t = line.trim();
