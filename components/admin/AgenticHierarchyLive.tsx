@@ -23,7 +23,7 @@ function initials(name: string): string {
 
 function PersonaPill(props: {
   persona: HierarchyPersona;
-  tier: "chief" | "exec" | "mgr" | "worker";
+  tier: "chief" | "exec" | "mgr" | "worker" | "compliance" | "graphic";
   narrative?: string;
 }) {
   const { persona, tier, narrative } = props;
@@ -34,7 +34,11 @@ function PersonaPill(props: {
         ? "ah-pill--exec"
         : tier === "mgr"
           ? "ah-pill--mgr"
-          : "ah-pill--worker";
+          : tier === "compliance"
+            ? "ah-pill--compliance"
+            : tier === "graphic"
+              ? "ah-pill--graphic"
+              : "ah-pill--worker";
   const demo = persona.source === "example" ? " ah-pill--demo" : "";
   return (
     <div className={`ah-pill ${tierClass}${demo}`}>
@@ -118,9 +122,10 @@ export function AgenticHierarchyLive() {
         <div>
           <h2 className="admin-agentic-live__title">Live hierarchy · command tree</h2>
           <p className="admin-agentic-live__sub">
-            Each card pulls <strong>real</strong> queue events, cycle logs under{" "}
-            <code>xalura-agentic/logs/&lt;dept&gt;/cycle-*.md</code> (manager checklist + reason), and
-            optional Gemini monologues when <code>GEMINI_API_KEY</code> is set on the server.
+            Each card pulls <strong>real</strong> queue events and cycle logs. <strong>Compliance Officer</strong>{" "}
+            (under Chief) mirrors the post-publish advisory email to the Founder — no veto; Chief/Exec lines in the
+            body are display-only. <strong>Graphic Designer</strong> sits under Publishing Manager for the hero
+            (Imagen) step. Optional Gemini monologues when <code>GEMINI_API_KEY</code> is set.
           </p>
         </div>
         <div className="admin-agentic-live__cadence">
@@ -161,6 +166,12 @@ export function AgenticHierarchyLive() {
           <p className="ah-tree__brand">Xalura · Agentic</p>
           <PersonaPill persona={chart.chief} tier="chief" narrative={narr?.[chart.chief.id]} />
           <div className="ah-tree__vline" aria-hidden />
+          <PersonaPill
+            persona={chart.complianceOfficer}
+            tier="compliance"
+            narrative={narr?.[chart.complianceOfficer.id]}
+          />
+          <div className="ah-tree__vline" aria-hidden />
           <div className="ah-tree__fork" aria-hidden />
           <div className="ah-tree__columns">
             {chart.lanes.map((lane) => (
@@ -176,6 +187,17 @@ export function AgenticHierarchyLive() {
                   tier="mgr"
                   narrative={narr?.[lane.manager.id]}
                 />
+                {lane.deptId === "publishing" ? (
+                  <>
+                    <div className="ah-tree__vline" aria-hidden />
+                    <p className="ah-tree__reports-to">Reports to Publishing Manager</p>
+                    <PersonaPill
+                      persona={chart.publishingGraphicDesigner}
+                      tier="graphic"
+                      narrative={narr?.[chart.publishingGraphicDesigner.id]}
+                    />
+                  </>
+                ) : null}
                 <div className="ah-tree__vline" aria-hidden />
                 <PersonaPill
                   persona={lane.worker}

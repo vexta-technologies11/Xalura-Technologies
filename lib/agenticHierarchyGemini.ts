@@ -14,13 +14,21 @@ function narrativeCacheKey(chart: HierarchyChartPayload, snap: AgenticLiveSnapsh
   const lanes = chart.lanes
     .map((l) => `${l.deptId}:${l.manager.facts.slice(0, 80)}:${l.worker.facts.slice(0, 80)}`)
     .join("~");
-  return `${snap.failed_hint ?? ""}|${tail}|${lanes}`;
+  return [
+    snap.failed_hint ?? "",
+    tail,
+    lanes,
+    chart.complianceOfficer.facts.slice(0, 120),
+    chart.publishingGraphicDesigner.facts.slice(0, 120),
+  ].join("|");
 }
 
 function personaKeys(chart: HierarchyChartPayload): string[] {
-  const keys = [chart.chief.id];
+  const keys = [chart.chief.id, chart.complianceOfficer.id];
   for (const lane of chart.lanes) {
-    keys.push(lane.executive.id, lane.manager.id, lane.worker.id);
+    keys.push(lane.executive.id, lane.manager.id);
+    if (lane.deptId === "publishing") keys.push(chart.publishingGraphicDesigner.id);
+    keys.push(lane.worker.id);
   }
   return keys;
 }
@@ -67,6 +75,16 @@ export async function enrichHierarchyNarrativesWithGemini(
   const keys = personaKeys(chart);
   const compact = {
     chief: { id: chart.chief.id, facts: chart.chief.facts },
+    compliance_officer: {
+      id: chart.complianceOfficer.id,
+      facts: chart.complianceOfficer.facts,
+      subtitle: chart.complianceOfficer.subtitle,
+    },
+    publishing_graphic_designer: {
+      id: chart.publishingGraphicDesigner.id,
+      facts: chart.publishingGraphicDesigner.facts,
+      subtitle: chart.publishingGraphicDesigner.subtitle,
+    },
     lanes: chart.lanes.map((l) => ({
       department: l.deptId,
       executive: { id: l.executive.id, facts: l.executive.facts },
@@ -96,6 +114,8 @@ export async function enrichHierarchyNarrativesWithGemini(
     "SEO Manager: mention keyword bundle / rejection / approval if facts imply it.",
     "Publishing Manager: mention drafts / attempts if implied.",
     "Chief AI: fleet-level, no fake metrics.",
+    "compliance_officer: advisory to Founder after publish; Chief/Exec visibility is display-only in email — no veto over Chief.",
+    "publishing_graphic_designer: first-person as hero-image prompt specialist under Publishing Manager (Imagen path).",
     "If facts are empty for a role, say you are standing by for the next cycle.",
     "",
     "FACTS_JSON:",

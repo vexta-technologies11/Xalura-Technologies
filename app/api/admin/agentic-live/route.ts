@@ -3,8 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { buildHierarchyChartPayload } from "@/lib/agenticHierarchyChartData";
 import { enrichHierarchyNarrativesWithGemini } from "@/lib/agenticHierarchyGemini";
 import { getAgenticLiveSnapshot } from "@/lib/agenticLiveSnapshot";
+import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
 export const dynamic = "force-dynamic";
+
+async function envFlagTrue(name: string): Promise<boolean> {
+  const v = ((await resolveWorkerEnv(name)) ?? "").trim().toLowerCase();
+  return v === "true" || v === "1";
+}
 
 /** Logged-in admin: live agentic hierarchy + org chart payload (no secrets). */
 export async function GET() {
@@ -19,7 +25,16 @@ export async function GET() {
   try {
     const cwd = process.cwd();
     const snapshot = getAgenticLiveSnapshot(cwd);
-    const chart = buildHierarchyChartPayload(cwd, snapshot);
+    const [cCompliance, cFounder, graphicDesignerOn] = await Promise.all([
+      envFlagTrue("AGENTIC_COMPLIANCE_ON_PUBLISH"),
+      envFlagTrue("AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH"),
+      envFlagTrue("AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH"),
+    ]);
+    const complianceOrFounderEmailOn = cCompliance || cFounder;
+    const chart = buildHierarchyChartPayload(cwd, snapshot, {
+      complianceOrFounderEmailOn,
+      graphicDesignerOn,
+    });
     const narratives = await enrichHierarchyNarrativesWithGemini(chart, snapshot);
     const chartOut = narratives ? { ...chart, narratives } : chart;
     return NextResponse.json({ ...snapshot, chart: chartOut });

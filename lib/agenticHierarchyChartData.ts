@@ -28,9 +28,20 @@ export type HierarchyLane = {
   worker: HierarchyPersona;
 };
 
+export type HierarchyEnvHints = {
+  /** `AGENTIC_COMPLIANCE_ON_PUBLISH` or `AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH` */
+  complianceOrFounderEmailOn: boolean;
+  /** `AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH` */
+  graphicDesignerOn: boolean;
+};
+
 export type HierarchyChartPayload = {
   chief: HierarchyPersona;
+  /** Visual-only: sits under Chief; code is post-publish advisory memo to Founder (no veto). */
+  complianceOfficer: HierarchyPersona;
   lanes: HierarchyLane[];
+  /** Visual-only: between Publishing Manager and Worker; code is `Publishing — Graphic Designer` + Imagen. */
+  publishingGraphicDesigner: HierarchyPersona;
   /** Optional first-person blurbs keyed by `HierarchyPersona.id` — from Gemini */
   narratives?: Record<string, string>;
 };
@@ -128,6 +139,64 @@ function lanePersonas(
   };
 }
 
+function lastArticlePublishedLine(snap: AgenticLiveSnapshot): string | null {
+  for (let i = snap.tail.length - 1; i >= 0; i--) {
+    const t = snap.tail[i]!;
+    if (t.type === "ARTICLE_PUBLISHED") return t.summary;
+  }
+  return null;
+}
+
+function compliancePersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHints): HierarchyPersona {
+  const lastPub = lastArticlePublishedLine(snap);
+  const pubHint = lastPub ? ` Last publish in tail: ${lastPub}` : "";
+  if (hints.complianceOrFounderEmailOn) {
+    return {
+      id: "compliance_officer",
+      displayName: "Compliance Officer",
+      position: "Compliance Officer (advisory)",
+      subtitle:
+        "UI: under Chief · code: post-publish QA/Risk/Chief-line audit + memo; email to Founder inbox (no veto; Cc Chief/Exec display-only in body).",
+      facts: `Enabled for post-publish advisory run.${pubHint} Inbox falls back: AGENTIC_COMPLIANCE_EMAIL → AGENTIC_FOUNDER_OVERSIGHT_EMAIL → AGENTIC_CHIEF_DIGEST_EMAIL.`,
+      source: "live",
+    };
+  }
+  return {
+    id: "compliance_officer",
+    displayName: "Compliance Officer",
+    position: "Compliance Officer (advisory)",
+    subtitle:
+      "UI: under Chief · code: same advisory path when compliance or founder oversight env is on.",
+    facts: `Currently off. Set AGENTIC_COMPLIANCE_ON_PUBLISH or AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH and a recipient email.${pubHint}`,
+    source: "example",
+  };
+}
+
+function graphicDesignerPersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHints): HierarchyPersona {
+  const pub = snap.departments.find((d) => d.id === "publishing");
+  const lastPub = lastArticlePublishedLine(snap);
+  const pubHint = lastPub ? ` Tail: ${lastPub}` : "";
+  if (hints.graphicDesignerOn) {
+    return {
+      id: "publishing_graphic_designer",
+      displayName: "Graphic Designer",
+      position: "Graphic Designer · Publishing",
+      subtitle:
+        "UI: under Publishing Manager · code: Worker role `Publishing — Graphic Designer` → Imagen hero → Storage `article-covers`.",
+      facts: `Enabled. Uses same GEMINI_API_KEY as text; Publishing Manager still owns publish gate.${pubHint} Publishing desk: ${pub?.worker?.slice(0, 200) ?? "—"}`,
+      source: pub?.source ?? "example",
+    };
+  }
+  return {
+    id: "publishing_graphic_designer",
+    displayName: "Graphic Designer",
+    position: "Graphic Designer · Publishing",
+    subtitle: "UI: under Publishing Manager when enabled.",
+    facts: `Off — set AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH on the Worker.${pubHint}`,
+    source: "example",
+  };
+}
+
 function chiefPersona(snap: AgenticLiveSnapshot): HierarchyPersona {
   const tail = snap.tail.slice(-5);
   const tailText = tail.map((t) => `${t.type}: ${t.summary}`).join(" · ");
@@ -149,10 +218,13 @@ function chiefPersona(snap: AgenticLiveSnapshot): HierarchyPersona {
 export function buildHierarchyChartPayload(
   cwd: string,
   snap: AgenticLiveSnapshot,
+  envHints: HierarchyEnvHints,
 ): HierarchyChartPayload {
   const lanes = snap.departments.map((d) => lanePersonas(d.id, d, cwd));
   return {
     chief: chiefPersona(snap),
+    complianceOfficer: compliancePersona(snap, envHints),
+    publishingGraphicDesigner: graphicDesignerPersona(snap, envHints),
     lanes,
   };
 }
