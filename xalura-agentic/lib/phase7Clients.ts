@@ -45,6 +45,8 @@ export async function sendResendEmail(input: {
   subject: string;
   html?: string;
   text?: string;
+  /** Resend attachments — each `content` is raw base64 (no data: prefix). */
+  attachments?: { filename: string; content: string }[];
   /** Same-thread replies (Resend `reply_to` field). */
   replyTo?: string | string[];
   /** e.g. `In-Reply-To` / `References` for email threading. */
@@ -69,6 +71,12 @@ export async function sendResendEmail(input: {
   }
   if (input.headers && Object.keys(input.headers).length > 0) {
     payload["headers"] = input.headers;
+  }
+  if (input.attachments?.length) {
+    payload["attachments"] = input.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+    }));
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

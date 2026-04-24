@@ -5,10 +5,16 @@ import { rankTopicsWithGemini } from "./geminiTopicRanker";
 import { serpApiSearch } from "./serpApiSearch";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { recentKeywords } from "./publishedTopicsStore";
+import { CONTENT_VERTICALS } from "./contentVerticals";
+import { writeSeoTrendLogsFromBank } from "./seoTrendLogsStore";
 import { topicBankLastAuditPath } from "./paths";
 import { extendCooldownForSubcategories, readTopicRotation } from "./topicRotationStore";
 import type { TopicBankAuditFile, TopicBankFile } from "./types";
 import { readTopicBank, writeTopicBank } from "./topicBankStore";
+import {
+  hoursSinceLastTopicBankCrawl,
+  minSerpIntervalHoursFromEnv,
+} from "./topicBankSerpPolicy";
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -66,16 +72,43 @@ export async function auditPreviousTopicBank(cwd: string): Promise<void> {
   }
 }
 
+export type RefreshTopicBankResult =
+  | { ok: true; topicCount: number; skippedSerp?: boolean }
+  | { ok: false; error: string };
+
 export async function refreshTopicBank(
   cwd: string,
-  opts: { skipAudit?: boolean; auditHint?: string } = {},
-): Promise<{ ok: true; topicCount: number } | { ok: false; error: string }> {
+  opts: { skipAudit?: boolean; auditHint?: string; forceSerp?: boolean } = {},
+): Promise<RefreshTopicBankResult> {
   if (!opts.skipAudit) {
     await auditPreviousTopicBank(cwd);
   }
 
+  const bankPeek = readTopicBank(cwd);
+  const minH = minSerpIntervalHoursFromEnv();
+  if (!opts.forceSerp && minH > 0 && bankPeek?.last_crawled_at) {
+    const ageH = hoursSinceLastTopicBankCrawl(bankPeek.last_crawled_at);
+    if (ageH < minH) {
+      const unused = (bankPeek.topics ?? []).filter((t) => t.status === "unused").length;
+      if (unused > 0) {
+        return {
+          ok: true,
+          topicCount: bankPeek.topics.length,
+          skippedSerp: true,
+        };
+      }
+      const eligibleAt = new Date(
+        new Date(bankPeek.last_crawled_at).getTime() + minH * 3_600_000,
+      ).toISOString();
+      return {
+        ok: false,
+        error: `Topic bank has no unused topics and min Serp interval (${minH}h) blocks refresh until ~${eligibleAt}. Use POST /api/agentic/content/refresh-topic-bank (admin) or set AGENTIC_TOPIC_BANK_MIN_SERP_INTERVAL_HOURS=0 to disable.`,
+      };
+    }
+  }
+
   const search = await serpApiSearch(
-    "latest artificial intelligence machine learning developer tools news",
+    "artificial intelligence enterprise developer cloud security MLOps education marketing infrastructure news 2026",
     10,
   );
   if (search.error) {
@@ -135,10 +168,16 @@ export async function refreshTopicBank(
     topics: ranked.topics.map((t, i) => ({ ...t, rank: i + 1 })),
   };
   writeTopicBank(cwd, next);
+  writeSeoTrendLogsFromBank(cwd, next);
   appendEvent(
     {
       type: "TOPIC_BANK_REFRESHED",
-      payload: { topic_count: next.topics.length, crawl_count: next.crawl_count },
+      payload: {
+        topic_count: next.topics.length,
+        crawl_count: next.crawl_count,
+        vertical_catalog_size: CONTENT_VERTICALS.length,
+        trend_log_path: "state/seo-trend-logs.json",
+      },
     },
     cwd,
   );
@@ -149,11 +188,11 @@ export async function refreshTopicBank(
 export async function forceRefreshTopicBank(
   cwd: string,
   options: { skipAudit?: boolean } = {},
-): Promise<{ ok: true; topicCount: number } | { ok: false; error: string }> {
+): Promise<RefreshTopicBankResult> {
   if (!options.skipAudit) {
     await auditPreviousTopicBank(cwd);
   }
-  return refreshTopicBank(cwd, { skipAudit: true });
+  return refreshTopicBank(cwd, { skipAudit: true, forceSerp: true });
 }
 
 /** Seed a minimal bank when search APIs are not yet configured (dev only). */
@@ -167,6 +206,9 @@ export function seedStubTopicBank(cwd: string): TopicBankFile {
       {
         id: "stub-1",
         rank: 1,
+        vertical_id: "developer-tools-oss",
+        vertical_label: "Developer tools & OSS",
+        angle: "Ship safer agentic workflows in CI",
         keyword: "agentic AI workflows for developers",
         subcategory: "agentic AI",
         content_type: "article",

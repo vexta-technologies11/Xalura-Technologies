@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractIngestBearerToken, getSharedIngestSecret } from "@/lib/ingestAuth";
+import { CONTENT_VERTICALS } from "@/xalura-agentic/lib/contentWorkflow/contentVerticals";
+import { TOPIC_BANK_RANK_COUNT } from "@/xalura-agentic/lib/contentWorkflow/geminiTopicRanker";
 import { forceRefreshTopicBank } from "@/xalura-agentic/lib/contentWorkflow/topicBankRefresh";
 
 export const dynamic = "force-dynamic";
@@ -35,5 +37,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     topic_count: out.topicCount,
+    expected_topic_count: TOPIC_BANK_RANK_COUNT,
+    vertical_catalog_size: CONTENT_VERTICALS.length,
+    trend_log_relative: "xalura-agentic/state/seo-trend-logs.json",
   });
 }

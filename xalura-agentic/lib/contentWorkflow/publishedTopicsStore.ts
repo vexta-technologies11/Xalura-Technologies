@@ -48,6 +48,7 @@ export function recordArticlePublished(
     slug?: string;
     content_type?: ContentType;
     subcategory?: string;
+    vertical_id?: string;
   },
 ): void {
   const slug = params.slug?.trim() || slugForKeyword(params.keyword);
@@ -57,5 +58,6 @@ export function recordArticlePublished(
     published_at: new Date().toISOString(),
     content_type: params.content_type ?? "article",
     subcategory: params.subcategory,
+    vertical_id: params.vertical_id?.trim() || undefined,
   });
 }

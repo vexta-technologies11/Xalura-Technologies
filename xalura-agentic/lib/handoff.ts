@@ -48,6 +48,8 @@ export async function runSeoPipelineWithHandoff(
       payload.content_type = cw.content_type;
       payload.subcategory = cw.subcategory;
       payload.source_urls = cw.source_urls?.length ? cw.source_urls : undefined;
+      if (cw.vertical_id) payload.vertical_id = cw.vertical_id;
+      if (cw.vertical_label) payload.vertical_label = cw.vertical_label;
     }
     appendEvent({ type: "KEYWORD_READY", payload }, cwd);
   }

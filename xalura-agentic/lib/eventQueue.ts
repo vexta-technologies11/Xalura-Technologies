@@ -16,6 +16,9 @@ export type KeywordReadyPayload = {
   content_type?: "article" | "course";
   subcategory?: string;
   source_urls?: string[];
+  /** Matched SEO ↔ Publishing lane (`CONTENT_VERTICALS`). */
+  vertical_id?: string;
+  vertical_label?: string;
 };
 
 export type ArticlePublishedPayload = {
@@ -32,6 +35,8 @@ export type AuditCompletePayload = {
 export type TopicBankRefreshedPayload = {
   topic_count: number;
   crawl_count: number;
+  vertical_catalog_size?: number;
+  trend_log_path?: string;
 };
 
 export type AgenticEvent =

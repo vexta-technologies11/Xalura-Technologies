@@ -2,8 +2,13 @@ import type { TopicBankEntry, TopicBankFile } from "./types";
 import { readTopicRotation } from "./topicRotationStore";
 import { getUnusedTopics, readTopicBank, writeTopicBank } from "./topicBankStore";
 import { refreshTopicBank, seedStubTopicBank } from "./topicBankRefresh";
+import {
+  hoursSinceLastTopicBankCrawl,
+  minSerpIntervalHoursFromEnv,
+} from "./topicBankSerpPolicy";
 
-export const CRAWL_THRESHOLD = 5;
+/** Max topics consumed from one bank before `depleted` (matches 20-topic refresh). */
+export const CRAWL_THRESHOLD = 20;
 export const STALE_HOURS = 12;
 export const MIN_CRAWL_GAP_MS = 2 * 60 * 60 * 1000;
 
@@ -39,7 +44,12 @@ export type NextTopicResult =
  */
 export async function getNextTopic(
   cwd: string,
-  opts: { forceRefresh?: boolean; allowStubFallback?: boolean } = {},
+  opts: {
+    forceRefresh?: boolean;
+    allowStubFallback?: boolean;
+    /** When set, pick the highest-scoring unused topic in this vertical (matched SEO ↔ Publishing lane). */
+    verticalId?: string;
+  } = {},
 ): Promise<NextTopicResult> {
   const force = opts.forceRefresh === true;
   let bank = readTopicBank(cwd);
@@ -48,7 +58,9 @@ export async function getNextTopic(
   const cooldownBlocks = need && !force && tooSoonToCrawl(bank);
 
   if (need && !cooldownBlocks) {
-    const refreshed = await refreshTopicBank(cwd, {});
+    const refreshed = await refreshTopicBank(cwd, {
+      forceSerp: opts.forceRefresh === true,
+    });
     if (!refreshed.ok) {
       if (opts.allowStubFallback) {
         bank = seedStubTopicBank(cwd);
@@ -72,23 +84,50 @@ export async function getNextTopic(
   }
 
   if (need && cooldownBlocks) {
-    const remaining = getUnusedTopics(bank);
+    let remaining = getUnusedTopics(bank);
+    const vfCooldown = opts.verticalId?.trim();
+    if (vfCooldown) {
+      remaining = remaining.filter(
+        (t) => (t.vertical_id || "").trim().toLowerCase() === vfCooldown.toLowerCase(),
+      );
+    }
     if (remaining.length > 0) {
       return { ok: true, topic: markTopicUsed(cwd, bank, remaining[0]!) };
     }
     return {
       ok: false,
-      reason:
-        "Topic bank depleted and minimum crawl interval (2h) not met. Retry later or use forceTopicBankRefresh.",
+      reason: vfCooldown
+        ? `No unused topic for vertical \`${vfCooldown}\` while crawl cooldown is active. Retry later or use forceTopicBankRefresh.`
+        : "Topic bank depleted and minimum crawl interval (2h) not met. Retry later or use forceTopicBankRefresh.",
     };
   }
 
-  const unused = getUnusedTopics(bank);
+  let unused = getUnusedTopics(bank);
+  const vFilter = opts.verticalId?.trim();
+  if (vFilter) {
+    const narrowed = unused.filter(
+      (t) => (t.vertical_id || "").trim().toLowerCase() === vFilter.toLowerCase(),
+    );
+    if (!narrowed.length) {
+      const lanes = Array.from(new Set(unused.map((t) => t.vertical_id).filter(Boolean)));
+      return {
+        ok: false,
+        reason: `No unused topic for vertical \`${vFilter}\`. Unused lanes in bank: ${lanes.length ? lanes.join(", ") : "(none)"}. Refresh bank or pick another verticalId.`,
+      };
+    }
+    unused = narrowed;
+  }
+
   if (!unused.length) {
     if (opts.allowStubFallback) {
       const stub = seedStubTopicBank(cwd);
-      const u = getUnusedTopics(stub);
-      if (!u.length) return { ok: false, reason: "Stub bank empty" };
+      let u = getUnusedTopics(stub);
+      if (vFilter) {
+        u = u.filter(
+          (t) => (t.vertical_id || "").trim().toLowerCase() === vFilter.toLowerCase(),
+        );
+      }
+      if (!u.length) return { ok: false, reason: "Stub bank empty or no topic for this vertical" };
       return { ok: true, topic: markTopicUsed(cwd, stub, u[0]!) };
     }
     return { ok: false, reason: "No unused topics in bank" };

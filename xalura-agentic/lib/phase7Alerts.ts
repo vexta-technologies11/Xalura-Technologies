@@ -27,6 +27,7 @@ export function scheduleChiefDigestEmail(params: {
   department: DepartmentId;
   auditFileRelative: string;
   cwdLabel?: string;
+  agentLaneKey?: string;
 }): void {
   waitUntilAfterResponse(runChiefDigestEmailWork(params));
 }
@@ -35,12 +36,15 @@ async function runChiefDigestEmailWork(params: {
   department: DepartmentId;
   auditFileRelative: string;
   cwdLabel?: string;
+  agentLaneKey?: string;
 }): Promise<void> {
   const to = (await resolveWorkerEnv("AGENTIC_CHIEF_DIGEST_EMAIL"))?.trim();
   if (!to) return;
-  const subject = `[Xalura agentic] Chief audit — ${params.department}`;
+  const lane = params.agentLaneKey ? ` — lane ${params.agentLaneKey}` : "";
+  const subject = `[Xalura agentic] Chief audit — ${params.department}${lane}`;
   const text = [
     `Department: ${params.department}`,
+    params.agentLaneKey ? `Agent lane: ${params.agentLaneKey}` : "",
     `Audit file: ${params.auditFileRelative}`,
     params.cwdLabel ? `Cwd: ${params.cwdLabel}` : "",
     "",

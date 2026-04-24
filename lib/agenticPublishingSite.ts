@@ -4,6 +4,7 @@ import {
 } from "@/lib/agenticArticlePublish";
 import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
 import { scheduleChiefPublishCycleEmail } from "@/xalura-agentic/lib/chiefPublishDigest";
+import { scheduleFounderOversightPublishEmail } from "@/xalura-agentic/lib/founderOversightPublish";
 import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/publishedTopicsStore";
 import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import type { DepartmentPipelineResult } from "@/xalura-agentic/lib/runDepartmentPipeline";
@@ -77,6 +78,9 @@ export async function sitePublishFromApprovedPublishingRun(params: {
       ? params.result.contentWorkflow.content_type
       : "article",
     subcategory: params.contentSubcategory,
+    vertical_id: params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.vertical_id
+      : undefined,
   });
 
   const zernio = await sharePublishedArticleToZernio({
@@ -104,6 +108,28 @@ export async function sitePublishFromApprovedPublishingRun(params: {
     auditTriggered: params.result.cycle.auditTriggered,
     cycleFileRelative: params.result.cycle.cycleFileRelative,
     zernioLine,
+  });
+
+  scheduleFounderOversightPublishEmail({
+    cwd: params.cwd,
+    task: params.task,
+    title,
+    slug: pub.slug,
+    articlePath: `/articles/${pub.slug}`,
+    executiveSummary: params.result.executiveSummary,
+    workerOutputExcerpt: params.result.workerOutput,
+    managerAttempts: params.result.managerAttempts,
+    cycleIndex: params.result.cycle.cycleIndex,
+    auditTriggered: params.result.cycle.auditTriggered,
+    cycleFileRelative: params.result.cycle.cycleFileRelative,
+    zernioLine,
+    managerOutput: params.result.managerOutput,
+    contentVerticalId: params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.vertical_id
+      : undefined,
+    contentVerticalLabel: params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.vertical_label
+      : undefined,
   });
 
   const zernioOut: SitePublishZernio =

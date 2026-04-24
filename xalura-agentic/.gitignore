@@ -7,6 +7,7 @@ data/cycle-state.json
 
 # Content workflow (topic bank, rotation, daily production — PDF spec)
 state/*.json
+state/*.jsonl
 
 # Append-only inter-department queue (Phase 5)
 shared/event-queue.log

@@ -19,12 +19,24 @@ export function renderChiefDailyReportMarkdown(cwd: string = process.cwd()): str
     return `| ${label} | ${d.approvalsInWindow}/10 window | ${d.auditsCompleted} audits | (stub) |`;
   }).join("\n");
 
+  const lanes = state.agentLanes ?? {};
+  const laneKeys = Object.keys(lanes);
+  const laneBlock =
+    laneKeys.length > 0
+      ? `\n## Per-vertical agent lanes (isolated ladders)\n| Lane key | Progress | Audits |\n|---|---|---|\n${laneKeys
+          .map((k) => {
+            const d = lanes[k]!;
+            return `| \`${k}\` | ${d.approvalsInWindow}/10 | ${d.auditsCompleted} |`;
+          })
+          .join("\n")}\n`
+      : "";
+
   return `# Chief AI Daily Report
 **Date:** ${dateIso}
 ## Department Scores
 | Department | Progress | Audits completed | Directive |
 |---|---|---|---|
-${rows}
+${rows}${laneBlock}
 ## Inefficiencies Detected
 - _Stub — Phase 7_
 

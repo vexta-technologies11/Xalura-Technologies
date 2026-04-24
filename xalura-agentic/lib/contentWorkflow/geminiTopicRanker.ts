@@ -1,6 +1,17 @@
 import { runAgent } from "../gemini";
+import {
+  CONTENT_VERTICALS,
+  defaultVerticalId,
+  getVerticalById,
+  isValidVerticalId,
+  verticalCatalogForPrompt,
+} from "./contentVerticals";
 import type { ContentType, TopicBankEntry } from "./types";
 import { newTopicId } from "./topicBankStore";
+
+/** One Serp snapshot → 20 ranked rows (trend log + bank); ranks 1–14 cover each vertical once. */
+export const TOPIC_BANK_RANK_COUNT = 20;
+const VERTICAL_COUNT = CONTENT_VERTICALS.length;
 
 function extractJsonArray(raw: string): unknown[] | null {
   const t = raw.trim();
@@ -15,11 +26,23 @@ function extractJsonArray(raw: string): unknown[] | null {
   }
 }
 
-function normalizeEntry(o: Record<string, unknown>, rank: number): TopicBankEntry | null {
+function normalizeEntry(
+  o: Record<string, unknown>,
+  rank: number,
+): TopicBankEntry | null {
   const keyword = typeof o["keyword"] === "string" ? o["keyword"].trim() : "";
   if (!keyword) return null;
+  let vertical_id =
+    typeof o["vertical_id"] === "string" ? o["vertical_id"].trim() : "";
+  if (!isValidVerticalId(vertical_id)) {
+    vertical_id = CONTENT_VERTICALS[(rank - 1) % VERTICAL_COUNT]!.id;
+  }
+  const vMeta = getVerticalById(vertical_id);
+  const vertical_label = vMeta?.label ?? vertical_id;
+  const angle =
+    typeof o["angle"] === "string" && o["angle"].trim() ? o["angle"].trim() : undefined;
   const subcategory =
-    typeof o["subcategory"] === "string" ? o["subcategory"].trim() : "general";
+    typeof o["subcategory"] === "string" ? o["subcategory"].trim() : vertical_label;
   const content_type: ContentType =
     o["content_type"] === "course" ? "course" : "article";
   const final_score =
@@ -40,6 +63,9 @@ function normalizeEntry(o: Record<string, unknown>, rank: number): TopicBankEntr
   return {
     id: newTopicId(),
     rank,
+    vertical_id,
+    vertical_label,
+    angle,
     keyword,
     subcategory,
     content_type,
@@ -52,7 +78,8 @@ function normalizeEntry(o: Record<string, unknown>, rank: number): TopicBankEntr
 }
 
 /**
- * Rank / select top 10 topics from search + crawl signals (Gemini JSON).
+ * Rank exactly `TOPIC_BANK_RANK_COUNT` topics from one Serp + crawl snapshot.
+ * Ranks 1–N (N = number of catalog verticals) must each use a **distinct** `vertical_id`.
  */
 export async function rankTopicsWithGemini(params: {
   searchSummary: string;
@@ -62,11 +89,18 @@ export async function rankTopicsWithGemini(params: {
   recentKeywords30d: string[];
   auditHint?: string;
 }): Promise<{ topics: TopicBankEntry[]; raw_error?: string }> {
+  const distinctRule = `Ranks **1 through ${VERTICAL_COUNT}** must each use a **different** \`vertical_id\` from the catalog (cover **all** ${VERTICAL_COUNT} ids exactly once across those rows). Ranks **${VERTICAL_COUNT + 1} through ${TOPIC_BANK_RANK_COUNT}**: additional high-signal topics; you may repeat \`vertical_id\` but stay AI/tech and avoid repeating keywords from ranks 1–${VERTICAL_COUNT} when possible.`;
+
   const task = `You are the SEO research agent for Xalura Tech (content workflow).
 
-**Domain:** Tech and AI only. Reject lifestyle, finance, health, pure entertainment.
+**Domain:** Tech and AI only. Reject lifestyle, consumer gossip, non-tech entertainment.
 
-**Rotation:** Do not repeat these subcategories for the top pick if alternatives exist (last 5 used): ${JSON.stringify(params.last5Subcategories)}
+**Content vertical catalog (use these \`vertical_id\` strings exactly):**
+${verticalCatalogForPrompt()}
+
+**Coverage rule:** ${distinctRule}
+
+**Rotation:** Prefer not to repeat these subcategories at the top if alternatives exist (last 5 used): ${JSON.stringify(params.last5Subcategories)}
 **Cooldown topic labels (avoid):** ${JSON.stringify(params.cooldownTopics)}
 **Keywords published in the last 30 days (avoid repeating):** ${JSON.stringify(params.recentKeywords30d.slice(0, 40))}
 
@@ -78,17 +112,19 @@ ${params.searchSummary.slice(0, 12_000)}
 **Firecrawl markdown excerpts from selected URLs:**
 ${params.crawlSummary.slice(0, 14_000)}
 
-Return **ONLY** a JSON array (no markdown fences) of exactly 10 objects, each:
+Return **ONLY** a JSON array (no markdown fences) of exactly ${TOPIC_BANK_RANK_COUNT} objects, each:
 {
   "rank": 1,
+  "vertical_id": "${defaultVerticalId()}",
+  "angle": "one-line editorial angle (optional)",
   "keyword": "primary phrase",
-  "subcategory": "short lane label",
+  "subcategory": "short lane label (may mirror vertical)",
   "content_type": "article" | "course",
   "final_score": 0.0,
   "supporting_keywords": ["..."],
   "source_urls": ["https://..."]
 }
-Scores: trend, volume proxy, difficulty/novelty for Xalura audience. Sort by final_score descending.`;
+Sort by final_score descending. **Regulated verticals** (\`healthcare-bioinformatics\`, \`legal-compliance-tooling\`): tooling/research/product angles only — no clinical or legal advice.`;
 
   const raw = await runAgent({
     role: "Worker",
@@ -110,7 +146,7 @@ Scores: trend, volume proxy, difficulty/novelty for Xalura audience. Sort by fin
       topics.push(n);
       r += 1;
     }
-    if (topics.length >= 10) break;
+    if (topics.length >= TOPIC_BANK_RANK_COUNT) break;
   }
   return { topics };
 }

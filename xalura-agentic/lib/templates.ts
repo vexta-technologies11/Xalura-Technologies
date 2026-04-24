@@ -47,6 +47,8 @@ export function renderAuditLog(input: {
   chiefScore: string;
   directive: string;
   strategyAdjustment: string;
+  /** e.g. `seo:cloud-infrastructure` — isolated vertical agent ladder */
+  agentLaneLabel?: string;
 }): string {
   const deptLabel =
     input.department === "seo"
@@ -58,9 +60,12 @@ export function renderAuditLog(input: {
   const body = input.rows
     .map((r) => `| ${r.cycle} | ${r.output} | ${r.result} | ${r.score} |`)
     .join("\n");
+  const laneLine = input.agentLaneLabel
+    ? `**Agent lane:** ${input.agentLaneLabel}\n`
+    : "";
   return `# ${deptLabel} — Audit Report — Cycle ${input.auditSequence}
 **Date:** ${input.dateIso}
-**Cycles Reviewed:** ${input.cyclesReviewed}
+${laneLine}**Cycles Reviewed:** ${input.cyclesReviewed}
 **Executive Agent:** ${input.executiveName}
 ## Performance Summary
 ${header}${body}

@@ -13,6 +13,9 @@ export async function enrichAuditWithChief(params: {
   department: DepartmentId;
   auditFileRelative: string;
   cwd?: string;
+  /** e.g. `seo:cloud-infrastructure` — separate vertical agent toward Chief */
+  agentLaneKey?: string;
+  agentLaneHumanLabel?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const cwd = params.cwd ?? process.cwd();
   const abs = path.join(getAgenticRoot(cwd), params.auditFileRelative);
@@ -29,10 +32,16 @@ export async function enrichAuditWithChief(params: {
     params.department === "seo"
       ? "SEO & Audit"
       : params.department.charAt(0).toUpperCase() + params.department.slice(1);
+  const lanePreamble =
+    params.agentLaneKey && params.agentLaneHumanLabel
+      ? `This audit is for **one vertical agent lane** (${params.agentLaneHumanLabel}, key \`${params.agentLaneKey}\`) — an isolated Worker→Manager→Executive ladder, not the department-wide aggregate.\n\n`
+      : params.agentLaneKey
+        ? `This audit is for **one vertical agent lane** (\`${params.agentLaneKey}\`).\n\n`
+        : "";
   try {
     const chiefMd = await runChiefAI({
       department: "All",
-      task: `You are Chief AI for Xalura Tech. Read this **${deptLabel}** department audit report (markdown below).
+      task: `You are Chief AI for Xalura Tech. ${lanePreamble}Read this **${deptLabel}** department audit report (markdown below).
 
 Respond in **markdown** with exactly these sections (use these headings):
 ## Chief score
@@ -65,6 +74,7 @@ ${existing.slice(0, 28_000)}`,
       department: params.department,
       auditFileRelative: params.auditFileRelative.replace(/\\/g, "/"),
       cwdLabel: cwd,
+      agentLaneKey: params.agentLaneKey,
     });
     return { ok: true };
   } catch (e) {

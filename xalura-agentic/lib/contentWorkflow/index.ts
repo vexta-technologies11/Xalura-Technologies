@@ -22,3 +22,16 @@ export {
   extendCooldownForSubcategories,
 } from "./topicRotationStore";
 export { serpApiSearch, serpApiConfigured } from "./serpApiSearch";
+export {
+  CONTENT_VERTICALS,
+  getVerticalById,
+  isValidVerticalId,
+  verticalCatalogForPrompt,
+} from "./contentVerticals";
+export { TOPIC_BANK_RANK_COUNT } from "./geminiTopicRanker";
+export { readSeoTrendLogs, writeSeoTrendLogsFromBank } from "./seoTrendLogsStore";
+export {
+  hoursSinceLastTopicBankCrawl,
+  minSerpIntervalHoursFromEnv,
+} from "./topicBankSerpPolicy";
+export type { RefreshTopicBankResult } from "./topicBankRefresh";

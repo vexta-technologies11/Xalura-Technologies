@@ -60,6 +60,7 @@ function isDeptId(s: string): s is DepartmentId {
  * - `useTopicBank`: optional — **SEO only**: topic bank (SerpAPI + Firecrawl + Gemini)
  * - `forceTopicBankRefresh`, `allowStubFallback`: optional — SEO topic bank controls
  * - `useDailyPublishingBrief`, `useDailyProductionTracker`, `contentSubcategory`: optional — **Publishing**
+ * - `contentVerticalId`: optional — **SEO** with `useTopicBank` picks next topic in that vertical; **Publishing** overrides lane when set (else uses latest `KEYWORD_READY` vertical).
  *
  * `useHandoff` and `publishToSite` cannot both be true (would double-emit queue events).
  */
@@ -124,6 +125,10 @@ export async function POST(request: Request) {
     typeof body["contentSubcategory"] === "string" && body["contentSubcategory"].trim()
       ? body["contentSubcategory"].trim()
       : undefined;
+  const contentVerticalId =
+    typeof body["contentVerticalId"] === "string" && body["contentVerticalId"].trim()
+      ? body["contentVerticalId"].trim()
+      : undefined;
 
   if (useTopicBank && deptRaw !== "seo") {
     return NextResponse.json(
@@ -131,6 +136,19 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (contentVerticalId && deptRaw !== "seo" && deptRaw !== "publishing") {
+    return NextResponse.json(
+      { error: "contentVerticalId is only valid for department seo or publishing" },
+      { status: 400 },
+    );
+  }
+  if (contentVerticalId && deptRaw === "seo" && !useTopicBank) {
+    return NextResponse.json(
+      { error: "contentVerticalId requires useTopicBank for department seo" },
+      { status: 400 },
+    );
+  }
+
   if (
     (useDailyPublishingBrief || useDailyProductionTracker || !!contentSubcategory) &&
     deptRaw !== "publishing"
@@ -174,6 +192,7 @@ export async function POST(request: Request) {
     useDailyPublishingBrief: useDailyPublishingBrief || undefined,
     useDailyProductionTracker: useDailyProductionTracker || undefined,
     contentSubcategory,
+    contentVerticalId,
   };
 
   const cwd = process.cwd();

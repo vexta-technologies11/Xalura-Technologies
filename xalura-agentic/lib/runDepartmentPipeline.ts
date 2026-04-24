@@ -8,6 +8,8 @@ import {
 import type { DepartmentId } from "../engine/departments";
 import { executiveDisplayName } from "./agentNames";
 import { enrichAuditWithChief } from "./chiefEnrichAudit";
+import { getVerticalById } from "./contentWorkflow/contentVerticals";
+import { getLatestEvent } from "./eventQueue";
 import { parseManagerDecision } from "./managerDecision";
 import { bumpArticleCompleted } from "./contentWorkflow/dailyProductionStore";
 import { buildPublishingDailyBriefPrefix } from "./contentWorkflow/publishingBrief";
@@ -46,6 +48,11 @@ export type DepartmentPipelineInput = {
   useDailyProductionTracker?: boolean;
   /** Publishing: record subcategory for rotation file after approve. */
   contentSubcategory?: string;
+  /**
+   * SEO with `useTopicBank`: consume next unused topic in this vertical (`CONTENT_VERTICALS` id).
+   * Publishing: optional override for lane focus; otherwise latest `KEYWORD_READY.vertical_id` is used.
+   */
+  contentVerticalId?: string;
 };
 
 export type ContentWorkflowHandoff = {
@@ -54,6 +61,8 @@ export type ContentWorkflowHandoff = {
   content_type: "article" | "course";
   subcategory: string;
   source_urls: string[];
+  vertical_id: string;
+  vertical_label: string;
 };
 
 export type DepartmentPipelineResult =
@@ -97,6 +106,31 @@ export type DepartmentPipelineResult =
       reason: string;
     }
   | { status: "blocked"; reason: string };
+
+/** Isolated Worker→Manager→Executive→Chief ladder per vertical (`seo` / `publishing` only). */
+function resolveAgentLaneId(
+  departmentId: DepartmentId,
+  input: DepartmentPipelineInput,
+  activeContentTopic: TopicBankEntry | undefined,
+  cwd: string,
+): string | undefined {
+  if (departmentId === "marketing") return undefined;
+  if (departmentId === "seo") {
+    const fromTopic = activeContentTopic?.vertical_id?.trim();
+    if (fromTopic) return fromTopic;
+    return input.contentVerticalId?.trim();
+  }
+  if (departmentId === "publishing") {
+    const explicit = input.contentVerticalId?.trim();
+    if (explicit) return explicit;
+    const ev = getLatestEvent("KEYWORD_READY", cwd);
+    if (ev?.type === "KEYWORD_READY" && ev.payload.vertical_id?.trim()) {
+      return ev.payload.vertical_id!.trim();
+    }
+    return undefined;
+  }
+  return undefined;
+}
 
 async function guardStep<T>(
   fn: () => Promise<T>,
@@ -145,33 +179,75 @@ export async function runDepartmentPipeline(
   let effectiveKeyword = input.keyword;
   let activeContentTopic: TopicBankEntry | undefined;
 
+  let publishingVerticalLine = "";
+  if (departmentId === "publishing") {
+    const explicit = input.contentVerticalId?.trim();
+    if (explicit) {
+      const meta = getVerticalById(explicit);
+      publishingVerticalLine = meta
+        ? `You are the **Publishing Worker** for vertical **${meta.label}** (\`${meta.id}\`). Stay in this lane; angles: ${meta.exampleAngles}.\n\n`
+        : `You are the **Publishing Worker** for vertical \`${explicit}\`.\n\n`;
+    } else {
+      const ev = getLatestEvent("KEYWORD_READY", cwd);
+      if (ev?.type === "KEYWORD_READY") {
+        const vid = ev.payload.vertical_id?.trim();
+        const lbl = ev.payload.vertical_label?.trim();
+        if (vid && lbl) {
+          publishingVerticalLine = `You are the **Publishing Worker** for vertical **${lbl}** (\`${vid}\`) — **matched to the prior SEO handoff**. Align draft, metadata, and CTA with this lane only.\n\n`;
+        }
+      }
+    }
+  }
+
   if (departmentId === "seo" && input.useTopicBank) {
     const gate = await getNextTopic(cwd, {
       forceRefresh: input.forceTopicBankRefresh === true,
       allowStubFallback: input.allowStubFallback === true,
+      verticalId: input.contentVerticalId,
     });
     if (!gate.ok) {
       return { status: "blocked", reason: gate.reason };
     }
     activeContentTopic = gate.topic;
     effectiveKeyword = gate.topic.keyword;
-    effectiveTask = [
-      `You are executing a **topic from the Xalura topic bank** (content workflow). Domain: **tech and AI only**; reject off-topic ideas.`,
+    const vLabel = gate.topic.vertical_label ?? gate.topic.vertical_id;
+    const lines = [
+      `You are the **SEO Worker** for vertical **${vLabel}** (\`${gate.topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`,
       ``,
       `- Primary keyword: **${gate.topic.keyword}**`,
       `- Subcategory: ${gate.topic.subcategory}`,
+    ];
+    if (gate.topic.angle?.trim()) {
+      lines.push(`- Editorial angle: ${gate.topic.angle.trim()}`);
+    }
+    lines.push(
       `- Planned content type: **${gate.topic.content_type}**`,
       `- Supporting keywords: ${gate.topic.supporting_keywords.join(", ") || "(none)"}`,
       `- Source URLs (reference): ${gate.topic.source_urls.join("\n") || "(none)"}`,
       ``,
       `## Department task`,
       input.task,
-    ].join("\n");
+    );
+    effectiveTask = lines.join("\n");
+  }
+
+  if (departmentId === "publishing") {
+    effectiveTask = publishingVerticalLine + effectiveTask;
   }
 
   if (departmentId === "publishing" && input.useDailyPublishingBrief) {
     effectiveTask = buildPublishingDailyBriefPrefix(cwd) + effectiveTask;
   }
+
+  const agentLaneId = resolveAgentLaneId(
+    departmentId,
+    input,
+    activeContentTopic,
+    cwd,
+  );
+  const agentLaneLabelMeta = agentLaneId
+    ? getVerticalById(agentLaneId)?.label
+    : undefined;
 
   let escalationPhase = 0;
   let managerOutputs: string[] = [];
@@ -218,6 +294,9 @@ export async function runDepartmentPipeline(
           keyword: activeContentTopic.keyword,
           subcategory: activeContentTopic.subcategory,
           content_type: activeContentTopic.content_type,
+          vertical_id: activeContentTopic.vertical_id,
+          vertical_label: activeContentTopic.vertical_label,
+          angle: activeContentTopic.angle,
           supporting_keywords: activeContentTopic.supporting_keywords,
           source_urls: activeContentTopic.source_urls,
         };
@@ -268,11 +347,15 @@ ${workerOutput}`;
 
       const decision = parseManagerDecision(managerOutput);
       if (decision.approved) {
+        const laneExecHint =
+          agentLaneId && (departmentId === "seo" || departmentId === "publishing")
+            ? ` This approval is for **vertical agent lane** \`${agentLaneId}\`${agentLaneLabelMeta ? ` (${agentLaneLabelMeta})` : ""} — an isolated ladder (own cycle files toward Chief).`
+            : "";
         const e = await guardStep(() =>
           runExecutive({
             role: "Executive",
             department: DEPT,
-            task: `Manager APPROVED this Worker output. Write a short executive summary (3–6 sentences) of what is being stored for the ${executiveStoreLabel} department.`,
+            task: `Manager APPROVED this Worker output. Write a short executive summary (3–6 sentences) of what is being stored for the ${executiveStoreLabel} department.${laneExecHint}`,
             context: { workerOutput, managerReview: managerOutput },
           }),
         );
@@ -292,6 +375,7 @@ ${workerOutput}`;
             managerApproved: true,
             managerReason: decision.reason,
             executiveName: execName,
+            agentLaneId,
           },
           cwd,
         );
@@ -331,6 +415,11 @@ ${workerOutput}`;
             department: departmentId,
             auditFileRelative: cycle.auditFileRelative,
             cwd,
+            agentLaneKey:
+              agentLaneId && (departmentId === "seo" || departmentId === "publishing")
+                ? `${departmentId}:${agentLaneId}`
+                : undefined,
+            agentLaneHumanLabel: agentLaneLabelMeta,
           });
         }
 
@@ -342,6 +431,10 @@ ${workerOutput}`;
                 content_type: activeContentTopic.content_type,
                 subcategory: activeContentTopic.subcategory,
                 source_urls: activeContentTopic.source_urls,
+                vertical_id: activeContentTopic.vertical_id,
+                vertical_label:
+                  activeContentTopic.vertical_label ??
+                  activeContentTopic.vertical_id,
               }
             : undefined;
 

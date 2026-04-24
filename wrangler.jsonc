@@ -3,7 +3,11 @@
   "name": "xalura-technologies",
   "main": "./cloudflare/custom-worker.ts",
   "triggers": {
-    "crons": ["0 */2 * * *"]
+    "crons": [
+      "0 * * * *",
+      "*/10 * * * *",
+      "0 */2 * * *"
+    ]
   },
   // Public origin for cron self-fetch → /api/cron/agentic-publish (no trailing slash).
   "vars": {

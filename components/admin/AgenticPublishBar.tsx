@@ -47,7 +47,10 @@ export function AgenticPublishBar() {
       <p className="admin-agentic-publish-bar__title">Publishing → live article</p>
       <p className="admin-agentic-publish-bar__hint">
         Runs the publishing agent once and upserts Supabase (same as <code>publishToSite</code> via API).
-        Requires <code>SUPABASE_SERVICE_ROLE_KEY</code> on the server.
+        Requires <code>SUPABASE_SERVICE_ROLE_KEY</code> on the server. After a successful publish, optional
+        compliance email (Resend) runs in the background if{" "}
+        <code>AGENTIC_COMPLIANCE_ON_PUBLISH</code> or <code>AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH</code> is
+        enabled — same path as cron/API publishes.
       </p>
       <textarea
         className="admin-agentic-publish-bar__task"

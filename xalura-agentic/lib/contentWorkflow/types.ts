@@ -5,6 +5,12 @@ export type ContentType = "article" | "course";
 export type TopicBankEntry = {
   id: string;
   rank: number;
+  /** Stable lane id from `CONTENT_VERTICALS` (SEO + Publishing worker focus). */
+  vertical_id: string;
+  /** Denormalized label for logs / handoff (optional on legacy disk). */
+  vertical_label?: string;
+  /** Optional one-line editorial angle for trend logs / Chief context. */
+  angle?: string;
   keyword: string;
   subcategory: string;
   content_type: ContentType;
@@ -40,6 +46,7 @@ export type PublishedTopicEntry = {
   published_at: string;
   content_type?: ContentType;
   subcategory?: string;
+  vertical_id?: string;
 };
 
 export type PublishedTopicsFile = {

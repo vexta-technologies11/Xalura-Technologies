@@ -13,8 +13,14 @@ export type DepartmentCycleState = {
 };
 
 export type CycleStateFile = {
-  version: 2;
+  /** v2: department-wide only. v3: + per-vertical agents for seo & publishing. */
+  version: 2 | 3;
   departments: Record<DepartmentId, DepartmentCycleState>;
+  /**
+   * Isolated 10-cycle ladders per vertical lane (`seo` / `publishing` only).
+   * Key: `${department}:${vertical_id}` e.g. `seo:cloud-infrastructure`.
+   */
+  agentLanes?: Record<string, DepartmentCycleState>;
 };
 
 /** In-process cycle state when Workers have no sync fs (see `agenticDisk.ts`). */
@@ -31,7 +37,18 @@ function defaultState(): CycleStateFile {
   for (const id of DEPARTMENT_IDS) {
     departments[id] = defaultDept();
   }
-  return { version: 2, departments };
+  return { version: 3, departments, agentLanes: {} };
+}
+
+/** When set for `seo` | `publishing`, approvals use an isolated lane (separate Chief ladder). */
+export function agentLaneStateKey(
+  dept: DepartmentId,
+  verticalId: string | undefined,
+): string | null {
+  const id = verticalId?.trim();
+  if (!id || (dept !== "seo" && dept !== "publishing")) return null;
+  if (!/^[a-z0-9-]{1,80}$/i.test(id)) return null;
+  return `${dept}:${id.toLowerCase()}`;
 }
 
 export function getCycleStatePath(cwd: string = process.cwd()): string {
@@ -50,7 +67,10 @@ export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
   try {
     const raw = fs.readFileSync(p, "utf8");
     const parsed = JSON.parse(raw) as Partial<CycleStateFile>;
-    if (parsed.version !== 2 || !parsed.departments) {
+    if (!parsed.departments) {
+      return defaultState();
+    }
+    if (parsed.version !== 2 && parsed.version !== 3) {
       return defaultState();
     }
     const merged = defaultState();
@@ -58,6 +78,18 @@ export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
       const d = parsed.departments[id];
       if (d && typeof d.approvalsInWindow === "number") {
         merged.departments[id] = {
+          approvalsInWindow: Math.max(0, Math.min(10, d.approvalsInWindow)),
+          auditsCompleted: Math.max(0, d.auditsCompleted ?? 0),
+        };
+      }
+    }
+    const lanes = parsed.agentLanes;
+    if (parsed.version === 3 && lanes && typeof lanes === "object") {
+      for (const [k, v] of Object.entries(lanes)) {
+        if (!k || typeof v !== "object" || v === null) continue;
+        const d = v as Partial<DepartmentCycleState>;
+        if (typeof d.approvalsInWindow !== "number") continue;
+        merged.agentLanes![k] = {
           approvalsInWindow: Math.max(0, Math.min(10, d.approvalsInWindow)),
           auditsCompleted: Math.max(0, d.auditsCompleted ?? 0),
         };
@@ -75,5 +107,10 @@ export function saveCycleState(state: CycleStateFile, cwd: string = process.cwd(
     return;
   }
   const p = getCycleStatePath(cwd);
-  writeFileUtf8Agentic(p, JSON.stringify(state, null, 2));
+  const normalized: CycleStateFile = {
+    version: 3,
+    departments: state.departments,
+    agentLanes: state.agentLanes ?? {},
+  };
+  writeFileUtf8Agentic(p, JSON.stringify(normalized, null, 2));
 }
