@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isAgenticDiskWritable } from "@/xalura-agentic/lib/agenticDisk";
 import { runIncrementalHourlyPublish } from "@/xalura-agentic/lib/incrementalContentCron";
 import { humanIncrementalApiBrief } from "@/xalura-agentic/lib/pipelineFailureHumanize";
+
+const ADMIN_PIPELINE = ["seo_topic_bank", "publishing_handoff", "site_upsert"] as const;
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +47,11 @@ export async function POST() {
       {
         ok: false,
         source: "incremental",
+        pipeline: [...ADMIN_PIPELINE],
+        pipeline_note:
+          "This route always runs SEO (topic bank) first, then Publishing, then site upsert — same order as hourly incremental.",
+        agentic_disk_writable: isAgenticDiskWritable(),
+        topic_bank_relative_path: "xalura-agentic/state/topic-bank.json",
         stage: tick.stage,
         vertical_id: tick.vertical_id,
         vertical_label: tick.vertical_label,
@@ -59,6 +67,7 @@ export async function POST() {
     return NextResponse.json({
       ok: true,
       source: "incremental",
+      pipeline: [...ADMIN_PIPELINE],
       vertical_id: tick.vertical_id,
       vertical_label: tick.vertical_label,
       cadence_tick: tick.cadence_tick,
@@ -84,6 +93,8 @@ export async function POST() {
       {
         ok: false,
         source: "incremental",
+        pipeline: [...ADMIN_PIPELINE],
+        agentic_disk_writable: isAgenticDiskWritable(),
         vertical_id: tick.vertical_id,
         vertical_label: tick.vertical_label,
         cadence_tick: tick.cadence_tick,
@@ -97,6 +108,7 @@ export async function POST() {
   return NextResponse.json({
     ok: true,
     source: "incremental" as const,
+    pipeline: [...ADMIN_PIPELINE],
     vertical_id: tick.vertical_id,
     vertical_label: tick.vertical_label,
     cadence_tick: tick.cadence_tick,

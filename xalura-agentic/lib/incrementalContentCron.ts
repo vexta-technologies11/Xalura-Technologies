@@ -105,6 +105,10 @@ export type IncrementalHourlyResult =
 /**
  * One hourly tick: round-robin vertical → SEO (topic bank, that lane) with handoff →
  * Publishing (handoff) → optional site upsert. Does **not** force Serp; min interval governs refills.
+ *
+ * Admin `POST /api/admin/agentic-publish` uses the same function with `forceTopicBankIfMissing: true`
+ * so a missing/empty bank or a lane with no unused topic triggers `forceTopicBankRefresh` (Serp crawl)
+ * for that tick — SEO always runs first.
  */
 export async function runIncrementalHourlyPublish(
   cwd: string = process.cwd(),

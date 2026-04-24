@@ -24,6 +24,11 @@ export function opsAlertBriefFromFailedOperation(op: FailedOperation): string {
       "Mr President — SEO could not start because the keyword vault file on this server is missing or unreadable. Publishing is standing by; we need a topic-bank refresh or disk path fix before any lane can draft.",
     );
   }
+  if (hay.includes("cannot be saved") || hay.includes("read-only agentic")) {
+    return clipWords(
+      "Mr President — SEO could not **save** the keyword vault to disk. APIs may be fine, but this host cannot write `xalura-agentic/state` (read-only edge is common). Run incremental from Node with disk or mount persistent storage.",
+    );
+  }
   if (hay.includes("topic bank refresh failed")) {
     return clipWords(
       "Mr President — SEO tried to refill the keyword bank from the web and the crawl failed. Usually SerpAPI, Firecrawl, or Gemini is misconfigured, rate-limited, or unreachable from this host.",
@@ -75,7 +80,17 @@ export function humanIncrementalSeoFailureMessage(
   const r = `${input.reason ?? ""} ${input.message ?? ""}`.toLowerCase();
   if (input.status === "blocked" && r.includes("no topic bank")) {
     return clipWords(
-      `Mr President — the SEO desk for “${verticalLabel}” stopped immediately: the topic bank file is not on disk or could not be read, so there was no keyword to assign. Ask ops to refresh the bank or verify the agentic state path.`,
+      `Mr President — the SEO desk for “${verticalLabel}” stopped because the topic bank file is missing or unreadable after the gate step, so no keyword was assigned. Manual publish **does** run SEO first; if crawls succeed in logs but this repeats, the server likely cannot **write** \`xalura-agentic/state\` (read-only Workers). Run from Node/Vercel with disk or fix persistence.`,
+    );
+  }
+  if (
+    r.includes("read-only") ||
+    r.includes("cannot be saved") ||
+    r.includes("persist") ||
+    r.includes("read-back")
+  ) {
+    return clipWords(
+      `Mr President — SEO for “${verticalLabel}” could not **save** the keyword vault to disk. The crawl may have run, but the filesystem rejected or dropped the file — common on edge hosts without writable \`xalura-agentic/state\`. Publishing never starts until this path is fixed.`,
     );
   }
   if (r.includes("topic bank refresh failed")) {

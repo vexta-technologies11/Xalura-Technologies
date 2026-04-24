@@ -3,6 +3,7 @@ import { firecrawlScrape, gscSearchAnalyticsByPage } from "../phase7Clients";
 import { auditBankWithGemini } from "./geminiBankAuditor";
 import { rankTopicsWithGemini } from "./geminiTopicRanker";
 import { serpApiSearch } from "./serpApiSearch";
+import { isAgenticDiskWritable } from "../agenticDisk";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { recentKeywords } from "./publishedTopicsStore";
 import { CONTENT_VERTICALS } from "./contentVerticals";
@@ -168,13 +169,22 @@ export async function refreshTopicBank(
     topics: ranked.topics.map((t, i) => ({ ...t, rank: i + 1 })),
   };
   writeTopicBank(cwd, next);
-  writeSeoTrendLogsFromBank(cwd, next);
+  const persisted = readTopicBank(cwd);
+  if (!persisted?.topics?.length) {
+    return {
+      ok: false,
+      error: isAgenticDiskWritable()
+        ? "Topic bank did not persist after crawl (read-back empty or invalid). Check permissions on xalura-agentic/state/."
+        : "Topic bank cannot be saved: this host reports a read-only agentic filesystem (typical on Cloudflare Workers). SEO needs writable xalura-agentic/state — run this job on Node (e.g. Vercel) or mount persistent storage for that path.",
+    };
+  }
+  writeSeoTrendLogsFromBank(cwd, persisted);
   appendEvent(
     {
       type: "TOPIC_BANK_REFRESHED",
       payload: {
-        topic_count: next.topics.length,
-        crawl_count: next.crawl_count,
+        topic_count: persisted.topics.length,
+        crawl_count: persisted.crawl_count,
         vertical_catalog_size: CONTENT_VERTICALS.length,
         trend_log_path: "state/seo-trend-logs.json",
       },

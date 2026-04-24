@@ -87,6 +87,13 @@ export async function getNextTopic(
       }
     } else {
       bank = readTopicBank(cwd);
+      if (!bank && refreshed.ok) {
+        return {
+          ok: false,
+          reason:
+            "Topic bank refresh reported success but the bank file is still missing or unreadable (persist may have failed). Check xalura-agentic/state is writable.",
+        };
+      }
     }
   }
 
