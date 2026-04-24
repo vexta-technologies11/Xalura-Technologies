@@ -16,6 +16,7 @@ import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/pub
 import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import { appendFailedOperation } from "@/xalura-agentic/lib/failedQueue";
 import type { DepartmentPipelineResult } from "@/xalura-agentic/lib/runDepartmentPipeline";
+import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
 type ApprovedPublishing = Extract<DepartmentPipelineResult, { status: "approved" }>;
 
@@ -62,13 +63,42 @@ export async function sitePublishFromApprovedPublishingRun(
 
   const slug = computeArticleSlug(title, params.articleSlug);
 
+  const requireCoverRaw = (await resolveWorkerEnv("AGENTIC_REQUIRE_COVER_ON_PUBLISH")) ?? "";
+  const requireCover =
+    requireCoverRaw.trim().toLowerCase() === "true" || requireCoverRaw.trim() === "1";
+  const graphicDesignerRaw =
+    (await resolveWorkerEnv("AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH")) ?? "";
+  const graphicDesignerOn =
+    graphicDesignerRaw.trim().toLowerCase() === "true" || graphicDesignerRaw.trim() === "1";
+
+  if (requireCover && !graphicDesignerOn) {
+    return {
+      ok: false,
+      error:
+        "AGENTIC_REQUIRE_COVER_ON_PUBLISH is set but AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH is not enabled — enable both (and Storage bucket article-covers) or unset require.",
+    };
+  }
+
   let coverForRow: string | undefined;
   let precomputedHero: FounderOversightPublishParams["precomputedHero"];
+
+  const primaryKwForHero =
+    (params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.keyword
+      : params.keyword)?.trim() || undefined;
+  const subForHero =
+    params.contentSubcategory?.trim() ||
+    (params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.subcategory?.trim()
+      : undefined) ||
+    undefined;
 
   const hero = await generatePublishingHeroImage({
     title,
     executiveSummary: params.result.executiveSummary,
     slug,
+    primaryKeyword: primaryKwForHero,
+    subcategory: subForHero,
   });
   if (hero.ok) {
     const up = await uploadArticleCoverPng({ slug, pngBase64: hero.base64 });
@@ -98,6 +128,13 @@ export async function sitePublishFromApprovedPublishingRun(
       },
       params.cwd,
     );
+  }
+
+  if (requireCover && !coverForRow) {
+    return {
+      ok: false,
+      error: `AGENTIC_REQUIRE_COVER_ON_PUBLISH: article not published — no cover image URL (graphic step: ${hero.ok ? "generated but upload failed — check article-covers bucket and failed queue" : hero.error}).`,
+    };
   }
 
   const pub = await publishAgenticArticle({

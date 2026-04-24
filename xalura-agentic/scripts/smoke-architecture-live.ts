@@ -63,7 +63,7 @@ async function main() {
   const seo = await runSeoPipeline({
     cwd,
     task:
-      "In 2 short paragraphs, explain why this keyword matters for Xalura Tech readers (technical founders).",
+      "In 2 short paragraphs, explain why this keyword matters for Xalura Tech readers in this vertical.",
     useTopicBank: true,
     allowStubFallback: false,
     forceTopicBankRefresh: false,

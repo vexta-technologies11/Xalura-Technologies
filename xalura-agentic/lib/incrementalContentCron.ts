@@ -15,7 +15,7 @@ import {
 } from "./pipelineFailureHumanize";
 
 const DEFAULT_SEO_TASK =
-  "In 2–3 short paragraphs, justify why this bank keyword matters for Xalura Tech readers (technical founders). Be concrete; no fluff.";
+  "In 2–3 short paragraphs, justify why this bank keyword matters for Xalura Tech readers in **this vertical**. Every sentence must tie to the keyword; no fluff or generic audience essays.";
 
 function incrementalSeoTask(): string {
   const t = process.env["AGENTIC_INCREMENTAL_SEO_TASK"]?.trim();
@@ -246,8 +246,9 @@ export async function runIncrementalHourlyPublish(
     {
       cwd,
       task: incrementalPublishTask(),
-      keyword: seo.contentWorkflow?.keyword,
-      contentSubcategory: seo.contentWorkflow?.subcategory,
+      keyword: pub.contentWorkflow?.keyword ?? seo.contentWorkflow?.keyword,
+      contentSubcategory:
+        pub.contentWorkflow?.subcategory ?? seo.contentWorkflow?.subcategory,
       articleTitle: null,
       result: pub,
     },

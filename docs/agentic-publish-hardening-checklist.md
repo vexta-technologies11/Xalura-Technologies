@@ -19,6 +19,8 @@ This file records **what was changed in the repo** (verifiable in git) so expect
 | 2.2 | PNG is uploaded to Supabase Storage bucket **`article-covers`**; public URL written to `articles.cover_image_url`. | `lib/articleCoverStorage.ts`, `lib/agenticPublishingSite.ts`, `lib/agenticArticlePublish.ts` |
 | 2.3 | Article page renders `cover_image_url` when set. | `app/articles/[slug]/page.tsx` |
 | 2.4 | **You must create** the `article-covers` bucket in Supabase (public read, or adjust URL strategy). If the bucket is missing, upload fails → `failed/operations-queue.json` entry; article still publishes **without** cover. | Supabase Dashboard → Storage; see `supabase/schema.sql` comment block. |
+| 2.5 | Publishing Worker task includes the latest `KEYWORD_READY` keyword, subcategory, and sources; Manager must reject keyword drift. | `xalura-agentic/lib/runDepartmentPipeline.ts` — `formatPublishingKeywordHandoffBlock`, publishing Manager task. |
+| 2.6 | Optional: `AGENTIC_REQUIRE_COVER_ON_PUBLISH=true` blocks site upsert when no cover URL (needs graphic designer flag + bucket). | `lib/agenticPublishingSite.ts` |
 
 ## 3) Compliance / founder email reliability
 

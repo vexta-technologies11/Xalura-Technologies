@@ -9,7 +9,7 @@ import type { DepartmentId } from "../engine/departments";
 import { executiveDisplayName } from "./agentNames";
 import { enrichAuditWithChief } from "./chiefEnrichAudit";
 import { getVerticalById } from "./contentWorkflow/contentVerticals";
-import { getLatestEvent } from "./eventQueue";
+import { getLatestEvent, type KeywordReadyPayload } from "./eventQueue";
 import { parseManagerDecision } from "./managerDecision";
 import { bumpArticleCompleted } from "./contentWorkflow/dailyProductionStore";
 import { buildPublishingDailyBriefPrefix } from "./contentWorkflow/publishingBrief";
@@ -21,6 +21,55 @@ import { buildPhase7WorkerContext } from "./phase7PipelineContext";
 
 const MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
+
+function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
+  const kw = (p.keywords[0] ?? "").trim();
+  const lines: string[] = ["## SEO → Publishing handoff (mandatory)"];
+  if (kw) {
+    lines.push(`- **Primary keyword:** ${kw}`);
+  } else {
+    lines.push(
+      "- **Primary keyword:** (missing from handoff — output a single line explaining you cannot draft until SEO supplies a keyword.)",
+    );
+  }
+  if (p.subcategory?.trim()) lines.push(`- **Subcategory:** ${p.subcategory.trim()}`);
+  if (p.content_type) lines.push(`- **Content type:** ${p.content_type}`);
+  if (p.vertical_label?.trim() || p.vertical_id?.trim()) {
+    lines.push(
+      `- **Vertical:** ${(p.vertical_label ?? p.vertical_id)!.trim()} (\`${(p.vertical_id ?? "").trim() || "n/a"}\`)`,
+    );
+  }
+  if (p.source_urls?.length) {
+    lines.push("- **Source URLs** (ground claims here; do not invent a different pillar topic):");
+    for (const u of p.source_urls) {
+      if (u?.trim()) lines.push(`  - ${u.trim()}`);
+    }
+  }
+  lines.push(
+    "",
+    "### Editorial contract",
+    "- The Markdown article must **center** the primary keyword in the `#` title, lede, and body.",
+    "- Do **not** substitute a generic theme (e.g. a broad audience essay) unless it is a direct framing of that exact keyword.",
+    "- The published body starts at `# Title` — no meta preamble (no \"As a Worker\", no department self-introduction).",
+  );
+  return `${lines.join("\n")}\n\n`;
+}
+
+function keywordReadyToContentWorkflow(
+  p: KeywordReadyPayload,
+): ContentWorkflowHandoff | undefined {
+  const kw = (p.keywords[0] ?? "").trim();
+  if (!kw) return undefined;
+  return {
+    topic_bank: true,
+    keyword: kw,
+    content_type: p.content_type ?? "article",
+    subcategory: p.subcategory?.trim() ?? "",
+    source_urls: (p.source_urls ?? []).filter((u): u is string => Boolean(u?.trim())),
+    vertical_id: p.vertical_id?.trim() ?? "",
+    vertical_label: (p.vertical_label ?? p.vertical_id ?? "").trim(),
+  };
+}
 
 export type DepartmentPipelineInput = {
   task: string;
@@ -178,25 +227,40 @@ export async function runDepartmentPipeline(
   let effectiveTask = input.task;
   let effectiveKeyword = input.keyword;
   let activeContentTopic: TopicBankEntry | undefined;
+  let publishingKeywordReady: KeywordReadyPayload | null = null;
 
   let publishingVerticalLine = "";
   if (departmentId === "publishing") {
+    const evKw = getLatestEvent("KEYWORD_READY", cwd);
+    if (evKw?.type === "KEYWORD_READY") {
+      publishingKeywordReady = evKw.payload;
+    }
     const explicit = input.contentVerticalId?.trim();
     if (explicit) {
       const meta = getVerticalById(explicit);
       publishingVerticalLine = meta
         ? `You are the **Publishing Worker** for vertical **${meta.label}** (\`${meta.id}\`). Stay in this lane; angles: ${meta.exampleAngles}.\n\n`
         : `You are the **Publishing Worker** for vertical \`${explicit}\`.\n\n`;
-    } else {
-      const ev = getLatestEvent("KEYWORD_READY", cwd);
-      if (ev?.type === "KEYWORD_READY") {
-        const vid = ev.payload.vertical_id?.trim();
-        const lbl = ev.payload.vertical_label?.trim();
-        if (vid && lbl) {
-          publishingVerticalLine = `You are the **Publishing Worker** for vertical **${lbl}** (\`${vid}\`) — **matched to the prior SEO handoff**. Align draft, metadata, and CTA with this lane only.\n\n`;
-        }
+      const hv = publishingKeywordReady?.vertical_id?.trim();
+      if (hv && hv !== explicit) {
+        publishingVerticalLine += `Note: latest SEO handoff vertical is \`${hv}\` — still obey the **keyword** in the handoff block below; escalate only if irreconcilable.\n\n`;
+      }
+    } else if (publishingKeywordReady) {
+      const vid = publishingKeywordReady.vertical_id?.trim();
+      const lbl = publishingKeywordReady.vertical_label?.trim();
+      if (vid && lbl) {
+        publishingVerticalLine = `You are the **Publishing Worker** for vertical **${lbl}** (\`${vid}\`) — **matched to the prior SEO handoff**. Align draft, metadata, and CTA with this lane only.\n\n`;
       }
     }
+
+    const kwFromHandoff = publishingKeywordReady?.keywords[0]?.trim();
+    if (kwFromHandoff) {
+      effectiveKeyword = kwFromHandoff;
+    }
+    const handoffBlock = publishingKeywordReady
+      ? formatPublishingKeywordHandoffBlock(publishingKeywordReady)
+      : "";
+    effectiveTask = publishingVerticalLine + handoffBlock + input.task;
   }
 
   if (departmentId === "seo" && input.useTopicBank) {
@@ -229,10 +293,6 @@ export async function runDepartmentPipeline(
       input.task,
     );
     effectiveTask = lines.join("\n");
-  }
-
-  if (departmentId === "publishing") {
-    effectiveTask = publishingVerticalLine + effectiveTask;
   }
 
   if (departmentId === "publishing" && input.useDailyPublishingBrief) {
@@ -301,6 +361,14 @@ export async function runDepartmentPipeline(
           source_urls: activeContentTopic.source_urls,
         };
       }
+      if (
+        publishingKeywordReady &&
+        departmentId === "publishing" &&
+        escalationPhase === 0 &&
+        attempt === 0
+      ) {
+        workerContextPieces.keyword_ready = publishingKeywordReady;
+      }
       if (escalationPhase === 0 && attempt === 0) {
         Object.assign(workerContextPieces, phase7extras);
       }
@@ -324,7 +392,17 @@ export async function runDepartmentPipeline(
       workerOutput = w.value;
       lastWorkerOutput = workerOutput;
 
-      const managerTask = `Review the Worker output below.
+      const publishingManagerKw =
+        departmentId === "publishing" ? (effectiveKeyword?.trim() ?? "") : "";
+      const managerTask = publishingManagerKw
+        ? `Review the Worker output below.
+First line MUST be exactly APPROVED or REJECTED.
+The assignment fixed primary keyword **${publishingManagerKw}**. REJECT if the # title or body pivots to a different pillar (e.g. a generic audience theme) instead of materially serving that keyword and the SEO handoff.
+Following lines: your reason (quality, brand, handoff fidelity).
+
+---
+${workerOutput}`
+        : `Review the Worker output below.
 First line MUST be exactly APPROVED or REJECTED.
 Following lines: your reason (quality, brand, alignment with ${departmentLabel} goals).
 
@@ -402,8 +480,13 @@ ${workerOutput}`;
             effectiveKeyword || workerOutput.slice(0, 120),
           );
         }
-        if (departmentId === "publishing" && input.contentSubcategory?.trim()) {
-          recordSubcategoryUsed(cwd, input.contentSubcategory.trim());
+        if (departmentId === "publishing") {
+          const rotSub =
+            input.contentSubcategory?.trim() ||
+            publishingKeywordReady?.subcategory?.trim();
+          if (rotSub) {
+            recordSubcategoryUsed(cwd, rotSub);
+          }
         }
 
         if (
@@ -423,6 +506,11 @@ ${workerOutput}`;
           });
         }
 
+        const publishingHandoffCw =
+          departmentId === "publishing" && publishingKeywordReady
+            ? keywordReadyToContentWorkflow(publishingKeywordReady)
+            : undefined;
+
         const contentWorkflow: ContentWorkflowHandoff | undefined =
           activeContentTopic && input.useTopicBank
             ? {
@@ -436,7 +524,7 @@ ${workerOutput}`;
                   activeContentTopic.vertical_label ??
                   activeContentTopic.vertical_id,
               }
-            : undefined;
+            : publishingHandoffCw;
 
         return {
           status: "approved",
