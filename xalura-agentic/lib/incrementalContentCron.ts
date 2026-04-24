@@ -117,7 +117,8 @@ export async function runIncrementalHourlyPublish(
   const { vertical_id, vertical_label, tick } = nextVerticalForHourlyTick(cwd);
 
   const forceTopicBankRefresh =
-    options?.forceTopicBankIfMissing === true && shouldForceTopicBankForVertical(cwd, vertical_id);
+    options?.forceTopicBankIfMissing === true &&
+    (await shouldForceTopicBankForVertical(cwd, vertical_id));
 
   const seo = await runSeoPipelineWithHandoff(
     {

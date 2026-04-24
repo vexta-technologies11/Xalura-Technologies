@@ -21,6 +21,7 @@ This file records **what was changed in the repo** (verifiable in git) so expect
 | 2.4 | **You must create** the `article-covers` bucket in Supabase (public read, or adjust URL strategy). If the bucket is missing, upload fails → `failed/operations-queue.json` entry; article still publishes **without** cover. | Supabase Dashboard → Storage; see `supabase/schema.sql` comment block. |
 | 2.5 | Publishing Worker task includes the latest `KEYWORD_READY` keyword, subcategory, and sources; Manager must reject keyword drift. | `xalura-agentic/lib/runDepartmentPipeline.ts` — `formatPublishingKeywordHandoffBlock`, publishing Manager task. |
 | 2.6 | Optional: `AGENTIC_REQUIRE_COVER_ON_PUBLISH=true` blocks site upsert when no cover URL (needs graphic designer flag + bucket). | `lib/agenticPublishingSite.ts` |
+| 2.7 | Optional: `AGENTIC_TOPIC_BANK_USE_SUPABASE=true` stores topic bank JSON in `public.agentic_topic_bank` (service role) for read-only edge hosts. | `lib/agenticTopicBankSupabase.ts`, `xalura-agentic/lib/contentWorkflow/topicBankStore.ts`, `supabase/schema.sql` |
 
 ## 3) Compliance / founder email reliability
 

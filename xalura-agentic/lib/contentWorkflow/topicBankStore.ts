@@ -2,6 +2,11 @@ import type { TopicBankEntry, TopicBankFile } from "./types";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { topicBankPath } from "./paths";
 import { defaultVerticalId, getVerticalById } from "./contentVerticals";
+import {
+  fetchTopicBankFromSupabase,
+  topicBankSupabaseEnabled,
+  upsertTopicBankToSupabase,
+} from "@/lib/agenticTopicBankSupabase";
 
 export function emptyTopicBank(): TopicBankFile {
   return {
@@ -13,14 +18,22 @@ export function emptyTopicBank(): TopicBankFile {
   };
 }
 
-export function readTopicBank(cwd: string): TopicBankFile | null {
+/** Disk-only parse (no Supabase, no vertical migration). */
+export function readTopicBankFromDisk(cwd: string): TopicBankFile | null {
   const p = topicBankPath(cwd);
   const data = readJsonFile<TopicBankFile | Record<string, never>>(p, {});
   if (!data || !Array.isArray((data as TopicBankFile).topics)) return null;
-  const bank = data as TopicBankFile;
+  return data as TopicBankFile;
+}
+
+export function writeTopicBankToDisk(cwd: string, bank: TopicBankFile): void {
+  writeJsonFile(topicBankPath(cwd), bank);
+}
+
+function migrateVerticalLabels(bank: TopicBankFile): { bank: TopicBankFile; mutated: boolean } {
+  const topics = bank.topics.map((t) => ({ ...t }));
   let mutated = false;
-  for (const t of bank.topics) {
-    const row = t as TopicBankEntry;
+  for (const row of topics) {
     if (!row.vertical_id?.trim()) {
       row.vertical_id = defaultVerticalId();
       mutated = true;
@@ -31,12 +44,49 @@ export function readTopicBank(cwd: string): TopicBankFile | null {
       mutated = true;
     }
   }
-  if (mutated) writeJsonFile(p, bank);
+  return { bank: { ...bank, topics }, mutated };
+}
+
+/**
+ * Topic bank: Supabase row when `AGENTIC_TOPIC_BANK_USE_SUPABASE=true`, else JSON on disk.
+ * Falls back disk → Supabase when Supabase enabled but row missing (migration path).
+ */
+export async function readTopicBank(cwd: string): Promise<TopicBankFile | null> {
+  let raw: TopicBankFile | null = null;
+  if (topicBankSupabaseEnabled()) {
+    raw = await fetchTopicBankFromSupabase();
+  }
+  if (!raw) {
+    raw = readTopicBankFromDisk(cwd);
+  }
+  if (!raw) return null;
+
+  const { bank, mutated } = migrateVerticalLabels({
+    ...raw,
+    topics: raw.topics.map((t) => ({ ...t })),
+  });
+  if (mutated) {
+    try {
+      await writeTopicBank(cwd, bank);
+    } catch (e) {
+      console.error("[topicBankStore] failed to persist vertical-label migration", e);
+    }
+  }
   return bank;
 }
 
-export function writeTopicBank(cwd: string, bank: TopicBankFile): void {
-  writeJsonFile(topicBankPath(cwd), bank);
+export async function writeTopicBank(cwd: string, bank: TopicBankFile): Promise<void> {
+  const { bank: toSave } = migrateVerticalLabels({
+    ...bank,
+    topics: bank.topics.map((t) => ({ ...t })),
+  });
+  if (topicBankSupabaseEnabled()) {
+    const r = await upsertTopicBankToSupabase(toSave);
+    if (!r.ok) {
+      throw new Error(`Topic bank Supabase upsert failed: ${r.error}`);
+    }
+  }
+  writeTopicBankToDisk(cwd, toSave);
 }
 
 export function newTopicId(): string {
@@ -49,9 +99,9 @@ export function getUnusedTopics(bank: TopicBankFile): TopicBankEntry[] {
     .sort((a, b) => b.final_score - a.final_score);
 }
 
-/** True when there is no readable bank file or the bank has no topic rows yet. */
-export function isTopicBankMissingOrEmpty(cwd: string): boolean {
-  const b = readTopicBank(cwd);
+/** True when there is no readable bank or the bank has no topic rows yet. */
+export async function isTopicBankMissingOrEmpty(cwd: string): Promise<boolean> {
+  const b = await readTopicBank(cwd);
   if (!b) return true;
   return (b.topics?.length ?? 0) === 0;
 }

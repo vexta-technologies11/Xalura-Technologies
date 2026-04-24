@@ -43,9 +43,12 @@ export type NextTopicResult =
  * When true, incremental/admin should pass `forceTopicBankRefresh` so Serp can refill even under crawl cooldown:
  * missing bank, empty topics, no unused rows globally, or no unused row for the scheduled vertical lane.
  */
-export function shouldForceTopicBankForVertical(cwd: string, verticalId: string): boolean {
+export async function shouldForceTopicBankForVertical(
+  cwd: string,
+  verticalId: string,
+): Promise<boolean> {
   const v = verticalId.trim().toLowerCase();
-  const bank = readTopicBank(cwd);
+  const bank = await readTopicBank(cwd);
   if (!bank) return true;
   if ((bank.topics?.length ?? 0) === 0) return true;
   const unused = getUnusedTopics(bank);
@@ -67,7 +70,7 @@ export async function getNextTopic(
   } = {},
 ): Promise<NextTopicResult> {
   const force = opts.forceRefresh === true;
-  let bank = readTopicBank(cwd);
+  let bank = await readTopicBank(cwd);
 
   const need = shouldRefreshBank(bank, force);
   const cooldownBlocks = need && !force && tooSoonToCrawl(bank);
@@ -78,7 +81,7 @@ export async function getNextTopic(
     });
     if (!refreshed.ok) {
       if (opts.allowStubFallback) {
-        bank = seedStubTopicBank(cwd);
+        bank = await seedStubTopicBank(cwd);
       } else {
         return {
           ok: false,
@@ -86,12 +89,12 @@ export async function getNextTopic(
         };
       }
     } else {
-      bank = readTopicBank(cwd);
+      bank = await readTopicBank(cwd);
       if (!bank && refreshed.ok) {
         return {
           ok: false,
           reason:
-            "Topic bank refresh reported success but the bank file is still missing or unreadable (persist may have failed). Check xalura-agentic/state is writable.",
+            "Topic bank refresh reported success but the bank is still missing or unreadable (persist may have failed). Check Supabase `agentic_topic_bank` or xalura-agentic/state.",
         };
       }
     }
@@ -99,7 +102,7 @@ export async function getNextTopic(
 
   if (!bank) {
     if (opts.allowStubFallback) {
-      bank = seedStubTopicBank(cwd);
+      bank = await seedStubTopicBank(cwd);
     } else {
       return { ok: false, reason: "No topic bank on disk" };
     }
@@ -114,7 +117,7 @@ export async function getNextTopic(
       );
     }
     if (remaining.length > 0) {
-      return { ok: true, topic: markTopicUsed(cwd, bank, remaining[0]!) };
+      return { ok: true, topic: await markTopicUsed(cwd, bank, remaining[0]!) };
     }
     return {
       ok: false,
@@ -142,7 +145,7 @@ export async function getNextTopic(
 
   if (!unused.length) {
     if (opts.allowStubFallback) {
-      const stub = seedStubTopicBank(cwd);
+      const stub = await seedStubTopicBank(cwd);
       let u = getUnusedTopics(stub);
       if (vFilter) {
         u = u.filter(
@@ -150,7 +153,7 @@ export async function getNextTopic(
         );
       }
       if (!u.length) return { ok: false, reason: "Stub bank empty or no topic for this vertical" };
-      return { ok: true, topic: markTopicUsed(cwd, stub, u[0]!) };
+      return { ok: true, topic: await markTopicUsed(cwd, stub, u[0]!) };
     }
     return { ok: false, reason: "No unused topics in bank" };
   }
@@ -158,10 +161,10 @@ export async function getNextTopic(
   const picked = unused[0]!;
   if (conflictsRotation(picked, cwd)) {
     const alt = unused.find((t) => !conflictsRotation(t, cwd));
-    if (alt) return { ok: true, topic: markTopicUsed(cwd, bank, alt) };
+    if (alt) return { ok: true, topic: await markTopicUsed(cwd, bank, alt) };
   }
 
-  return { ok: true, topic: markTopicUsed(cwd, bank, picked) };
+  return { ok: true, topic: await markTopicUsed(cwd, bank, picked) };
 }
 
 function conflictsRotation(topic: TopicBankEntry, cwd: string): boolean {
@@ -180,13 +183,13 @@ function conflictsRotation(topic: TopicBankEntry, cwd: string): boolean {
   return cd;
 }
 
-/** Re-read bank from disk after potential refresh (paths use cwd). */
-function markTopicUsed(
+/** Re-read bank after potential refresh (Supabase and/or disk). */
+async function markTopicUsed(
   cwd: string,
   bank: TopicBankFile,
   topic: TopicBankEntry,
-): TopicBankEntry {
-  const fresh = readTopicBank(cwd) ?? bank;
+): Promise<TopicBankEntry> {
+  const fresh = (await readTopicBank(cwd)) ?? bank;
   const idx = fresh.topics.findIndex((t) => t.id === topic.id || t.keyword === topic.keyword);
   if (idx === -1) {
     return topic;
@@ -202,6 +205,6 @@ function markTopicUsed(
   };
   fresh.used_count += 1;
   fresh.depleted = fresh.used_count >= CRAWL_THRESHOLD;
-  writeTopicBank(cwd, fresh);
+  await writeTopicBank(cwd, fresh);
   return fresh.topics[idx]!;
 }

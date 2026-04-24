@@ -7,6 +7,10 @@ import { loadCycleState } from "../engine/cycleStateStore";
 import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
 import { serpApiConfigured } from "./contentWorkflow/serpApiSearch";
+import {
+  topicBankSupabaseEnabled,
+  topicBankSupabaseRowReadable,
+} from "@/lib/agenticTopicBankSupabase";
 import { topicBankPath } from "./contentWorkflow/paths";
 import { getAgenticRoot } from "./paths";
 import {
@@ -95,11 +99,16 @@ export type AgenticHealthPayload = {
   gemini_resolution: WorkerEnvResolutionTrace;
   /** Phase 7 — which optional API keys/bindings are present (no values). */
   phase7: Phase7Configured;
-  /** Content workflow (topic bank) — Google Programmable Search + on-disk bank file. */
+  /** Content workflow (topic bank) — SerpAPI + on-disk and/or Supabase bank. */
   content_workflow: {
     /** SerpAPI (`SERPAPI_API_KEY`) — topic bank web search. */
     serpapi: boolean;
+    /** `xalura-agentic/state/topic-bank.json` exists on local disk. */
     topic_bank_file_present: boolean;
+    /** `AGENTIC_TOPIC_BANK_USE_SUPABASE` is enabled. */
+    topic_bank_supabase_enabled: boolean;
+    /** Row `agentic_topic_bank` id=default is readable (valid `data.topics` array). */
+    topic_bank_supabase_row_readable: boolean;
   };
   uptime_hint: "next_route";
   agentic_root: string;
@@ -177,12 +186,15 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
-  const [geminiPack, phase7, serpapiOk, topicBankPresent] = await Promise.all([
-    resolveWorkerEnvWithTrace("GEMINI_API_KEY"),
-    getPhase7Configured(),
-    serpApiConfigured(),
-    Promise.resolve(fileExistsAgentic(topicBankPath(cwd))),
-  ]);
+  const supaEn = topicBankSupabaseEnabled();
+  const [geminiPack, phase7, serpapiOk, topicBankDiskPresent, topicBankSupaRow] =
+    await Promise.all([
+      resolveWorkerEnvWithTrace("GEMINI_API_KEY"),
+      getPhase7Configured(),
+      serpApiConfigured(),
+      Promise.resolve(fileExistsAgentic(topicBankPath(cwd))),
+      supaEn ? topicBankSupabaseRowReadable() : Promise.resolve(false),
+    ]);
 
   const gemini_configured = !!geminiPack.value;
   const gemini_resolution = geminiPack.trace;
@@ -199,7 +211,9 @@ export async function getAgenticHealth(
     phase7,
     content_workflow: {
       serpapi: serpapiOk,
-      topic_bank_file_present: topicBankPresent,
+      topic_bank_file_present: topicBankDiskPresent,
+      topic_bank_supabase_enabled: supaEn,
+      topic_bank_supabase_row_readable: topicBankSupaRow,
     },
     uptime_hint: "next_route",
     agentic_root: getAgenticRoot(cwd),

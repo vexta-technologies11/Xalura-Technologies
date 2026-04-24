@@ -24,7 +24,7 @@ async function main() {
   }
   console.log("OK — keyword:", r.contentWorkflow?.keyword ?? "(manual)");
   console.log("Cycle:", r.cycle.cycleFileRelative);
-  const bank = readTopicBank(process.cwd());
+  const bank = await readTopicBank(process.cwd());
   console.log("Bank used_count:", bank?.used_count, "depleted:", bank?.depleted);
 }
 

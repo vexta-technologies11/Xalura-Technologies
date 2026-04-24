@@ -16,6 +16,7 @@ import {
   hoursSinceLastTopicBankCrawl,
   minSerpIntervalHoursFromEnv,
 } from "./topicBankSerpPolicy";
+import { topicBankSupabaseEnabled } from "@/lib/agenticTopicBankSupabase";
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -38,7 +39,7 @@ async function buildCrawlSummary(urls: string[]): Promise<string> {
  * Before a full bank refresh: audit used topics + GSC pages, persist summary, adjust cooldowns.
  */
 export async function auditPreviousTopicBank(cwd: string): Promise<void> {
-  const bank = readTopicBank(cwd);
+  const bank = await readTopicBank(cwd);
   if (!bank?.topics?.length) return;
   const used = bank.topics.filter((t) => t.status === "used");
   if (!used.length) return;
@@ -85,7 +86,7 @@ export async function refreshTopicBank(
     await auditPreviousTopicBank(cwd);
   }
 
-  const bankPeek = readTopicBank(cwd);
+  const bankPeek = await readTopicBank(cwd);
   const minH = minSerpIntervalHoursFromEnv();
   if (!opts.forceSerp && minH > 0 && bankPeek?.last_crawled_at) {
     const ageH = hoursSinceLastTopicBankCrawl(bankPeek.last_crawled_at);
@@ -160,7 +161,7 @@ export async function refreshTopicBank(
     };
   }
 
-  const prev = readTopicBank(cwd);
+  const prev = await readTopicBank(cwd);
   const next: TopicBankFile = {
     last_crawled_at: new Date().toISOString(),
     crawl_count: (prev?.crawl_count ?? 0) + 1,
@@ -168,14 +169,21 @@ export async function refreshTopicBank(
     depleted: false,
     topics: ranked.topics.map((t, i) => ({ ...t, rank: i + 1 })),
   };
-  writeTopicBank(cwd, next);
-  const persisted = readTopicBank(cwd);
+  try {
+    await writeTopicBank(cwd, next);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `Topic bank write failed: ${msg}` };
+  }
+  const persisted = await readTopicBank(cwd);
   if (!persisted?.topics?.length) {
     return {
       ok: false,
-      error: isAgenticDiskWritable()
-        ? "Topic bank did not persist after crawl (read-back empty or invalid). Check permissions on xalura-agentic/state/."
-        : "Topic bank cannot be saved: this host reports a read-only agentic filesystem (typical on Cloudflare Workers). SEO needs writable xalura-agentic/state — run this job on Node (e.g. Vercel) or mount persistent storage for that path.",
+      error: topicBankSupabaseEnabled()
+        ? "Topic bank did not persist after crawl (Supabase read-back empty). Check `agentic_topic_bank` table and RLS/service role."
+        : isAgenticDiskWritable()
+          ? "Topic bank did not persist after crawl (read-back empty or invalid). Check permissions on xalura-agentic/state/."
+          : "Topic bank cannot be saved: this host reports a read-only agentic filesystem (typical on Cloudflare Workers). Enable AGENTIC_TOPIC_BANK_USE_SUPABASE or run on Node with writable xalura-agentic/state.",
     };
   }
   writeSeoTrendLogsFromBank(cwd, persisted);
@@ -206,7 +214,7 @@ export async function forceRefreshTopicBank(
 }
 
 /** Seed a minimal bank when search APIs are not yet configured (dev only). */
-export function seedStubTopicBank(cwd: string): TopicBankFile {
+export async function seedStubTopicBank(cwd: string): Promise<TopicBankFile> {
   const bank: TopicBankFile = {
     last_crawled_at: new Date().toISOString(),
     crawl_count: 0,
@@ -230,6 +238,6 @@ export function seedStubTopicBank(cwd: string): TopicBankFile {
       },
     ],
   };
-  writeTopicBank(cwd, bank);
+  await writeTopicBank(cwd, bank);
   return bank;
 }

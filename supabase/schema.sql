@@ -381,4 +381,17 @@ where c.slug = v.course_slug
 -- Dashboard → Storage: create a **public** bucket named `article-covers`.
 -- `lib/articleCoverStorage.ts` uploads `{slug}.png` and `articles.cover_image_url` stores the public URL.
 
+-- ── Agentic SEO topic bank (optional; survives read-only edge filesystems) ─
+-- When `AGENTIC_TOPIC_BANK_USE_SUPABASE=true`, pipelines read/write this row instead of only `xalura-agentic/state/topic-bank.json`.
+-- Service role bypasses RLS; do not grant anon/authenticated access to this table.
+create table if not exists public.agentic_topic_bank (
+  id text primary key default 'default',
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.agentic_topic_bank is 'Agentic SEO topic vault JSON (`TopicBankFile`). Written by service role from Next/API routes.';
+
+alter table public.agentic_topic_bank enable row level security;
+
 notify pgrst, 'reload schema';

@@ -46,7 +46,7 @@ async function main() {
   }
   console.log("OK — topicCount:", ref.topicCount);
 
-  const bank = readTopicBank(cwd);
+  const bank = await readTopicBank(cwd);
   console.log("\n=== 3) Ranked topics now on disk (keyword | subcategory | type | score) ===\n");
   if (!bank?.topics?.length) {
     console.error("No topics in bank after refresh.");
