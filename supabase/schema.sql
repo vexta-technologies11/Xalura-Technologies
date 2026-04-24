@@ -377,4 +377,8 @@ where c.slug = v.course_slug
     where l.course_id = c.id and l.display_order = v.display_order
   );
 
+-- ── Storage (manual): agentic article hero covers ───────────────────────────
+-- Dashboard → Storage: create a **public** bucket named `article-covers`.
+-- `lib/articleCoverStorage.ts` uploads `{slug}.png` and `articles.cover_image_url` stores the public URL.
+
 notify pgrst, 'reload schema';

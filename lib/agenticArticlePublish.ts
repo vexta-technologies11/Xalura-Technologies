@@ -1,11 +1,18 @@
 import { createServiceClient } from "@/lib/supabase/service";
 
-function slugify(input: string): string {
+export function slugifyArticle(input: string): string {
   return input
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 96) || "article";
+}
+
+/** Stable slug for `articles.slug` (matches upsert logic). */
+export function computeArticleSlug(title: string, slugOverride?: string): string {
+  return (
+    (slugOverride?.trim() && slugifyArticle(slugOverride.trim())) || slugifyArticle(title)
+  );
 }
 
 /** First markdown `# Title` line, else null. */
@@ -21,6 +28,8 @@ export type PublishAgenticArticleInput = {
   slug?: string;
   excerpt?: string;
   author?: string;
+  /** Public URL (e.g. Supabase Storage) for article hero — optional. */
+  coverImageUrl?: string | null;
 };
 
 /**
@@ -37,12 +46,12 @@ export async function publishAgenticArticle(
         "Supabase service client unavailable (set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY).",
     };
   }
-  const slug = (input.slug?.trim() && slugify(input.slug.trim())) || slugify(input.title);
+  const slug = computeArticleSlug(input.title, input.slug);
   const excerpt =
     input.excerpt?.trim() ||
     input.body.replace(/\s+/g, " ").trim().slice(0, 280) ||
     null;
-  const row = {
+  const row: Record<string, unknown> = {
     slug,
     title: input.title.trim(),
     excerpt,
@@ -52,6 +61,9 @@ export async function publishAgenticArticle(
     published_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+  if (input.coverImageUrl !== undefined) {
+    row["cover_image_url"] = input.coverImageUrl?.trim() || null;
+  }
   const { error } = await supabase.from("articles").upsert(row, { onConflict: "slug" });
   if (error) {
     return { ok: false, error: error.message };

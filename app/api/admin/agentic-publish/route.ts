@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK } from "@/lib/agenticDefaultPublishTask";
 import { createClient } from "@/lib/supabase/server";
-import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
-import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
-import type { DepartmentPipelineInput } from "@/xalura-agentic/lib/runDepartmentPipeline";
+import { runIncrementalHourlyPublish } from "@/xalura-agentic/lib/incrementalContentCron";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Logged-in admin only. Runs **publishing** pipeline once and **publishToSite** when approved.
- * Same side effects as `POST /api/agentic/run` with publishing + publish (Zernio, Chief digest, etc.).
+ * Logged-in admin only. Runs **one hourly incremental tick** (same as `POST /api/cron/agentic-incremental`):
+ * round-robin vertical → SEO (topic bank + handoff) → Publishing (handoff) → **forced** site upsert.
+ * No custom task body — this is a manual override of the automated queue.
  */
-export async function POST(request: Request) {
+export async function POST() {
   const supabase = createClient();
   const {
     data: { user },
@@ -20,61 +18,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let task = AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK;
-  try {
-    const body = (await request.json()) as Record<string, unknown>;
-    if (typeof body["task"] === "string" && body["task"].trim()) {
-      task = body["task"].trim();
-    }
-  } catch {
-    /* empty body → default task */
-  }
-
   const cwd = process.cwd();
-  const input: DepartmentPipelineInput = { task, cwd };
-  const result = await runPublishingPipeline(input);
-
-  if (result.status === "rejected") {
-    return NextResponse.json(
-      { ok: false, department: "publishing", result },
-      { status: 200 },
-    );
-  }
-
-  if (result.status === "error") {
-    return NextResponse.json(
-      { ok: false, department: "publishing", result },
-      { status: 502 },
-    );
-  }
-
-  if (result.status !== "approved") {
-    return NextResponse.json({ ok: false, department: "publishing", result }, { status: 200 });
-  }
-
-  const site = await sitePublishFromApprovedPublishingRun({
-    cwd,
-    task,
-    result,
-    articleTitle: null,
+  const tick = await runIncrementalHourlyPublish(cwd, {
+    forceSitePublish: true,
+    awaitFounderOversight: true,
   });
 
-  if (!site.ok) {
+  if (!tick.ok) {
+    const detail = tick.detail;
+    const msg =
+      typeof detail === "string"
+        ? detail
+        : detail && typeof detail === "object" && "status" in detail
+          ? JSON.stringify(detail).slice(0, 4000)
+          : "Incremental tick failed";
     return NextResponse.json(
-      { ok: false, department: "publishing", result, publish: { ok: false, error: site.error } },
+      {
+        ok: false,
+        source: "incremental",
+        stage: tick.stage,
+        vertical_id: tick.vertical_id,
+        vertical_label: tick.vertical_label,
+        cadence_tick: tick.cadence_tick,
+        error: msg,
+      },
+      { status: tick.stage === "site" ? 502 : 200 },
+    );
+  }
+
+  if (!tick.site) {
+    return NextResponse.json({
+      ok: true,
+      source: "incremental",
+      vertical_id: tick.vertical_id,
+      vertical_label: tick.vertical_label,
+      cadence_tick: tick.cadence_tick,
+      seo: { status: tick.seo.status },
+      publishing: { status: tick.publishing.status },
+      publish: {
+        ok: false,
+        skipped: true as const,
+        reason:
+          "Site publish was not returned (unexpected after forceSitePublish). Check server logs.",
+      },
+    });
+  }
+
+  if (!tick.site.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        source: "incremental",
+        vertical_id: tick.vertical_id,
+        vertical_label: tick.vertical_label,
+        cadence_tick: tick.cadence_tick,
+        publish: { ok: false, error: tick.site.error },
+      },
       { status: 502 },
     );
   }
 
   return NextResponse.json({
     ok: true,
-    department: "publishing" as const,
-    result,
+    source: "incremental" as const,
+    vertical_id: tick.vertical_id,
+    vertical_label: tick.vertical_label,
+    cadence_tick: tick.cadence_tick,
     publish: {
       ok: true as const,
-      slug: site.data.slug,
-      path: site.data.path,
-      zernio: site.data.zernio,
+      slug: tick.site.slug,
+      path: tick.site.path,
     },
   });
 }

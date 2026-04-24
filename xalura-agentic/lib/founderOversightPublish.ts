@@ -15,6 +15,12 @@ export type FounderOversightPublishParams = ChiefPublishDigestParams & {
   managerOutput: string;
   contentVerticalId?: string;
   contentVerticalLabel?: string;
+  /** When set, skip a second Imagen pass (reuse hero from site publish). */
+  precomputedHero?: {
+    filename: string;
+    content: string;
+    imagePrompt: string;
+  };
 };
 
 function esc(s: string): string {
@@ -94,10 +100,11 @@ export function buildFounderOversightBriefing(p: FounderOversightPublishParams):
 export function scheduleFounderOversightPublishEmail(
   params: FounderOversightPublishParams,
 ): void {
-  waitUntilAfterResponse(runFounderOversightPublishWork(params));
+  waitUntilAfterResponse(executeFounderOversightPublishEmail(params));
 }
 
-async function runFounderOversightPublishWork(
+/** Full compliance email work (Gemini + optional Resend). */
+export async function executeFounderOversightPublishEmail(
   p: FounderOversightPublishParams,
 ): Promise<void> {
   const complianceFlag = (await resolveWorkerEnv("AGENTIC_COMPLIANCE_ON_PUBLISH"))
@@ -256,7 +263,14 @@ ${chiefAuditMd.slice(0, 4500)}
   const gdFlag = (await resolveWorkerEnv("AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH"))
     ?.trim()
     .toLowerCase();
-  if (gdFlag === "true" || gdFlag === "1") {
+  const gdOn = gdFlag === "true" || gdFlag === "1";
+  if (p.precomputedHero) {
+    attachments.push({
+      filename: p.precomputedHero.filename,
+      content: p.precomputedHero.content,
+    });
+    graphicSection = `<h2>Graphic designer (Imagen 4 Ultra)</h2><p>Prompt used (flash-lite draft):</p><pre>${esc(p.precomputedHero.imagePrompt)}</pre><p>Image attached: <code>${esc(p.precomputedHero.filename)}</code> (same asset as article cover when upload succeeded).</p>`;
+  } else if (gdOn) {
     try {
       const promptBrief = await runAgent({
         role: "Worker",
@@ -331,10 +345,13 @@ ${graphicSection}
   });
 
   if (sent.error) {
-    appendFailedOperation({
-      kind: "other",
-      message: `Compliance / founder oversight Resend: ${sent.error}`,
-      detail: `to=${to}`,
-    });
+    appendFailedOperation(
+      {
+        kind: "other",
+        message: `Compliance / founder oversight Resend: ${sent.error}`,
+        detail: `to=${to}`,
+      },
+      p.cwd,
+    );
   }
 }

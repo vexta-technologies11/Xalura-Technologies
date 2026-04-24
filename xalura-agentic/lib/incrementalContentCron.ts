@@ -27,6 +27,19 @@ function autoSitePublish(): boolean {
   return process.env["AGENTIC_AUTO_PUBLISH_TO_SITE"]?.trim().toLowerCase() === "true";
 }
 
+export type IncrementalHourlyOptions = {
+  /**
+   * Upsert the article even when `AGENTIC_INCREMENTAL_AUTO_SITE_PUBLISH` /
+   * `AGENTIC_AUTO_PUBLISH_TO_SITE` would otherwise skip site publish.
+   */
+  forceSitePublish?: boolean;
+  /**
+   * Wait for compliance / founder Resend pipeline to finish (avoids dropped work on some hosts).
+   * Slower HTTP response.
+   */
+  awaitFounderOversight?: boolean;
+};
+
 export type IncrementalHourlyResult =
   | {
       ok: true;
@@ -52,6 +65,7 @@ export type IncrementalHourlyResult =
  */
 export async function runIncrementalHourlyPublish(
   cwd: string = process.cwd(),
+  options?: IncrementalHourlyOptions,
 ): Promise<IncrementalHourlyResult> {
   const { vertical_id, vertical_label, tick } = nextVerticalForHourlyTick(cwd);
 
@@ -110,7 +124,8 @@ export async function runIncrementalHourlyPublish(
     };
   }
 
-  if (!autoSitePublish()) {
+  const shouldPublish = autoSitePublish() || options?.forceSitePublish === true;
+  if (!shouldPublish) {
     return {
       ok: true,
       vertical_id,
@@ -121,14 +136,17 @@ export async function runIncrementalHourlyPublish(
     };
   }
 
-  const site = await sitePublishFromApprovedPublishingRun({
-    cwd,
-    task: incrementalPublishTask(),
-    keyword: seo.contentWorkflow?.keyword,
-    contentSubcategory: seo.contentWorkflow?.subcategory,
-    articleTitle: null,
-    result: pub,
-  });
+  const site = await sitePublishFromApprovedPublishingRun(
+    {
+      cwd,
+      task: incrementalPublishTask(),
+      keyword: seo.contentWorkflow?.keyword,
+      contentSubcategory: seo.contentWorkflow?.subcategory,
+      articleTitle: null,
+      result: pub,
+    },
+    { awaitFounderOversight: options?.awaitFounderOversight === true },
+  );
 
   if (!site.ok) {
     return {

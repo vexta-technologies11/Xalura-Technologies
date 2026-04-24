@@ -1,12 +1,20 @@
 import {
+  computeArticleSlug,
   extractMarkdownTitle,
   publishAgenticArticle,
 } from "@/lib/agenticArticlePublish";
+import { uploadArticleCoverPng } from "@/lib/articleCoverStorage";
 import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
 import { scheduleChiefPublishCycleEmail } from "@/xalura-agentic/lib/chiefPublishDigest";
-import { scheduleFounderOversightPublishEmail } from "@/xalura-agentic/lib/founderOversightPublish";
+import {
+  executeFounderOversightPublishEmail,
+  scheduleFounderOversightPublishEmail,
+  type FounderOversightPublishParams,
+} from "@/xalura-agentic/lib/founderOversightPublish";
+import { generatePublishingHeroImage } from "@/xalura-agentic/lib/publishingHeroImage";
 import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/publishedTopicsStore";
 import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
+import { appendFailedOperation } from "@/xalura-agentic/lib/failedQueue";
 import type { DepartmentPipelineResult } from "@/xalura-agentic/lib/runDepartmentPipeline";
 
 type ApprovedPublishing = Extract<DepartmentPipelineResult, { status: "approved" }>;
@@ -23,29 +31,81 @@ export type SitePublishSuccess = {
   zernio: SitePublishZernio;
 };
 
+export type SitePublishOptions = {
+  /**
+   * When true, runs the compliance / founder Resend pipeline inline (more reliable than
+   * background-only scheduling on some hosts). Adds latency to the HTTP caller.
+   */
+  awaitFounderOversight?: boolean;
+};
+
 /**
  * Upsert Supabase article + event queue + topic ledger + optional Zernio + Chief publish digest.
  * Caller must have already run publishing pipeline and received `status: "approved"`.
  */
-export async function sitePublishFromApprovedPublishingRun(params: {
-  cwd: string;
-  task: string;
-  keyword?: string;
-  contentSubcategory?: string;
-  articleTitle: string | null;
-  articleSlug?: string;
-  result: ApprovedPublishing;
-}): Promise<{ ok: true; data: SitePublishSuccess } | { ok: false; error: string }> {
+export async function sitePublishFromApprovedPublishingRun(
+  params: {
+    cwd: string;
+    task: string;
+    keyword?: string;
+    contentSubcategory?: string;
+    articleTitle: string | null;
+    articleSlug?: string;
+    result: ApprovedPublishing;
+  },
+  options?: SitePublishOptions,
+): Promise<{ ok: true; data: SitePublishSuccess } | { ok: false; error: string }> {
   const title =
     params.articleTitle?.trim() ||
     extractMarkdownTitle(params.result.workerOutput) ||
     params.task.slice(0, 120);
+
+  const slug = computeArticleSlug(title, params.articleSlug);
+
+  let coverForRow: string | undefined;
+  let precomputedHero: FounderOversightPublishParams["precomputedHero"];
+
+  const hero = await generatePublishingHeroImage({
+    title,
+    executiveSummary: params.result.executiveSummary,
+    slug,
+  });
+  if (hero.ok) {
+    const up = await uploadArticleCoverPng({ slug, pngBase64: hero.base64 });
+    if (up.ok) {
+      coverForRow = up.publicUrl;
+    } else {
+      appendFailedOperation(
+        {
+          kind: "other",
+          message: `Article cover upload failed: ${up.error}`,
+          detail: `slug=${slug} bucket=article-covers`,
+        },
+        params.cwd,
+      );
+    }
+    precomputedHero = {
+      filename: `hero-${slug}.png`,
+      content: hero.base64,
+      imagePrompt: hero.imagePrompt,
+    };
+  } else if (!hero.error.includes("not enabled")) {
+    appendFailedOperation(
+      {
+        kind: "other",
+        message: `Publishing hero image: ${hero.error}`,
+        detail: `slug=${slug}`,
+      },
+      params.cwd,
+    );
+  }
 
   const pub = await publishAgenticArticle({
     title,
     body: params.result.workerOutput,
     slug: params.articleSlug?.trim() || undefined,
     author: "Xalura Agentic",
+    ...(coverForRow !== undefined ? { coverImageUrl: coverForRow } : {}),
   });
 
   if (!pub.ok) {
@@ -110,7 +170,7 @@ export async function sitePublishFromApprovedPublishingRun(params: {
     zernioLine,
   });
 
-  scheduleFounderOversightPublishEmail({
+  const founderParams: FounderOversightPublishParams = {
     cwd: params.cwd,
     task: params.task,
     title,
@@ -130,7 +190,14 @@ export async function sitePublishFromApprovedPublishingRun(params: {
     contentVerticalLabel: params.result.contentWorkflow?.topic_bank
       ? params.result.contentWorkflow.vertical_label
       : undefined,
-  });
+    ...(precomputedHero ? { precomputedHero } : {}),
+  };
+
+  if (options?.awaitFounderOversight) {
+    await executeFounderOversightPublishEmail(founderParams);
+  } else {
+    scheduleFounderOversightPublishEmail(founderParams);
+  }
 
   const zernioOut: SitePublishZernio =
     "skipped" in zernio

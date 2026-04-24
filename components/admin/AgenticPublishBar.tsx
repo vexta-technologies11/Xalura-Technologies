@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK } from "@/lib/agenticDefaultPublishTask";
 
 export function AgenticPublishBar() {
-  const [task, setTask] = useState(AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -18,7 +16,7 @@ export function AgenticPublishBar() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ task }),
+        body: "{}",
       });
       const data = (await res.json()) as Record<string, unknown>;
       if (!res.ok) {
@@ -26,15 +24,23 @@ export function AgenticPublishBar() {
         return;
       }
       const pub = data["publish"] as Record<string, unknown> | undefined;
+      const vert = data["vertical_label"] ?? data["vertical_id"];
+      const cadence = typeof data["cadence_tick"] === "number" ? ` · cadence #${data["cadence_tick"]}` : "";
       if (pub?.["ok"] === true && typeof pub["path"] === "string") {
-        setMsg(`Published — open ${pub["path"]} on the public site.`);
+        setMsg(
+          `Published — open ${pub["path"]} on the public site.${vert ? ` (${String(vert)})` : ""}${cadence}`,
+        );
         return;
       }
-      if ((data["result"] as Record<string, unknown> | undefined)?.["status"] === "rejected") {
-        setErr("Publishing pipeline rejected this run (see Manager output in logs).");
+      if (pub?.["skipped"] === true && typeof pub["reason"] === "string") {
+        setErr(pub["reason"] as string);
         return;
       }
-      setMsg(typeof data["result"] === "object" ? "Run finished — no publish (not approved)." : "Done.");
+      if (typeof data["error"] === "string") {
+        setErr(`${data["stage"] ? `[${data["stage"]}] ` : ""}${data["error"]}`);
+        return;
+      }
+      setMsg(typeof data["result"] === "object" ? "Run finished — see response JSON." : "Done.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -46,20 +52,12 @@ export function AgenticPublishBar() {
     <div className="admin-agentic-publish-bar">
       <p className="admin-agentic-publish-bar__title">Publishing → live article</p>
       <p className="admin-agentic-publish-bar__hint">
-        Runs the publishing agent once and upserts Supabase (same as <code>publishToSite</code> via API).
-        Requires <code>SUPABASE_SERVICE_ROLE_KEY</code> on the server. After a successful publish, optional
-        compliance email (Resend) runs in the background if{" "}
-        <code>AGENTIC_COMPLIANCE_ON_PUBLISH</code> or <code>AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH</code> is
-        enabled — same path as cron/API publishes.
+        Runs <strong>one incremental queue tick</strong> (same order as hourly cron): SEO topic bank for the
+        next vertical → <code>KEYWORD_READY</code> → Publishing handoff → Supabase upsert. No custom task —
+        you are only <strong>overriding the schedule</strong>. Requires <code>SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+        and the same keys as incremental (Gemini, SerpAPI topic bank, etc.). Compliance email runs inline
+        after publish when enabled (slower request, more reliable).
       </p>
-      <textarea
-        className="admin-agentic-publish-bar__task"
-        value={task}
-        onChange={(e) => setTask(e.target.value)}
-        rows={4}
-        disabled={busy}
-        spellCheck={false}
-      />
       <div className="admin-agentic-publish-bar__actions">
         <button
           type="button"
@@ -67,7 +65,7 @@ export function AgenticPublishBar() {
           disabled={busy}
           onClick={() => void runPublish()}
         >
-          {busy ? "Running…" : "Run & publish to site"}
+          {busy ? "Running queue tick…" : "Run next queue tick & publish"}
         </button>
       </div>
       {msg ? <p className="admin-agentic-publish-bar__ok">{msg}</p> : null}

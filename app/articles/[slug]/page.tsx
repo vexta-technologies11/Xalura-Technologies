@@ -37,6 +37,23 @@ export default async function ArticleDetailPage({ params }: Props) {
             ? new Date(article.published_at).toLocaleDateString()
             : null}
         </p>
+        {article.cover_image_url ? (
+          <div style={{ marginBottom: 28 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={article.cover_image_url}
+              alt=""
+              width={720}
+              height={405}
+              style={{
+                width: "100%",
+                height: "auto",
+                borderRadius: 12,
+                display: "block",
+              }}
+            />
+          </div>
+        ) : null}
         {article.body ? <ArticleMarkdown source={article.body} /> : null}
         <p style={{ marginTop: 48 }}>
           <Link href="/articles" style={{ color: "var(--blue)", fontWeight: 600 }}>
