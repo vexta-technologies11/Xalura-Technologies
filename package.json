@@ -29,7 +29,8 @@
     "agentic:smoke-live-topic-bank": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-architecture-live.ts",
     "agentic:smoke-manager-seo": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-manager-seo.ts",
     "agentic:incremental-once": "tsx --env-file=.env.local xalura-agentic/scripts/incremental-hour-once.ts",
-    "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts"
+    "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts",
+    "agentic:smoke-pipeline-log": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-pipeline-log.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
