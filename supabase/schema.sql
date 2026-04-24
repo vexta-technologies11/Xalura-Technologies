@@ -401,4 +401,27 @@ comment on table public.agentic_topic_bank is 'Agentic SEO topic vault JSON (`To
 
 alter table public.agentic_topic_bank enable row level security;
 
+-- Worker / Manager / Executive stage awareness (Supabase; service role only).
+create table if not exists public.agentic_pipeline_stage_log (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz not null default now(),
+  release_id text,
+  department text not null,
+  agent_lane_id text,
+  stage text not null,
+  event text not null,
+  summary text not null,
+  detail jsonb not null default '{}'::jsonb
+);
+
+create index if not exists agentic_pipeline_stage_log_created_at_idx
+  on public.agentic_pipeline_stage_log (created_at desc);
+create index if not exists agentic_pipeline_stage_log_dept_idx
+  on public.agentic_pipeline_stage_log (department, created_at desc);
+
+comment on table public.agentic_pipeline_stage_log is 'Per-stage log from runDepartmentPipeline (Worker/Manager/Executive). Used for Chief awareness; insert via SUPABASE_SERVICE_ROLE_KEY only.';
+
+alter table public.agentic_pipeline_stage_log enable row level security;
+-- RLS: no policies — anon/authenticated blocked; service role bypasses for inserts/reads from app.
+
 notify pgrst, 'reload schema';

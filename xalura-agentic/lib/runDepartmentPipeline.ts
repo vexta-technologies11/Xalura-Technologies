@@ -1,3 +1,4 @@
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import {
   agentLaneIdForArticleSubcategory,
   articleSubcategoryTitleForAgentLaneId,
@@ -420,6 +421,13 @@ export async function runDepartmentPipeline(
         verticalId: input.contentVerticalId,
       });
       if (!gate.ok) {
+        fireAgenticPipelineLog({
+          department: departmentId,
+          agentLaneId: input.contentVerticalId?.trim() ?? null,
+          stage: "topic_gate",
+          event: "blocked",
+          summary: gate.reason.slice(0, 500),
+        });
         return { status: "blocked", reason: gate.reason };
       }
       activeContentTopic = gate.topic;
@@ -444,6 +452,22 @@ export async function runDepartmentPipeline(
     activeContentTopic,
     publishingKeywordReady,
   );
+
+  const plog = (
+    stage: string,
+    event: string,
+    summary: string,
+    detail?: Record<string, unknown>,
+  ) => {
+    fireAgenticPipelineLog({
+      department: departmentId,
+      agentLaneId,
+      stage,
+      event,
+      summary,
+      detail,
+    });
+  };
 
   const workerAssigned =
     getWorkerAssignedNameForLane(departmentId, agentLaneId, dn) || undefined;
@@ -552,10 +576,17 @@ export async function runDepartmentPipeline(
         }),
       );
       if (!w.ok) {
+        plog("worker", "error", w.message.slice(0, 500));
         return { status: "error", stage: "worker", message: w.message };
       }
       workerOutput = w.value;
       lastWorkerOutput = workerOutput;
+      plog(
+        "worker",
+        "completed",
+        `Output ${workerOutput.length} chars; keyword: ${(effectiveKeyword ?? "—").slice(0, 100)}`,
+        { output_chars: workerOutput.length, keyword: effectiveKeyword ?? null },
+      );
 
       const publishingManagerKw =
         departmentId === "publishing" ? (effectiveKeyword?.trim() ?? "") : "";
@@ -598,6 +629,7 @@ ${workerOutput}`;
         }),
       );
       if (!m.ok) {
+        plog("manager", "error", m.message.slice(0, 500));
         return { status: "error", stage: "manager", message: m.message };
       }
       const managerOutput = m.value;
@@ -607,6 +639,9 @@ ${workerOutput}`;
         strict: departmentId === "publishing",
       });
       if (decision.approved) {
+        plog("manager", "approved", (decision.reason || "APPROVED").slice(0, 600), {
+          round: totalManagerAttempts,
+        });
         const laneExecHint =
           agentLaneId && (departmentId === "seo" || departmentId === "publishing")
             ? ` This approval is for **dedicated article agent lane** \`${agentLaneId}\`${agentLaneLabelMeta ? ` — ${agentLaneLabelMeta}` : ""} (isolated 10-approval window toward Chief).`
@@ -628,9 +663,13 @@ ${workerOutput}`;
           }),
         );
         if (!e.ok) {
+          plog("executive", "error", e.message.slice(0, 500));
           return { status: "error", stage: "executive", message: e.message };
         }
         const executiveSummary = e.value;
+        plog("executive", "completed", executiveSummary.slice(0, 600), {
+          manager_rounds: totalManagerAttempts,
+        });
 
         const cycle = await recordApproval(
           {
@@ -724,6 +763,11 @@ ${workerOutput}`;
               }
             : publishingHandoffCw;
 
+        plog("pipeline", "approved", "Run approved; cycle recorded", {
+          audit: cycle.auditFileRelative ?? null,
+          task_type: taskType,
+        });
+
         return {
           status: "approved",
           workerOutput,
@@ -736,6 +780,9 @@ ${workerOutput}`;
         };
       }
 
+      plog("manager", "rejected", decision.reason.slice(0, 600), {
+        round: totalManagerAttempts,
+      });
       rejectionReasons.push(decision.reason);
     }
 
@@ -762,12 +809,16 @@ Then a short paragraph explaining why. If REWRITE, the Worker gets one more clea
       }),
     );
     if (!esc.ok) {
+      plog("executive", "error", esc.message.slice(0, 500));
       return { status: "error", stage: "executive", message: esc.message };
     }
     const executiveEscalation = esc.value;
     const head = firstLineUpper(executiveEscalation);
 
     if (head.startsWith("DISCARD")) {
+      plog("pipeline", "discarded", "Executive DISCARD after manager rejections", {
+        manager_rounds: totalManagerAttempts,
+      });
       return {
         status: "discarded",
         workerOutput,
@@ -777,6 +828,9 @@ Then a short paragraph explaining why. If REWRITE, the Worker gets one more clea
     }
 
     if (!head.startsWith("REWRITE")) {
+      plog("pipeline", "discarded", "Executive unclear after manager rejections — treated as DISCARD", {
+        manager_rounds: totalManagerAttempts,
+      });
       return {
         status: "discarded",
         workerOutput,
@@ -790,6 +844,9 @@ Then a short paragraph explaining why. If REWRITE, the Worker gets one more clea
     escalationPhase += 1;
   }
 
+  plog("pipeline", "rejected", "REWRITE loop exhausted without manager approval", {
+    manager_rounds: totalManagerAttempts,
+  });
   return {
     status: "rejected_after_escalation",
     workerOutput: lastWorkerOutput,
