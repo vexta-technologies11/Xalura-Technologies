@@ -2,7 +2,7 @@ import { appendEvent } from "../eventQueue";
 import { firecrawlScrape, gscSearchAnalyticsByPage } from "../phase7Clients";
 import { auditBankWithGemini } from "./geminiBankAuditor";
 import { rankTopicsWithGemini } from "./geminiTopicRanker";
-import { googleCustomSearch } from "./googleCustomSearch";
+import { serpApiSearch } from "./serpApiSearch";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { recentKeywords } from "./publishedTopicsStore";
 import { topicBankLastAuditPath } from "./paths";
@@ -74,20 +74,20 @@ export async function refreshTopicBank(
     await auditPreviousTopicBank(cwd);
   }
 
-  const search = await googleCustomSearch(
+  const search = await serpApiSearch(
     "latest artificial intelligence machine learning developer tools news",
     10,
   );
   if (search.error) {
     const detail =
       search.errorBody != null && search.errorBody.trim().length > 0
-        ? `\n\n--- Google API response body (debug) ---\n${search.errorBody}`
+        ? `\n\n--- SerpAPI response body (debug) ---\n${search.errorBody}`
         : "";
     return { ok: false, error: `${search.error}${detail}` };
   }
   const items = search.items ?? [];
   if (!items.length) {
-    return { ok: false, error: "Google Custom Search returned no items" };
+    return { ok: false, error: "SerpAPI returned no organic results for this query" };
   }
 
   const urls = Array.from(

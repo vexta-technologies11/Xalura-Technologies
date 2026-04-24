@@ -72,7 +72,7 @@ export async function rankTopicsWithGemini(params: {
 
 **Previous bank audit hint (may be empty):** ${params.auditHint ?? "(none)"}
 
-**Google Custom Search results (titles, links, snippets):**
+**Web search results from SerpAPI (titles, links, snippets):**
 ${params.searchSummary.slice(0, 12_000)}
 
 **Firecrawl markdown excerpts from selected URLs:**

@@ -13,7 +13,7 @@ function authorize(request: Request): boolean {
 }
 
 /**
- * POST — force a topic-bank refresh (Google Custom Search + Firecrawl + Gemini).
+ * POST — force a topic-bank refresh (SerpAPI + Firecrawl + Gemini).
  * Same auth as `POST /api/agentic/run`. Optional JSON: `{ "skipAudit": true }`.
  */
 export async function POST(request: Request) {

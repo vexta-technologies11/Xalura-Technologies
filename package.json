@@ -26,7 +26,7 @@
     "agentic:content-workflow-demo": "tsx xalura-agentic/scripts/content-workflow-demo.ts",
     "agentic:smoke-live-topic-bank": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-architecture-live.ts",
     "agentic:smoke-manager-seo": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-manager-seo.ts",
-    "agentic:diagnose-google-cse": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-google-custom-search.ts"
+    "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

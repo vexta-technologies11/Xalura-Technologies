@@ -1,21 +1,21 @@
 /**
- * Live smoke: Google Custom Search → topic bank refresh → SEO pipeline (no stub).
+ * Live smoke: SerpAPI → topic bank refresh → SEO pipeline (no stub).
  * Repo root: npx tsx --env-file=.env.local xalura-agentic/scripts/smoke-architecture-live.ts
  *
- * Requires: GOOGLE_CUSTOM_SEARCH_* (or GOOGLE_SEARCH_*), FIRECRAWL_API_KEY, GEMINI_API_KEY.
+ * Requires: SERPAPI_API_KEY, FIRECRAWL_API_KEY, GEMINI_API_KEY.
  * Prints topic keywords and Manager first lines only (no API keys).
  */
 import { runSeoPipeline } from "../departments/seo";
 import { refreshTopicBank } from "../lib/contentWorkflow/topicBankRefresh";
-import { googleCustomSearch } from "../lib/contentWorkflow/googleCustomSearch";
+import { serpApiSearch } from "../lib/contentWorkflow/serpApiSearch";
 import { parseManagerDecision } from "../lib/managerDecision";
 import { readTopicBank } from "../lib/contentWorkflow/topicBankStore";
 
 const cwd = process.cwd();
 
 async function main() {
-  console.log("=== 1) Google Custom Search (same query as topic bank refresh) ===\n");
-  const probe = await googleCustomSearch(
+  console.log("=== 1) SerpAPI (same query as topic bank refresh) ===\n");
+  const probe = await serpApiSearch(
     "latest artificial intelligence machine learning developer tools news",
     10,
   );
@@ -23,7 +23,7 @@ async function main() {
     console.error("FAIL:", probe.error);
     if (probe.httpStatus != null) console.error("HTTP:", probe.httpStatus);
     if (probe.errorBody?.trim()) {
-      console.error("\n--- Full Google response body ---\n", probe.errorBody);
+      console.error("\n--- Full SerpAPI response body ---\n", probe.errorBody);
     }
     process.exitCode = 1;
     return;

@@ -34,7 +34,7 @@ export type DepartmentPipelineInput = {
   referenceUrl?: string;
   /** Skip Firecrawl / GSC fetches (faster tests). */
   skipPhase7Fetch?: boolean;
-  /** SEO: pull next keyword from topic bank (Google Search + Firecrawl + Gemini rank). */
+  /** SEO: pull next keyword from topic bank (SerpAPI + Firecrawl + Gemini rank). */
   useTopicBank?: boolean;
   /** SEO: bypass crawl cooldown and refresh bank (still respects crawl logic unless combined with bank rules). */
   forceTopicBankRefresh?: boolean;

@@ -57,7 +57,7 @@ function isDeptId(s: string): s is DepartmentId {
  * - `skipChiefEnrich`: optional — skip live Chief append after a 10-cycle audit
  * - `referenceUrl`: optional — Firecrawl scrape into Worker context (any department)
  * - `skipPhase7Fetch`: optional — skip Firecrawl + GSC context fetches
- * - `useTopicBank`: optional — **SEO only**: topic bank (Google Custom Search + Firecrawl + Gemini)
+ * - `useTopicBank`: optional — **SEO only**: topic bank (SerpAPI + Firecrawl + Gemini)
  * - `forceTopicBankRefresh`, `allowStubFallback`: optional — SEO topic bank controls
  * - `useDailyPublishingBrief`, `useDailyProductionTracker`, `contentSubcategory`: optional — **Publishing**
  *

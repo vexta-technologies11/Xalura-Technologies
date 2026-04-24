@@ -35,7 +35,7 @@ export type NextTopicResult =
   | { ok: false; reason: string };
 
 /**
- * Consume next topic from bank, refreshing via Google Search + Firecrawl + Gemini when rules allow.
+ * Consume next topic from bank, refreshing via SerpAPI + Firecrawl + Gemini when rules allow.
  */
 export async function getNextTopic(
   cwd: string,
@@ -55,7 +55,7 @@ export async function getNextTopic(
       } else {
         return {
           ok: false,
-          reason: `Topic bank refresh failed: ${refreshed.error}. Configure Google Custom Search + Firecrawl + GEMINI_API_KEY, or pass allowStubFallback for local dev.`,
+          reason: `Topic bank refresh failed: ${refreshed.error}. Configure SERPAPI_API_KEY + Firecrawl + GEMINI_API_KEY, or pass allowStubFallback for local dev.`,
         };
       }
     } else {

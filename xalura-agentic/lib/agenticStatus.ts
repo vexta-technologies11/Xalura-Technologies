@@ -6,7 +6,7 @@ import {
 import { loadCycleState } from "../engine/cycleStateStore";
 import { readEvents } from "./eventQueue";
 import { readFailedQueue } from "./failedQueue";
-import { googleCustomSearchConfigured } from "./contentWorkflow/googleCustomSearch";
+import { serpApiConfigured } from "./contentWorkflow/serpApiSearch";
 import { topicBankPath } from "./contentWorkflow/paths";
 import { getAgenticRoot } from "./paths";
 import {
@@ -97,7 +97,8 @@ export type AgenticHealthPayload = {
   phase7: Phase7Configured;
   /** Content workflow (topic bank) — Google Programmable Search + on-disk bank file. */
   content_workflow: {
-    google_custom_search: boolean;
+    /** SerpAPI (`SERPAPI_API_KEY`) — topic bank web search. */
+    serpapi: boolean;
     topic_bank_file_present: boolean;
   };
   uptime_hint: "next_route";
@@ -176,10 +177,10 @@ export async function getAgenticHealth(
     failedCount = 0;
   }
 
-  const [geminiPack, phase7, googleCs, topicBankPresent] = await Promise.all([
+  const [geminiPack, phase7, serpapiOk, topicBankPresent] = await Promise.all([
     resolveWorkerEnvWithTrace("GEMINI_API_KEY"),
     getPhase7Configured(),
-    googleCustomSearchConfigured(),
+    serpApiConfigured(),
     Promise.resolve(fileExistsAgentic(topicBankPath(cwd))),
   ]);
 
@@ -197,7 +198,7 @@ export async function getAgenticHealth(
     gemini_resolution,
     phase7,
     content_workflow: {
-      google_custom_search: googleCs,
+      serpapi: serpapiOk,
       topic_bank_file_present: topicBankPresent,
     },
     uptime_hint: "next_route",

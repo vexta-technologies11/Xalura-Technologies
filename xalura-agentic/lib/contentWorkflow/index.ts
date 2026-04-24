@@ -21,4 +21,4 @@ export {
   recordSubcategoryUsed,
   extendCooldownForSubcategories,
 } from "./topicRotationStore";
-export { googleCustomSearch } from "./googleCustomSearch";
+export { serpApiSearch, serpApiConfigured } from "./serpApiSearch";
