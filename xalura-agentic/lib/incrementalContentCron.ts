@@ -7,7 +7,12 @@ import type { PublishingPipelineResult } from "../departments/publishing";
 import type { WaitingResult } from "./handoff";
 import type { DepartmentPipelineResult } from "./runDepartmentPipeline";
 import { nextVerticalForHourlyTick } from "./incrementalCadenceStore";
-import { isTopicBankMissingOrEmpty } from "./contentWorkflow/topicBankStore";
+import { shouldForceTopicBankForVertical } from "./contentWorkflow/topicBank";
+import {
+  humanIncrementalPublishingFailureMessage,
+  humanIncrementalSeoFailureMessage,
+  humanIncrementalSiteFailureMessage,
+} from "./pipelineFailureHumanize";
 
 const DEFAULT_SEO_TASK =
   "In 2–3 short paragraphs, justify why this bank keyword matters for Xalura Tech readers (technical founders). Be concrete; no fluff.";
@@ -72,8 +77,8 @@ export type IncrementalHourlyOptions = {
    */
   awaitFounderOversight?: boolean;
   /**
-   * When true with a missing/empty topic bank file, pass `forceTopicBankRefresh` into SEO so a Serp crawl
-   * is not blocked by the 2h cooldown (no override when the bank already has topics).
+   * When true, pass `forceTopicBankRefresh` into SEO when the bank is missing, empty, out of unused rows,
+   * or has no unused row for the scheduled vertical — bypasses the 2h crawl cooldown for that tick.
    */
   forceTopicBankIfMissing?: boolean;
 };
@@ -108,7 +113,7 @@ export async function runIncrementalHourlyPublish(
   const { vertical_id, vertical_label, tick } = nextVerticalForHourlyTick(cwd);
 
   const forceTopicBankRefresh =
-    options?.forceTopicBankIfMissing === true && isTopicBankMissingOrEmpty(cwd);
+    options?.forceTopicBankIfMissing === true && shouldForceTopicBankForVertical(cwd, vertical_id);
 
   const seo = await runSeoPipelineWithHandoff(
     {
@@ -124,11 +129,26 @@ export async function runIncrementalHourlyPublish(
   );
 
   if (seo.status !== "approved") {
+    const s = seo as Exclude<SeoPipelineResult, { status: "approved" }>;
     appendFailedOperation(
       {
         kind: "pipeline",
-        message: `Incremental hourly: ${summarizeSeoFailure(seo, vertical_id)}`,
-        detail: `vertical_id=${vertical_id} vertical_label=${vertical_label} cadence_tick=${tick}. Topic bank: POST /api/agentic/content/refresh-topic-bank or wait for crawl rules. Chief digest email is audit-only — set AGENTIC_OPS_ALERT_EMAIL for pipeline failures.`,
+        message: humanIncrementalSeoFailureMessage(
+          {
+            status: s.status,
+            reason: "reason" in s ? s.reason : undefined,
+            stage: "stage" in s ? s.stage : undefined,
+            message: "message" in s ? s.message : undefined,
+          },
+          vertical_label,
+        ),
+        detail: [
+          summarizeSeoFailure(s, vertical_id),
+          JSON.stringify(s).slice(0, 2000),
+          `vertical_id=${vertical_id} vertical_label=${vertical_label} cadence_tick=${tick}`,
+          "Topic bank: POST /api/agentic/content/refresh-topic-bank or wait for crawl rules.",
+          "Chief digest email is audit-only — set AGENTIC_OPS_ALERT_EMAIL for pipeline failures.",
+        ].join("\n"),
       },
       cwd,
     );
@@ -155,8 +175,16 @@ export async function runIncrementalHourlyPublish(
     appendFailedOperation(
       {
         kind: "pipeline",
-        message: `Incremental hourly: ${summarizePublishingFailure(pub, vertical_id)}`,
-        detail: `vertical_id=${vertical_id} cadence_tick=${tick}`,
+        message: humanIncrementalPublishingFailureMessage(
+          {
+            status: pub.status,
+            reason: pub.reason,
+          },
+          vertical_label,
+        ),
+        detail: [summarizePublishingFailure(pub, vertical_id), `vertical_id=${vertical_id} cadence_tick=${tick}`].join(
+          "\n",
+        ),
       },
       cwd,
     );
@@ -171,11 +199,24 @@ export async function runIncrementalHourlyPublish(
   }
 
   if (pub.status !== "approved") {
+    const p = pub as Exclude<PublishingPipelineResult, { status: "approved" }>;
     appendFailedOperation(
       {
         kind: "pipeline",
-        message: `Incremental hourly: ${summarizePublishingFailure(pub, vertical_id)}`,
-        detail: `vertical_id=${vertical_id} cadence_tick=${tick}`,
+        message: humanIncrementalPublishingFailureMessage(
+          {
+            status: p.status,
+            reason: "reason" in p ? p.reason : undefined,
+            stage: "stage" in p ? p.stage : undefined,
+            message: "message" in p ? p.message : undefined,
+          },
+          vertical_label,
+        ),
+        detail: [
+          summarizePublishingFailure(p, vertical_id),
+          JSON.stringify(p).slice(0, 2000),
+          `vertical_id=${vertical_id} cadence_tick=${tick}`,
+        ].join("\n"),
       },
       cwd,
     );
@@ -217,8 +258,8 @@ export async function runIncrementalHourlyPublish(
     appendFailedOperation(
       {
         kind: "pipeline",
-        message: `Incremental hourly: site publish failed: ${site.error}`,
-        detail: `vertical_id=${vertical_id} cadence_tick=${tick}`,
+        message: humanIncrementalSiteFailureMessage(site.error, vertical_label),
+        detail: [`site publish failed: ${site.error}`, `vertical_id=${vertical_id} cadence_tick=${tick}`].join("\n"),
       },
       cwd,
     );

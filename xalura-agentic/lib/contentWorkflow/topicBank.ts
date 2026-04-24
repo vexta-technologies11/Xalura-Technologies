@@ -40,6 +40,21 @@ export type NextTopicResult =
   | { ok: false; reason: string };
 
 /**
+ * When true, incremental/admin should pass `forceTopicBankRefresh` so Serp can refill even under crawl cooldown:
+ * missing bank, empty topics, no unused rows globally, or no unused row for the scheduled vertical lane.
+ */
+export function shouldForceTopicBankForVertical(cwd: string, verticalId: string): boolean {
+  const v = verticalId.trim().toLowerCase();
+  const bank = readTopicBank(cwd);
+  if (!bank) return true;
+  if ((bank.topics?.length ?? 0) === 0) return true;
+  const unused = getUnusedTopics(bank);
+  if (unused.length === 0) return true;
+  if (!v) return false;
+  return !unused.some((t) => (t.vertical_id || "").trim().toLowerCase() === v);
+}
+
+/**
  * Consume next topic from bank, refreshing via SerpAPI + Firecrawl + Gemini when rules allow.
  */
 export async function getNextTopic(

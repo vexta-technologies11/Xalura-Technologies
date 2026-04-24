@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runIncrementalHourlyPublish } from "@/xalura-agentic/lib/incrementalContentCron";
+import { humanIncrementalApiBrief } from "@/xalura-agentic/lib/pipelineFailureHumanize";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,12 @@ export async function POST() {
         : detail && typeof detail === "object" && "status" in detail
           ? JSON.stringify(detail).slice(0, 4000)
           : "Incremental tick failed";
+    const human_summary = humanIncrementalApiBrief({
+      stage: tick.stage,
+      vertical_id: tick.vertical_id,
+      vertical_label: tick.vertical_label,
+      detail,
+    });
     return NextResponse.json(
       {
         ok: false,
@@ -42,6 +49,7 @@ export async function POST() {
         vertical_label: tick.vertical_label,
         cadence_tick: tick.cadence_tick,
         error: msg,
+        human_summary,
       },
       { status: tick.stage === "site" ? 502 : 200 },
     );
@@ -66,6 +74,12 @@ export async function POST() {
   }
 
   if (!tick.site.ok) {
+    const human_summary = humanIncrementalApiBrief({
+      stage: "site",
+      vertical_id: tick.vertical_id,
+      vertical_label: tick.vertical_label,
+      detail: tick.site.error,
+    });
     return NextResponse.json(
       {
         ok: false,
@@ -74,6 +88,7 @@ export async function POST() {
         vertical_label: tick.vertical_label,
         cadence_tick: tick.cadence_tick,
         publish: { ok: false, error: tick.site.error },
+        human_summary,
       },
       { status: 502 },
     );

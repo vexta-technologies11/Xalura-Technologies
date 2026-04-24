@@ -1,6 +1,7 @@
 import type { DepartmentId } from "../engine/departments";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import type { FailedOperation } from "./failedQueue";
+import { humanChiefDigestEmailBody, humanOpsAlertEmailBody } from "./pipelineFailureHumanize";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 
@@ -12,13 +13,8 @@ export function scheduleFailedOperationResend(op: FailedOperation): void {
 async function runFailedOperationResendWork(op: FailedOperation): Promise<void> {
   const to = (await resolveWorkerEnv("AGENTIC_OPS_ALERT_EMAIL"))?.trim();
   if (!to) return;
-  const subject = `[Xalura agentic] ${op.kind} failure`;
-  const text = [
-    op.message,
-    op.detail ? `\n${op.detail}` : "",
-    `\n\nid: ${op.id}`,
-    `ts: ${op.ts}`,
-  ].join("");
+  const subject = "[Xalura agentic] Pipeline needs attention";
+  const text = humanOpsAlertEmailBody(op);
   await sendResendEmail({ to, subject, text });
 }
 
@@ -40,17 +36,21 @@ async function runChiefDigestEmailWork(params: {
 }): Promise<void> {
   const to = (await resolveWorkerEnv("AGENTIC_CHIEF_DIGEST_EMAIL"))?.trim();
   if (!to) return;
-  const lane = params.agentLaneKey ? ` — lane ${params.agentLaneKey}` : "";
-  const subject = `[Xalura agentic] Chief audit — ${params.department}${lane}`;
-  const text = [
-    `Department: ${params.department}`,
-    params.agentLaneKey ? `Agent lane: ${params.agentLaneKey}` : "",
-    `Audit file: ${params.auditFileRelative}`,
-    params.cwdLabel ? `Cwd: ${params.cwdLabel}` : "",
+  const { subject, text } = humanChiefDigestEmailBody({
+    department: params.department,
+    auditFileRelative: params.auditFileRelative,
+    agentLaneKey: params.agentLaneKey,
+    cwdLabel: params.cwdLabel,
+  });
+  const footer = [
     "",
-    "Chief AI section was appended to the audit markdown on disk.",
+    "--- reference ---",
+    `department: ${params.department}`,
+    params.agentLaneKey ? `lane: ${params.agentLaneKey}` : "",
+    `audit: ${params.auditFileRelative}`,
+    params.cwdLabel ? `cwd: ${params.cwdLabel}` : "",
   ]
     .filter(Boolean)
     .join("\n");
-  await sendResendEmail({ to, subject, text });
+  await sendResendEmail({ to, subject: `[Xalura agentic] ${subject}`, text: `${text}${footer}` });
 }

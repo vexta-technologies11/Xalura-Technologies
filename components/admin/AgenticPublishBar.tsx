@@ -19,8 +19,12 @@ export function AgenticPublishBar() {
         body: "{}",
       });
       const data = (await res.json()) as Record<string, unknown>;
+      const human =
+        typeof data["human_summary"] === "string" && data["human_summary"].trim()
+          ? (data["human_summary"] as string)
+          : null;
       if (!res.ok) {
-        setErr(typeof data["error"] === "string" ? data["error"] : res.statusText);
+        setErr(human ?? (typeof data["error"] === "string" ? data["error"] : res.statusText));
         return;
       }
       const pub = data["publish"] as Record<string, unknown> | undefined;
@@ -36,8 +40,12 @@ export function AgenticPublishBar() {
         setErr(pub["reason"] as string);
         return;
       }
+      if (human) {
+        setErr(human);
+        return;
+      }
       if (typeof data["error"] === "string") {
-        setErr(`${data["stage"] ? `[${data["stage"]}] ` : ""}${data["error"]}`);
+        setErr(`${data["stage"] ? `[${String(data["stage"])}] ` : ""}${data["error"]}`);
         return;
       }
       setMsg(typeof data["result"] === "object" ? "Run finished — see response JSON." : "Done.");
@@ -57,7 +65,8 @@ export function AgenticPublishBar() {
         you are only <strong>overriding the schedule</strong>. Requires <code>SUPABASE_SERVICE_ROLE_KEY</code>{" "}
         and the same keys as incremental (Gemini, SerpAPI topic bank, etc.).         Compliance email runs inline
         after publish when enabled (slower request, more reliable). If the topic bank file is missing or
-        empty, this run forces a bank refresh (Serp crawl) once; a populated bank is left unchanged.
+        empty, or this vertical has no unused keyword, this run may force one Serp-backed bank refresh
+        (bypasses the usual crawl cooldown for that tick only).
       </p>
       <div className="admin-agentic-publish-bar__actions">
         <button
