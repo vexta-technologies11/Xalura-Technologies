@@ -113,288 +113,25 @@
   color: #fca5a5;
 }
 
-/* Agent hierarchy — dark grid + gold rings (admin AI dashboard) */
+/* (Legacy drag-and-drop org chart styles removed.) */
 
-.agent-org-wrap {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100dvh - 120px);
-  margin-bottom: 0;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  background: #050a14;
+/* Live agentic hierarchy — full-bleed color rail */
+.admin-agentic-live {
+  max-width: none;
+  width: 100%;
+  margin: 0 auto 24px;
+  min-height: calc(100dvh - 200px);
+  padding: 18px 18px 28px;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  background-color: #030712;
   background-image:
     linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px);
-  background-size: 28px 28px;
-  box-shadow:
-    inset 0 0 80px rgba(2, 132, 199, 0.12),
-    0 12px 40px rgba(0, 0, 0, 0.45);
-}
-
-.agent-org-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.agent-org-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #f8fafc;
-  text-transform: uppercase;
-}
-
-.agent-org-sub {
-  margin: 4px 0 0;
-  font-size: 0.78rem;
-  color: #94a3b8;
-  max-width: 520px;
-  line-height: 1.45;
-}
-
-.agent-org-add {
-  flex-shrink: 0;
-  padding: 10px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(250, 204, 21, 0.55);
-  background: linear-gradient(180deg, rgba(250, 204, 21, 0.2), rgba(250, 204, 21, 0.06));
-  color: #fef9c3;
-  font-weight: 650;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.agent-org-add:hover {
-  background: linear-gradient(180deg, rgba(250, 204, 21, 0.35), rgba(250, 204, 21, 0.12));
-}
-
-.agent-org-body {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 28px 16px 36px;
-}
-
-.agent-org-tier {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: clamp(12px, 3vw, 28px);
-  position: relative;
-  z-index: 1;
-}
-
-.agent-org-connector {
-  display: flex;
-  justify-content: center;
-  padding: 6px 0 10px;
-  position: relative;
-  z-index: 0;
-}
-
-.agent-org-connector-line {
-  width: 2px;
-  height: 22px;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(248, 250, 252, 0.15));
-  border-radius: 1px;
-}
-
-.agent-org-connector-fork {
-  width: min(72%, 420px);
-  height: 14px;
-  border: 2px solid rgba(248, 250, 252, 0.35);
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  margin: 0 auto;
-  margin-top: -2px;
-}
-
-.agent-org-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 108px;
-  text-align: center;
-}
-
-.agent-org-avatar-wrap {
-  position: relative;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  padding: 4px;
-  background: #facc15;
-  box-shadow:
-    0 0 0 2px rgba(250, 204, 21, 0.35),
-    0 8px 24px rgba(0, 0, 0, 0.5);
-  transition:
-    transform 0.35s ease,
-    box-shadow 0.35s ease;
-}
-
-.agent-org-node--pulse .agent-org-avatar-wrap {
-  animation: agent-org-pulse 1.1s ease-in-out infinite;
-}
-
-.agent-org-node--tier-worker .agent-org-avatar-wrap {
-  box-shadow:
-    0 0 0 2px rgba(56, 189, 248, 0.5),
-    0 0 28px rgba(34, 211, 238, 0.35);
-}
-
-.agent-org-node--tier-manager .agent-org-avatar-wrap {
-  box-shadow:
-    0 0 0 2px rgba(167, 139, 250, 0.55),
-    0 0 26px rgba(139, 92, 246, 0.35);
-}
-
-.agent-org-node--tier-chief .agent-org-avatar-wrap {
-  box-shadow:
-    0 0 0 3px rgba(250, 204, 21, 0.75),
-    0 0 36px rgba(250, 204, 21, 0.25);
-}
-
-@keyframes agent-org-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.06);
-  }
-}
-
-.agent-org-avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.75rem;
-  color: #64748b;
-  overflow: hidden;
-}
-
-.agent-org-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.agent-org-label {
-  margin-top: 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #f1f5f9;
-  max-width: 108px;
-  word-break: break-word;
-}
-
-.agent-org-title-field {
-  margin-top: 4px;
-  font-size: 0.65rem;
-  color: #94a3b8;
-  max-width: 108px;
-  line-height: 1.25;
-}
-
-.agent-org-node-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.agent-org-mini {
-  padding: 4px 6px;
-  font-size: 0.62rem;
-  border-radius: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.85);
-  color: #e2e8f0;
-  cursor: pointer;
-}
-
-.agent-org-mini:hover {
-  border-color: rgba(250, 204, 21, 0.5);
-  color: #fef9c3;
-}
-
-.agent-org-mini--danger:hover {
-  border-color: rgba(248, 113, 113, 0.6);
-  color: #fecaca;
-}
-
-.agent-org-edit {
-  margin-top: 6px;
-  width: 100%;
-  max-width: 104px;
-  font-size: 0.62rem;
-  padding: 4px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(51, 65, 85, 0.9);
-  background: rgba(15, 23, 42, 0.95);
-  color: #e2e8f0;
-}
-
-.agent-org-edit::placeholder {
-  color: #64748b;
-}
-
-.agent-org-drop {
-  min-height: 120px;
-  border-radius: 10px;
-  border: 1px dashed rgba(148, 163, 184, 0.2);
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-}
-
-.agent-org-drop--active {
-  border-color: rgba(250, 204, 21, 0.55);
-  background: rgba(250, 204, 21, 0.06);
-}
-
-.agent-org-live {
-  margin-top: 10px;
-  font-size: 0.68rem;
-  color: #38bdf8;
-  text-align: center;
-}
-
-/* Live agentic hierarchy rail (same shell as org chart) */
-.admin-agentic-live {
-  max-width: 1100px;
-  margin: 0 auto 24px;
-  padding: 18px 18px 20px;
-  border-radius: 12px;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  background: #050a14;
-  background-image:
-    linear-gradient(rgba(34, 211, 238, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.06) 1px, transparent 1px);
-  background-size: 24px 24px;
-  box-shadow: inset 0 0 60px rgba(2, 132, 199, 0.1), 0 10px 32px rgba(0, 0, 0, 0.4);
+    linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(34, 211, 238, 0.2), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 50%, rgba(250, 204, 21, 0.1), transparent 45%);
+  background-size: 24px 24px, 24px 24px, auto, auto;
+  box-shadow: inset 0 0 80px rgba(2, 132, 199, 0.14), 0 16px 48px rgba(0, 0, 0, 0.55);
   box-sizing: border-box;
 }
 
@@ -619,4 +356,203 @@
 
 .admin-agentic-live__tail-sum {
   color: #cbd5e1;
+}
+
+/* —— Hierarchy tree (Salford-style pills; cyan live / gold demo accents) —— */
+
+.ah-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 0 20px;
+}
+
+.ah-tree__brand {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: rgba(248, 250, 252, 0.55);
+  text-transform: uppercase;
+}
+
+.ah-tree__columns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(14px, 2.5vw, 28px);
+  width: 100%;
+}
+
+.ah-tree__column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 240px;
+  max-width: 340px;
+}
+
+.ah-tree__vline {
+  width: 2px;
+  height: 18px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.45), rgba(148, 163, 184, 0.2));
+}
+
+.ah-tree__fork {
+  width: min(88%, 920px);
+  height: 16px;
+  border: 2px solid rgba(248, 250, 252, 0.22);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  margin-bottom: -2px;
+}
+
+.ah-pill {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 16px 12px 10px;
+  border-radius: 999px 22px 22px 999px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(51, 65, 85, 0.95);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.ah-pill--chief {
+  border-color: rgba(250, 204, 21, 0.45);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.12), 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.ah-pill--exec {
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.ah-pill--mgr {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.ah-pill--worker {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.ah-pill--demo {
+  border-color: rgba(250, 204, 21, 0.35);
+}
+
+.ah-pill__avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: linear-gradient(145deg, #e2e8f0, #94a3b8);
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.25);
+}
+
+.ah-pill--chief .ah-pill__avatar {
+  background: linear-gradient(145deg, #fef08a, #eab308);
+}
+
+.ah-pill--exec .ah-pill__avatar {
+  background: linear-gradient(145deg, #a5f3fc, #22d3ee);
+}
+
+.ah-pill--mgr .ah-pill__avatar {
+  background: linear-gradient(145deg, #ddd6fe, #a78bfa);
+}
+
+.ah-pill--worker .ah-pill__avatar {
+  background: linear-gradient(145deg, #bae6fd, #38bdf8);
+}
+
+.ah-pill__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ah-pill__name {
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.ah-pill__role {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.ah-pill__subdesk {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+.ah-pill__mono {
+  margin-top: 8px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.ah-pill__mono--gemini {
+  font-style: italic;
+  color: #e0f2fe;
+}
+
+.ah-pill__check {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  line-height: 1.45;
+  color: #fef9c3;
+  background: rgba(66, 32, 6, 0.35);
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  white-space: pre-wrap;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.ah-pill__pilltag {
+  margin-top: 6px;
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ah-pill__pilltag--live {
+  color: #a5f3fc;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  background: rgba(8, 47, 73, 0.5);
+}
+
+.ah-pill__pilltag--demo {
+  color: #fef9c3;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  background: rgba(66, 32, 6, 0.35);
 }
