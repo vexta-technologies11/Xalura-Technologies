@@ -49,6 +49,16 @@ export function opsAlertBriefFromFailedOperation(op: FailedOperation): string {
       "Mr President — copy cleared the desk but the live site upsert failed. Supabase keys, RLS, or network from this server are the usual suspects.",
     );
   }
+  if (
+    hay.includes("article cover upload") ||
+    hay.includes("publishing hero image") ||
+    hay.includes("imagen predict") ||
+    hay.includes("article-covers")
+  ) {
+    return clipWords(
+      "Mr President — the **Graphic designer / hero image** step failed (Gemini Imagen or Supabase Storage `article-covers`). See the technical block for the exact API message — often Imagen billing/model access, wrong `AGENTIC_IMAGE_MODEL`, or a missing Storage bucket/policy.",
+    );
+  }
   return clipWords(
     `Mr President — an automated pipeline step failed. Start with the technical block below for the exact desk; first guess is ${op.kind === "pipeline" ? "SEO, Publishing, or site publish" : "the integration named in the log"}.`,
   );
