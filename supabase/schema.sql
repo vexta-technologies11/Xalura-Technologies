@@ -94,6 +94,13 @@ create policy "employee_avatars_authenticated_insert" on storage.objects for ins
 create policy "employee_avatars_authenticated_update" on storage.objects for update to authenticated using (bucket_id = 'employee-avatars') with check (bucket_id = 'employee-avatars');
 create policy "employee_avatars_authenticated_delete" on storage.objects for delete to authenticated using (bucket_id = 'employee-avatars');
 
+-- Agentic article hero PNGs (`lib/articleCoverStorage.ts`). Service role uploads bypass RLS; public read for `getPublicUrl` on the site.
+insert into storage.buckets (id, name, public) values ('article-covers', 'article-covers', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "article_covers_public_read" on storage.objects;
+create policy "article_covers_public_read" on storage.objects for select to public using (bucket_id = 'article-covers');
+
 -- ── Agent AI dashboard (API ingest + admin review + workload) ───────────────
 
 create table if not exists agent_api_keys (
@@ -376,10 +383,6 @@ where c.slug = v.course_slug
     select 1 from lessons l
     where l.course_id = c.id and l.display_order = v.display_order
   );
-
--- ── Storage (manual): agentic article hero covers ───────────────────────────
--- Dashboard → Storage: create a **public** bucket named `article-covers`.
--- `lib/articleCoverStorage.ts` uploads `{slug}.png` and `articles.cover_image_url` stores the public URL.
 
 -- ── Agentic SEO topic bank (optional; survives read-only edge filesystems) ─
 -- When `AGENTIC_TOPIC_BANK_USE_SUPABASE=true`, pipelines read/write this row instead of only `xalura-agentic/state/topic-bank.json`.

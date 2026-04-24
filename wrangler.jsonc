@@ -14,6 +14,7 @@
   "vars": {
     "AGENTIC_CRON_BASE_URL": "https://www.xaluratech.com",
     "AGENTIC_TOPIC_BANK_USE_SUPABASE": "true",
+    "AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH": "true",
     "NEXT_PUBLIC_SUPABASE_URL": "https://utwbidakrliphhuenvcn.supabase.co"
   },
   "compatibility_date": "2025-04-01",
