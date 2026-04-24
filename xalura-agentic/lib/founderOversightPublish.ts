@@ -9,6 +9,7 @@ import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 import { resolveGeminiApiKey, runAgent } from "./gemini";
 import { getAgenticRoot } from "./paths";
+import { COMPLIANCE_OFFICER_RUBRIC } from "./complianceOfficerRubric";
 
 export type FounderOversightPublishParams = ChiefPublishDigestParams & {
   /** Last Publishing Manager output (who approved and why). */
@@ -118,13 +119,23 @@ export async function executeFounderOversightPublishEmail(
     complianceFlag === "1" ||
     founderFlag === "true" ||
     founderFlag === "1";
-  if (!on) return;
+  if (!on) {
+    console.info(
+      "[founder_oversight] compliance email skipped: set AGENTIC_COMPLIANCE_ON_PUBLISH or AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH to true (or 1) on this host.",
+    );
+    return;
+  }
 
   const to =
     (await resolveWorkerEnv("AGENTIC_COMPLIANCE_EMAIL"))?.trim() ||
     (await resolveWorkerEnv("AGENTIC_FOUNDER_OVERSIGHT_EMAIL"))?.trim() ||
     (await resolveWorkerEnv("AGENTIC_CHIEF_DIGEST_EMAIL"))?.trim();
-  if (!to) return;
+  if (!to) {
+    console.info(
+      "[founder_oversight] compliance email skipped: no recipient — set AGENTIC_COMPLIANCE_EMAIL (preferred), AGENTIC_FOUNDER_OVERSIGHT_EMAIL, or AGENTIC_CHIEF_DIGEST_EMAIL.",
+    );
+    return;
+  }
 
   const briefing = buildFounderOversightBriefing(p);
 
@@ -216,7 +227,20 @@ ${briefing.slice(0, 28_000)}
 
 Internal analysts already produced notes below (QA, Risk, Chief-line process). **Honor the Risk analyst’s first-line \`RISK_LEVEL:\`** — do not contradict it. Synthesize; do not invent facts absent from the briefing or notes.
 
-Output **markdown** with this structure:
+You must **read the article excerpt and executive summary in the briefing** as primary sources, then cross-check the INTERNAL analyst blocks.
+
+${COMPLIANCE_OFFICER_RUBRIC}
+
+Output **markdown** with this structure (use these headings in order):
+
+## Article digest (for the Founder)
+- 4–8 bullets: what the piece actually says/does (topics, claims, audience) — from the briefing only.
+
+## Scored rubric (D1–D7)
+- Markdown table with columns: Dimension | Score 1–10 | Evidence (quote or paraphrase from briefing, ≤25 words each). Use INSUFFICIENT_DATA only when the briefing truly lacks basis.
+
+## Regulatory & legal posture (advisory)
+- 4–8 short paragraphs: counsel-style analysis, cautious hedging, explicit **not legal advice** framing.
 
 ## Risk snapshot
 - **Rating:** one line — copy the Risk analyst’s \`RISK_LEVEL: …\` line verbatim if present, else state unknown.
@@ -224,8 +248,8 @@ Output **markdown** with this structure:
 ## Top risk factors
 - 3–8 bullets (tight, from evidence in the notes/briefing only).
 
-## Compliance officer view
-- 3–6 sentences: your read on posture, residual concerns, what to watch on the next publish.
+## Compliance officer executive summary
+- 3–6 sentences: residual concerns, monitoring hooks for the next publish cycle.
 
 ## Draft email (memo — Cc lines are **for display only**; they are not separate recipients)
 Write a polished **email-shaped block** the Founder could paste or forward. Use exactly this header format (fill Subject and body):
@@ -234,7 +258,7 @@ To: Founder
 Cc: Chief AI (informational — advisory roll-up only), Executives (informational — advisory roll-up only)
 Subject: [Compliance] Published article — ${p.title.slice(0, 120)}
 
-Then the email body (plain paragraphs, no markdown headings inside the body): acknowledge publish, one-line link path \`${p.articlePath}\`, summarize risk rating and 2–3 factors, note that **Publishing Manager** approved per ladder, and that Chief AI / Executives are Cc’d **for context only** (no automatic mail to them).
+Then the email body (plain paragraphs, no markdown headings inside the body): acknowledge publish, one-line link path \`${p.articlePath}\`, include **COMPLIANCE_SCORE_OVERALL** and **COMPLIANCE_CONFIDENCE** lines verbatim, summarize top rubric findings and Risk level, note that **Publishing Manager** approved per ladder, and that Chief AI / Executives are Cc’d **for context only** (no automatic mail to them).
 
 ---
 INTERNAL — QA analyst:
@@ -345,6 +369,9 @@ ${graphicSection}
   });
 
   if (sent.error) {
+    console.warn(
+      `[founder_oversight] Resend failed (${sent.error}) — check RESEND_API_KEY / RESEND_FROM; to=${to}`,
+    );
     appendFailedOperation(
       {
         kind: "other",

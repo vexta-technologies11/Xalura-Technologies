@@ -11,6 +11,8 @@
   },
   // Public origin for cron self-fetch → /api/cron/agentic-publish (no trailing slash).
   // Topic bank + service Supabase client read these at runtime on the Worker (readEnvSync).
+  // Post-publish compliance memo: set AGENTIC_COMPLIANCE_ON_PUBLISH=true (or AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH),
+  // AGENTIC_COMPLIANCE_EMAIL (or founder/chief digest fallback), RESEND_* + secrets here or in Dashboard.
   "vars": {
     "AGENTIC_CRON_BASE_URL": "https://www.xaluratech.com",
     "AGENTIC_TOPIC_BANK_USE_SUPABASE": "true",
