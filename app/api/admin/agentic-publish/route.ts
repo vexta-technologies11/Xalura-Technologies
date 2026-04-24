@@ -22,6 +22,7 @@ export async function POST() {
   const tick = await runIncrementalHourlyPublish(cwd, {
     forceSitePublish: true,
     awaitFounderOversight: true,
+    forceTopicBankIfMissing: true,
   });
 
   if (!tick.ok) {

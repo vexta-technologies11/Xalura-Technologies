@@ -48,3 +48,10 @@ export function getUnusedTopics(bank: TopicBankFile): TopicBankEntry[] {
     .filter((t) => t.status === "unused")
     .sort((a, b) => b.final_score - a.final_score);
 }
+
+/** True when there is no readable bank file or the bank has no topic rows yet. */
+export function isTopicBankMissingOrEmpty(cwd: string): boolean {
+  const b = readTopicBank(cwd);
+  if (!b) return true;
+  return (b.topics?.length ?? 0) === 0;
+}

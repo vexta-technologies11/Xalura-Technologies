@@ -55,8 +55,9 @@ export function AgenticPublishBar() {
         Runs <strong>one incremental queue tick</strong> (same order as hourly cron): SEO topic bank for the
         next vertical → <code>KEYWORD_READY</code> → Publishing handoff → Supabase upsert. No custom task —
         you are only <strong>overriding the schedule</strong>. Requires <code>SUPABASE_SERVICE_ROLE_KEY</code>{" "}
-        and the same keys as incremental (Gemini, SerpAPI topic bank, etc.). Compliance email runs inline
-        after publish when enabled (slower request, more reliable).
+        and the same keys as incremental (Gemini, SerpAPI topic bank, etc.).         Compliance email runs inline
+        after publish when enabled (slower request, more reliable). If the topic bank file is missing or
+        empty, this run forces a bank refresh (Serp crawl) once; a populated bank is left unchanged.
       </p>
       <div className="admin-agentic-publish-bar__actions">
         <button
