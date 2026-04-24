@@ -61,11 +61,13 @@ const BAND_GRID_COLS_MAX = 5;
  * Multi-column only when really zoomed out to see the whole tree small.
  */
 function bandGridColumnsForChartZoom(z: number): number {
-  if (z >= 0.45) return 1;
-  if (z > 0.4) return 2;
-  if (z > 0.36) return 3;
-  if (z > 0.35) return 4;
-  return 5;
+  let cols: number;
+  if (z >= 0.45) cols = 1;
+  else if (z > 0.4) cols = 2;
+  else if (z > 0.36) cols = 3;
+  else if (z > 0.35) cols = 4;
+  else cols = 5;
+  return Math.max(BAND_GRID_COLS_MIN, Math.min(BAND_GRID_COLS_MAX, cols));
 }
 
 type WorkerLayoutMode = "auto" | "stack" | "band";
