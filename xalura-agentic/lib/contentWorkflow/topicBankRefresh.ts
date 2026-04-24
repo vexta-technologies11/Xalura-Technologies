@@ -79,7 +79,11 @@ export async function refreshTopicBank(
     10,
   );
   if (search.error) {
-    return { ok: false, error: search.error };
+    const detail =
+      search.errorBody != null && search.errorBody.trim().length > 0
+        ? `\n\n--- Google API response body (debug) ---\n${search.errorBody}`
+        : "";
+    return { ok: false, error: `${search.error}${detail}` };
   }
   const items = search.items ?? [];
   if (!items.length) {

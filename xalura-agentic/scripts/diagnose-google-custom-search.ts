@@ -31,7 +31,12 @@ void (async () => {
 
   const r = await googleCustomSearch("test", 3);
   if (r.error) {
-    console.log("\nCustom Search returned an error string:\n", r.error);
+    console.log("\nCustom Search summary:\n", r.error);
+    if (r.httpStatus != null) console.log("\nHTTP status:", r.httpStatus);
+    if (r.errorBody?.trim()) {
+      console.log("\n--- Full Google response body (exact) ---\n");
+      console.log(r.errorBody);
+    }
     console.log(
       "\n--- What to check ---\n" +
         "1) Cloud Console → **same project** as this API key (Credentials → open key → project name in header).\n" +

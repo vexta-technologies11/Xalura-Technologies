@@ -16,6 +16,15 @@ export type GoogleSearchResultItem = {
   snippet: string;
 };
 
+/** Result of `googleCustomSearch` — `errorBody` is full JSON/text from Google (never includes your API key). */
+export type GoogleCustomSearchResult = {
+  items?: GoogleSearchResultItem[];
+  error?: string;
+  /** Pretty-printed response body on HTTP error or JSON `error` field (for debugging). */
+  errorBody?: string;
+  httpStatus?: number;
+};
+
 /** Full message + nested `errors[]` from Custom Search JSON API (no secrets). */
 export function formatGoogleCustomSearchError(
   json: Record<string, unknown>,
@@ -49,10 +58,21 @@ export function formatGoogleCustomSearchError(
  * — env: `GOOGLE_CUSTOM_SEARCH_API_KEY` + `GOOGLE_CUSTOM_SEARCH_CX`, or
  * `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_ENGINE_ID`.
  */
+function bodyForDebug(json: Record<string, unknown>, rawText: string): string {
+  if (Object.keys(json).length > 0) {
+    try {
+      return JSON.stringify(json, null, 2);
+    } catch {
+      return rawText.slice(0, 12_000);
+    }
+  }
+  return rawText.slice(0, 12_000);
+}
+
 export async function googleCustomSearch(
   query: string,
   num: number = 10,
-): Promise<{ items?: GoogleSearchResultItem[]; error?: string }> {
+): Promise<GoogleCustomSearchResult> {
   const key =
     (await resolveWorkerEnv("GOOGLE_CUSTOM_SEARCH_API_KEY"))?.trim() ||
     (await resolveWorkerEnv("GOOGLE_SEARCH_API_KEY"))?.trim();
@@ -81,9 +101,30 @@ export async function googleCustomSearch(
   const res = await fetch(u.toString(), {
     headers: Object.keys(headers).length ? headers : undefined,
   });
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) {
-    return { error: formatGoogleCustomSearchError(json, res.status) };
+  const rawText = await res.text();
+  let json: Record<string, unknown> = {};
+  try {
+    json = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    json = {};
+  }
+
+  const errFromJson =
+    typeof json["error"] === "object" && json["error"] !== null
+      ? formatGoogleCustomSearchError(json, res.status)
+      : null;
+
+  if (!res.ok || errFromJson) {
+    const summary =
+      errFromJson ??
+      (rawText.trim()
+        ? `Google Custom Search HTTP ${res.status}: ${rawText.slice(0, 500)}`
+        : `Google Custom Search HTTP ${res.status}`);
+    return {
+      error: summary,
+      errorBody: bodyForDebug(json, rawText),
+      httpStatus: res.status,
+    };
   }
   const itemsRaw = Array.isArray(json["items"]) ? json["items"] : [];
   const items: GoogleSearchResultItem[] = [];

@@ -21,6 +21,10 @@ async function main() {
   );
   if (probe.error) {
     console.error("FAIL:", probe.error);
+    if (probe.httpStatus != null) console.error("HTTP:", probe.httpStatus);
+    if (probe.errorBody?.trim()) {
+      console.error("\n--- Full Google response body ---\n", probe.errorBody);
+    }
     process.exitCode = 1;
     return;
   }
