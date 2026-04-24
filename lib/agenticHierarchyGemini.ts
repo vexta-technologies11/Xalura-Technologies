@@ -1,36 +1,42 @@
+import type { PersonaActivityEntry } from "@/lib/agenticPersonaActivity";
 import type { AgenticLiveSnapshot } from "@/lib/agenticLiveSnapshot";
 import { getEffectiveGeminiModelName, resolveGeminiApiKey } from "@/xalura-agentic/lib/gemini";
 import { withRetries, withTimeout } from "@/xalura-agentic/lib/watchdog";
 import type { HierarchyChartPayload } from "@/lib/agenticHierarchyChartData";
 
-const NARRATIVE_CACHE_TTL_MS = 120_000;
-let narrativeCache: { key: string; narratives: Record<string, string>; at: number } | null = null;
+const SUMMARY_CACHE_TTL_MS = 120_000;
+let summaryCache: { key: string; summaries: Record<string, string>; at: number } | null = null;
 
-function narrativeCacheKey(chart: HierarchyChartPayload, snap: AgenticLiveSnapshot): string {
-  const tail = snap.tail
-    .slice(-3)
-    .map((t) => `${t.type}:${t.ts}`)
-    .join("|");
-  const lanes = chart.lanes
-    .map((l) => `${l.deptId}:${l.manager.facts.slice(0, 80)}:${l.worker.facts.slice(0, 80)}`)
-    .join("~");
-  return [
-    snap.failed_hint ?? "",
-    tail,
-    lanes,
-    chart.complianceOfficer.facts.slice(0, 120),
-    chart.publishingGraphicDesigner.facts.slice(0, 120),
-  ].join("|");
-}
-
-function personaKeys(chart: HierarchyChartPayload): string[] {
-  const keys = [chart.chief.id, chart.complianceOfficer.id];
+/** Same ordering as the hierarchy chart: Chief → SEO, Publishing, Marketing (exec…workers) → Head of Compliance. */
+export function hierarchyPersonaIds(chart: HierarchyChartPayload): string[] {
+  const keys = [chart.chief.id];
   for (const lane of chart.lanes) {
     keys.push(lane.executive.id, lane.manager.id);
     if (lane.deptId === "publishing") keys.push(chart.publishingGraphicDesigner.id);
-    keys.push(lane.worker.id);
+    for (const w of lane.workers) keys.push(w.id);
   }
+  keys.push(chart.complianceOfficer.id);
   return keys;
+}
+
+function lastActionCacheKey(chart: HierarchyChartPayload, snap: AgenticLiveSnapshot): string {
+  const parts: string[] = [];
+  const t = snap.tail;
+  if (t.length) {
+    const u = t[t.length - 1]!;
+    parts.push(`${u.ts}|${u.type}|${u.summary}`.slice(0, 400));
+  } else {
+    parts.push("notail");
+  }
+  for (const id of hierarchyPersonaIds(chart)) {
+    const a = chart.personaActivity[id]?.[0];
+    if (!a) {
+      parts.push(`${id}:empty`);
+      continue;
+    }
+    parts.push(`${id}:${a.at}|${a.kind}|${a.source.slice(0, 120)}|${a.label.slice(0, 200)}`);
+  }
+  return parts.join("¦");
 }
 
 function extractJsonObject(text: string): Record<string, string> | null {
@@ -44,7 +50,7 @@ function extractJsonObject(text: string): Record<string, string> | null {
     const o = JSON.parse(body.slice(start, end + 1)) as Record<string, unknown>;
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(o)) {
-      if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 1200);
+      if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 600);
     }
     return Object.keys(out).length ? out : null;
   } catch {
@@ -53,73 +59,84 @@ function extractJsonObject(text: string): Record<string, string> | null {
 }
 
 /**
- * One batched Gemini call: first-person “cycle monologue” per hierarchy node.
- * Safe to skip when no key; failures return undefined (dashboard still shows `facts`).
+ * When `GEMINI_API_KEY` is off or the model fails, show a one-line from raw log fields.
  */
-export async function enrichHierarchyNarrativesWithGemini(
+export function fallbackLastActionSummary(entries: PersonaActivityEntry[] | undefined): string {
+  const a = entries?.[0];
+  if (!a) return "No recorded activity for this card yet.";
+  const d = a.detail?.replace(/\s+/g, " ").trim();
+  if (d) {
+    return `${a.label} — ${d}`.length > 420
+      ? `${(a.label + " — " + d).slice(0, 417)}…`
+      : `${a.label} — ${d}`;
+  }
+  return a.label;
+}
+
+/**
+ * Batched Gemini: one neutral, third-person line per persona describing **only** the latest
+ * `personaActivity` row. No “my role is…” monologues.
+ * Returns `undefined` if the API is unavailable; callers should use `fallbackLastActionSummary` per id.
+ */
+export async function enrichLastActionSummariesWithGemini(
   chart: HierarchyChartPayload,
   snap: AgenticLiveSnapshot,
 ): Promise<Record<string, string> | undefined> {
   const apiKey = await resolveGeminiApiKey();
   if (!apiKey?.trim()) return undefined;
 
-  const ckey = narrativeCacheKey(chart, snap);
+  const ckey = lastActionCacheKey(chart, snap);
   if (
-    narrativeCache &&
-    narrativeCache.key === ckey &&
-    Date.now() - narrativeCache.at < NARRATIVE_CACHE_TTL_MS
+    summaryCache &&
+    summaryCache.key === ckey &&
+    Date.now() - summaryCache.at < SUMMARY_CACHE_TTL_MS
   ) {
-    return narrativeCache.narratives;
+    return summaryCache.summaries;
   }
 
-  const keys = personaKeys(chart);
-  const compact = {
-    chief: { id: chart.chief.id, facts: chart.chief.facts },
-    compliance_officer: {
-      id: chart.complianceOfficer.id,
-      facts: chart.complianceOfficer.facts,
-      subtitle: chart.complianceOfficer.subtitle,
-    },
-    publishing_graphic_designer: {
-      id: chart.publishingGraphicDesigner.id,
-      facts: chart.publishingGraphicDesigner.facts,
-      subtitle: chart.publishingGraphicDesigner.subtitle,
-    },
-    lanes: chart.lanes.map((l) => ({
-      department: l.deptId,
-      executive: { id: l.executive.id, facts: l.executive.facts },
-      manager: {
-        id: l.manager.id,
-        facts: l.manager.facts,
-        checklist: l.manager.managerChecklist?.slice(0, 1500) ?? "",
-      },
-      worker: { id: l.worker.id, facts: l.worker.facts },
-    })),
-    cadence: {
-      slotIndex: snap.slot.slotIndex,
-      endsAt: snap.slot.endsAt,
-    },
-    windows: snap.departments.map((d) => ({
-      department: d.id,
-      approvalsInWindow: d.cycle.approvalsInWindow,
-      auditsCompleted: d.cycle.auditsCompleted,
-    })),
-  };
+  const keys = hierarchyPersonaIds(chart);
+  const lastByKey: Record<
+    string,
+    {
+      at: string;
+      kind: string;
+      source: string;
+      label: string;
+      detail?: string;
+    } | null
+  > = {};
+  for (const k of keys) {
+    const a = chart.personaActivity[k]?.[0] ?? null;
+    lastByKey[k] = a
+      ? {
+          at: a.at,
+          kind: a.kind,
+          source: a.source,
+          label: a.label,
+          detail: a.detail,
+        }
+      : null;
+  }
 
   const instruction = [
-    "You write first-person internal monologues for an automated agent org at Xalura Tech.",
-    "Output ONE JSON object only (no markdown fences). Keys must match exactly:",
+    "You are summarizing the MOST RECENT internal log line for each org role on an admin dashboard.",
+    "Output ONE JSON object only. No markdown fences. Keys (exactly these strings):",
     keys.map((k) => JSON.stringify(k)).join(", "),
-    "Each value: one paragraph (60–160 words), first person as that role, grounded ONLY in the facts JSON.",
-    "SEO Manager: mention keyword bundle / rejection / approval if facts imply it.",
-    "Publishing Manager: mention drafts / attempts if implied.",
-    "Chief AI: fleet-level, no fake metrics.",
-    "compliance_officer: advisory to Founder after publish; Chief/Exec visibility is display-only in email — no veto over Chief.",
-    "publishing_graphic_designer: first-person as hero-image prompt specialist under Publishing Manager (Imagen path).",
-    "If facts are empty for a role, say you are standing by for the next cycle.",
+    "Each value: exactly ONE or TWO short sentences, plain English, max 50 words, describing what happened in that last log (who did what, outcome) based ONLY on LAST_LOG_JSON for that key.",
     "",
-    "FACTS_JSON:",
-    JSON.stringify(compact).slice(0, 14_000),
+    "STYLE:",
+    "- Third person or neutral: e.g. “Publishing sent …”, “The last cycle shows …” — or passive voice.",
+    "- Be specific when label/detail mention titles, decisions, or files.",
+    "",
+    "FORBIDDEN in every value (these lines will be rejected by readers):",
+    "- Any first person: I, me, my, we, our, “I am”, “my role is”, “I oversee”, “I stand by”, “as your Chief”",
+    "- Role self-introduction or job-description fluff",
+    "- Inventing metrics, URLs, or events not in the JSON",
+    "",
+    "If LAST_LOG_JSON[k] is null, use EXACTLY this sentence: \"No recorded activity for this card yet.\"",
+    "",
+    "LAST_LOG_JSON:",
+    JSON.stringify(lastByKey).slice(0, 12_000),
   ].join("\n");
 
   try {
@@ -129,21 +146,28 @@ export async function enrichHierarchyNarrativesWithGemini(
     const model = genAI.getGenerativeModel({ model: modelName });
     const text = await withRetries(
       () =>
-        withTimeout(55_000, "hierarchy-narratives", async () => {
+        withTimeout(55_000, "hierarchy-last-action", async () => {
           const r = await model.generateContent(instruction);
           return r.response.text();
         }),
-      { maxAttempts: 2, label: "hierarchy-gemini" },
+      { maxAttempts: 2, label: "hierarchy-last-action-gemini" },
     );
     const parsed = extractJsonObject(text);
     if (parsed && Object.keys(parsed).length) {
-      narrativeCache = { key: ckey, narratives: parsed, at: Date.now() };
-      return parsed;
+      const filtered: Record<string, string> = {};
+      for (const k of keys) {
+        const v = parsed[k];
+        if (v?.trim()) filtered[k] = v.trim();
+      }
+      if (Object.keys(filtered).length) {
+        summaryCache = { key: ckey, summaries: filtered, at: Date.now() };
+        return filtered;
+      }
     }
     return undefined;
   } catch (e) {
     console.warn(
-      "[agentic hierarchy] Gemini narrative skipped:",
+      "[agentic hierarchy] Gemini last-action summary skipped:",
       e instanceof Error ? e.message : String(e),
     );
     return undefined;

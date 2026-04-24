@@ -16,6 +16,7 @@ import { recordArticlePublished } from "@/xalura-agentic/lib/contentWorkflow/pub
 import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import { appendFailedOperation } from "@/xalura-agentic/lib/failedQueue";
 import type { DepartmentPipelineResult } from "@/xalura-agentic/lib/runDepartmentPipeline";
+import { publishingWorkerArticleByline } from "@/xalura-agentic/lib/agentNames";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
 type ApprovedPublishing = Extract<DepartmentPipelineResult, { status: "approved" }>;
@@ -137,12 +138,20 @@ export async function sitePublishFromApprovedPublishingRun(
     };
   }
 
+  const subForArticle =
+    params.contentSubcategory?.trim() ||
+    (params.result.contentWorkflow?.topic_bank
+      ? params.result.contentWorkflow.subcategory?.trim()
+      : undefined) ||
+    undefined;
+
   const pub = await publishAgenticArticle({
     title,
     body: params.result.workerOutput,
     slug: params.articleSlug?.trim() || undefined,
-    author: "Xalura Agentic",
+    author: publishingWorkerArticleByline(params.cwd),
     ...(coverForRow !== undefined ? { coverImageUrl: coverForRow } : {}),
+    ...(subForArticle ? { subcategory: subForArticle } : {}),
   });
 
   if (!pub.ok) {

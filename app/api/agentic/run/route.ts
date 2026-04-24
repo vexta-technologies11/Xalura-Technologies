@@ -56,8 +56,8 @@ function isDeptId(s: string): s is DepartmentId {
  * - `articleTitle`, `articleSlug`: optional overrides when publishing
  * - `skipChiefEnrich`: optional — skip live Chief append after a 10-cycle audit
  * - `referenceUrl`: optional — Firecrawl scrape into Worker context (any department)
- * - `skipPhase7Fetch`: optional — skip Firecrawl + GSC context fetches
- * - `useTopicBank`: optional — **SEO only**: topic bank (SerpAPI + Firecrawl + Gemini)
+ * - `skipPhase7Fetch`: optional — skip Firecrawl + GSC + **per-topic** SerpAPI + Firecrawl (SEO with a topic row)
+ * - `useTopicBank`: optional — **SEO only**: topic bank; each run with a topic also gets live Serp + crawls unless Phase 7 is skipped
  * - `forceTopicBankRefresh`, `allowStubFallback`: optional — SEO topic bank controls
  * - `useDailyPublishingBrief`, `useDailyProductionTracker`, `contentSubcategory`: optional — **Publishing**
  * - `contentVerticalId`: optional — **SEO** with `useTopicBank` picks next topic in that vertical; **Publishing** overrides lane when set (else uses latest `KEYWORD_READY` vertical).

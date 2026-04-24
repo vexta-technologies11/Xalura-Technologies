@@ -1,4 +1,5 @@
 import { runChiefAI } from "../agents/chiefAI";
+import { chiefDisplayName } from "./agentNames";
 import { appendFileUtf8Agentic, mkdirRecursiveAgentic } from "./agenticDisk";
 import { getCycleSnapshot } from "../engine/cycleEngine";
 import { readEvents } from "./eventQueue";
@@ -53,6 +54,7 @@ export async function runChiefSweepCron(
     evSummary || "(no events)",
   ].join("\n");
 
+  const chiefN = chiefDisplayName(cwd);
   try {
     const chiefMd = await runChiefAI({
       department: "All",
@@ -67,6 +69,7 @@ Snapshot:
 ---
 ${digest.slice(0, 14_000)}`,
       context: { mode: "chief_cron_sweep" },
+      assignedName: chiefN,
     });
 
     const logPath = chiefSweepLogPath(cwd);

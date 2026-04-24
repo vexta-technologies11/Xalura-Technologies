@@ -1,5 +1,6 @@
 import { runChiefAI } from "@/xalura-agentic/agents/chiefAI";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
+import { chiefDisplayName } from "@/xalura-agentic/lib/agentNames";
 import { loadCycleState } from "@/xalura-agentic/engine/cycleStateStore";
 import { readEvents } from "@/xalura-agentic/lib/eventQueue";
 import { readFailedQueue } from "@/xalura-agentic/lib/failedQueue";
@@ -86,6 +87,7 @@ export async function chiefReplyToInboundEmail(params: {
     "(empty body)";
 
   const snapshot = buildOpsSnapshot().slice(0, 6000);
+  const chiefN = chiefDisplayName();
 
   const chiefMd = await runChiefAI({
     department: "All",
@@ -112,6 +114,7 @@ ${snapshot}
 
 Write the **plain-text body** of your reply email (no markdown tables). Under 600 words. Be direct.`,
     context: { channel: "chief_inbound_email", subject },
+    assignedName: chiefN,
   });
 
   const plain = chiefMd.replace(/\r\n/g, "\n").trim();

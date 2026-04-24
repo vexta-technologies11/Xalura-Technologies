@@ -240,8 +240,12 @@ create table if not exists articles (
   published_at timestamptz,
   is_published boolean not null default false,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  subcategory text
 );
+
+-- If `articles` existed before `subcategory`, add the column in existing DBs.
+alter table articles add column if not exists subcategory text;
 
 create table if not exists courses (
   id uuid default gen_random_uuid() primary key,

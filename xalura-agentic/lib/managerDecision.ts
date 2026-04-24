@@ -1,8 +1,12 @@
 /**
  * Manager must return **APPROVED** or **REJECTED** on the first line (PDF workflow).
  * Lenient fallback: if neither is found, treat as approved (stub / noisy models).
+ * **strict:** unclear first line counts as **REJECTED** (required for Publishing gate).
  */
-export function parseManagerDecision(text: string): {
+export function parseManagerDecision(
+  text: string,
+  options?: { strict?: boolean },
+): {
   approved: boolean;
   reason: string;
 } {
@@ -22,6 +26,14 @@ export function parseManagerDecision(text: string): {
     return {
       approved: true,
       reason: rest || first.replace(/^APPROVED\s*/i, "").trim() || "Approved",
+    };
+  }
+
+  if (options?.strict) {
+    return {
+      approved: false,
+      reason:
+        "REJECTED — First line must be exactly APPROVED or REJECTED (unclear or missing decision).",
     };
   }
 

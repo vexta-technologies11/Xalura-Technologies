@@ -1,18 +1,40 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { PublicPageShell } from "@/components/public/PublicPageShell";
+import { ArticlesBrowser } from "@/components/articles/ArticlesBrowser";
 import { getPublishedArticles } from "@/lib/data-learning";
 import { getPageContent } from "@/lib/data";
+import { isArticleSubcategoryLabel } from "@/lib/articleSubcategoryGate";
 
 export const metadata = {
   title: "Articles · Xalura Tech",
   description: "GearMedic and Xalura articles on SEO, research, and publishing.",
 };
 
-export default async function ArticlesPage() {
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: { subcategory?: string | string[] };
+}) {
   const [pageContent, articles] = await Promise.all([
     getPageContent(),
     getPublishedArticles(),
   ]);
+
+  const raw = searchParams?.subcategory;
+  const one = Array.isArray(raw) ? raw[0] : raw;
+  const defaultSubcategory =
+    one && isArticleSubcategoryLabel(one) ? one.trim() : null;
+
+  const list = articles.map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    title: a.title,
+    excerpt: a.excerpt,
+    cover_image_url: a.cover_image_url,
+    author: a.author,
+    published_at: a.published_at,
+    subcategory: a.subcategory ?? null,
+  }));
 
   return (
     <PublicPageShell footerContent={pageContent.footer}>
@@ -24,50 +46,18 @@ export default async function ArticlesPage() {
         <p className="body-text r" style={{ marginBottom: 40, maxWidth: 560 }}>
           Long-form notes from the team — research, SEO, and production craft.
         </p>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, maxWidth: 720 }}>
-          {articles.length === 0 ? (
-            <li style={{ color: "var(--mid)" }}>No articles yet.</li>
-          ) : (
-            articles.map((a) => (
-              <li
-                key={a.id}
-                style={{
-                  padding: "24px 0",
-                  borderBottom: "1px solid var(--line)",
-                }}
-              >
-                <Link
-                  href={`/articles/${a.slug}`}
-                  style={{
-                    fontSize: "clamp(22px, 3vw, 32px)",
-                    fontFamily: "var(--font-cormorant), ui-serif, serif",
-                    color: "var(--black)",
-                    textDecoration: "none",
-                  }}
-                >
-                  {a.title}
-                </Link>
-                {a.excerpt ? (
-                  <p
-                    style={{
-                      margin: "12px 0 0",
-                      color: "var(--mid)",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {a.excerpt}
-                  </p>
-                ) : null}
-                <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--gray)" }}>
-                  {a.author ? `${a.author} · ` : null}
-                  {a.published_at
-                    ? new Date(a.published_at).toLocaleDateString()
-                    : ""}
-                </p>
-              </li>
-            ))
-          )}
-        </ul>
+        <Suspense
+          fallback={
+            <p className="body-text" style={{ marginTop: 24 }}>
+              Loading articles…
+            </p>
+          }
+        >
+          <ArticlesBrowser
+            articles={list}
+            defaultSubcategory={defaultSubcategory}
+          />
+        </Suspense>
       </section>
     </PublicPageShell>
   );

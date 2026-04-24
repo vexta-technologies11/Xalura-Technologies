@@ -1,19 +1,19 @@
-/* Full-bleed AI dashboard — chart uses viewport width under admin shell */
+/* Full-bleed AI dashboard — one dark canvas under the admin nav (avoids light shell gaps) */
 .admin-ai-dashboard-fullbleed {
   position: relative;
-  width: 100vw;
+  width: 100%;
   max-width: none;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  min-height: calc(100dvh - 72px);
+  min-height: calc(100dvh - 4.5rem);
   box-sizing: border-box;
-  padding: 48px 16px 32px;
+  padding: 12px 0 2rem;
+  background: #020617;
+  background-attachment: local;
 }
 
 @media (min-width: 768px) {
   .admin-ai-dashboard-fullbleed {
-    min-height: calc(100dvh - 88px);
-    padding: 16px 24px 40px;
+    min-height: calc(100dvh - 4.75rem);
+    padding: 0 0 2.5rem;
   }
 }
 
@@ -37,15 +37,41 @@
   color: #fef9c3;
 }
 
+/* Single “command deck”: publish + hierarchy share one card and the grid background */
+.admin-ai-dashboard-merged {
+  max-width: min(1600px, 100vw - 2rem);
+  margin: 0 auto;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  background-color: #030712;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(34, 211, 238, 0.2), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 50%, rgba(250, 204, 21, 0.1), transparent 45%);
+  background-size: 24px 24px, 24px 24px, auto, auto;
+  box-shadow: inset 0 0 80px rgba(2, 132, 199, 0.14), 0 16px 48px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+@media (min-width: 1100px) {
+  .admin-ai-dashboard-merged {
+    max-width: min(1600px, calc(100% - 2px));
+  }
+}
+
 .admin-agentic-publish-bar {
   position: relative;
   z-index: 2;
-  max-width: 720px;
-  margin: 44px auto 20px;
-  padding: 16px 18px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 18px 20px 16px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.22);
+  border: none;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
   box-sizing: border-box;
 }
 
@@ -133,6 +159,17 @@
   background-size: 24px 24px, 24px 24px, auto, auto;
   box-shadow: inset 0 0 80px rgba(2, 132, 199, 0.14), 0 16px 48px rgba(0, 0, 0, 0.55);
   box-sizing: border-box;
+}
+
+/* Inside merged panel: one surface only (no second card) */
+.admin-ai-dashboard-merged .admin-agentic-live {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  margin: 0;
+  min-height: 0;
 }
 
 .admin-agentic-live__head {
@@ -412,6 +449,14 @@
   margin-bottom: -2px;
 }
 
+/* Span only the L1 org row width (set by .ah-tree__l1-block), not the full viewport */
+.ah-tree__fork--quartet {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
 .ah-tree__reports-to {
   margin: 0;
   font-size: 0.62rem;
@@ -435,6 +480,11 @@
   border: 1px solid rgba(51, 65, 85, 0.95);
   box-sizing: border-box;
   text-align: left;
+}
+
+/* Band workers must not inherit the 320px cap when the grid cell is wider (2×+ width). */
+.ah-tree__worker-rail .ah-pill.ah-pill--band {
+  max-width: none;
 }
 
 .ah-pill--chief {
@@ -543,9 +593,12 @@
   color: #cbd5e1;
 }
 
-.ah-pill__mono--gemini {
-  font-style: italic;
-  color: #e0f2fe;
+.ah-pill__last-action {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #f1f5f9;
+  font-style: normal;
 }
 
 .ah-pill__check {
@@ -583,4 +636,530 @@
   color: #fef9c3;
   border: 1px solid rgba(250, 204, 21, 0.45);
   background: rgba(66, 32, 6, 0.35);
+}
+
+.ah-pill__nameform {
+  margin: 6px 0 4px;
+}
+
+.ah-pill__nameform-label {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.ah-pill__nameform-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ah-pill__nameform-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: #e2e8f0;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  box-sizing: border-box;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.ah-pill__nameform-input:disabled {
+  opacity: 0.65;
+}
+
+.ah-pill__nameform-btn {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(180deg, #e2e8f0, #94a3b8);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.ah-pill__nameform-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ah-pill__nameform-err {
+  margin: 4px 0 0;
+  font-size: 0.68rem;
+  color: #fda4af;
+  line-height: 1.35;
+}
+
+.ah-pill__activity {
+  margin-top: 8px;
+  max-width: 100%;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: #e2e8f0;
+}
+
+.ah-pill__activity-empty {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.ah-pill__activity > summary {
+  cursor: pointer;
+  font-weight: 650;
+  list-style: none;
+}
+
+.ah-pill__activity > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ah-pill__activity-list {
+  margin: 8px 0 0;
+  padding: 0 0 0 1rem;
+  max-height: 280px;
+  overflow: auto;
+  border-left: 2px solid rgba(100, 116, 139, 0.45);
+}
+
+.ah-pill__activity-list li {
+  margin: 0 0 8px;
+}
+
+.ah-pill__activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  color: #94a3b8;
+  font-size: 0.6rem;
+}
+
+.ah-pill__activity-kind {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #7dd3fc;
+}
+
+.ah-pill__activity-src {
+  font-size: 0.58rem;
+  max-width: 100%;
+  word-break: break-all;
+  color: #a8a29e;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.ah-pill__activity-label {
+  margin-top: 2px;
+  color: #e2e8f0;
+}
+
+.ah-pill__activity-detail {
+  margin: 2px 0 0;
+  color: #cbd5e1;
+  font-size: 0.65rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* —— Zoom toolbar + scroll region + corporate “band” of 10 pillar workers —— */
+
+.ah-tree__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.ah-tree__toolbar-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.ah-tree__toolbar-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ah-tree__zoom-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  color: #e2e8f0;
+  background: rgba(8, 47, 73, 0.75);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+}
+
+.ah-tree__zoom-btn:hover:not(:disabled) {
+  background: rgba(12, 74, 110, 0.9);
+  border-color: rgba(34, 211, 238, 0.55);
+}
+
+.ah-tree__zoom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ah-tree__zoom-range {
+  width: min(160px, 28vw);
+  accent-color: #22d3ee;
+  cursor: pointer;
+}
+
+.ah-tree__zoom-pct {
+  min-width: 2.75rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #fef9c3;
+}
+
+.ah-tree__zoom-fit-badge {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #7dd3fc;
+  margin-left: 0.2rem;
+  white-space: nowrap;
+}
+
+.ah-tree__zoom-reset {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(180deg, #e2e8f0, #94a3b8);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.ah-tree__layout-select {
+  font-size: 0.72rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #e2e8f0;
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  max-width: min(100%, 300px);
+  cursor: pointer;
+}
+
+.ah-tree__toolbar-hint {
+  margin: 0;
+  flex: 1 1 200px;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: #7dd3fc;
+}
+
+.ah-tree__scroller {
+  max-height: min(88vh, 2200px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  background: rgba(0, 0, 0, 0.18);
+  padding: 10px 2px 18px;
+  outline: none;
+}
+
+.ah-tree__scroller:focus-visible {
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.45);
+}
+
+/* Pillar (SEO / Publishing): grow to fill remaining horizontal space so workers are usable. */
+.ah-tree__column--with-band {
+  --ah-pillar-cols: 2;
+  min-width: 0;
+  max-width: none;
+  /* Two pillars split the leftover width (after marketing + compliance + gaps) */
+  flex: 1 1 0;
+  width: auto;
+  align-items: stretch;
+}
+
+.ah-tree__columns--decompressed {
+  align-items: stretch;
+}
+
+/* L1: chief’s four reports — fork + columns take the full scroller width */
+.ah-tree__l1-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* —— L1: one horizontal line (no wrap → pan with outer) —— */
+.ah-tree__columns-outer {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 6px;
+  box-sizing: border-box;
+}
+
+.ah-tree__columns.ah-tree__columns--quartet {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+  row-gap: 6px;
+  column-gap: 8px;
+  padding: 0 0 6px;
+}
+
+.ah-tree__columns.ah-tree__columns--quartet > .ah-tree__column {
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+/* Marketing + Compliance keep fixed, tight widths — all remaining space goes to the two pillars. */
+.ah-tree__columns.ah-tree__columns--quartet > .ah-tree__column:not(.ah-tree__column--with-band):not(.ah-tree__column--compliance) {
+  width: clamp(200px, 18vw, 260px);
+  min-width: 0;
+  max-width: 260px;
+  flex: 0 0 clamp(200px, 18vw, 260px);
+}
+
+.ah-tree__columns.ah-tree__columns--quartet .ah-tree__column--compliance {
+  width: clamp(180px, 16vw, 240px);
+  min-width: 0;
+  max-width: 240px;
+  flex: 0 0 clamp(180px, 16vw, 240px);
+  align-items: center;
+  padding-top: 2px;
+}
+
+.ah-tree__worker-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0;
+}
+
+.ah-tree__worker-rail-cap {
+  width: 100%;
+  max-width: min(2000px, 100%);
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.55) 20%, rgba(34, 211, 238, 0.75) 50%, rgba(56, 189, 248, 0.55) 80%, transparent);
+  margin-bottom: 0;
+}
+
+/* Ten pillar workers: 2–5 columns from chart zoom (set inline). Cells stretch to fill the pillar. */
+.ah-tree__worker-rail-row {
+  --ah-pillar-cols: 2;
+  display: grid;
+  grid-auto-rows: auto;
+  justify-items: stretch;
+  align-items: stretch;
+  gap: 6px 6px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 0 4px;
+}
+
+.ah-tree__worker-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.ah-tree__vline--rail {
+  height: 10px;
+  min-height: 8px;
+}
+
+/* Band pill: size scales with the worker grid’s column count (set on the row via data-ah-cols). */
+.ah-pill--band {
+  max-width: 100%;
+  padding: 8px 10px 8px 8px;
+  border-radius: 10px 14px 14px 10px;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ah-tree__worker-rail-item .ah-pill.ah-pill--band {
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Default (3 columns): balanced sizes */
+.ah-pill--band .ah-pill__avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 0.62rem;
+}
+
+.ah-pill--band .ah-pill__name {
+  font-size: 0.78rem;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ah-pill--band .ah-pill__role {
+  font-size: 0.58rem;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.ah-pill--band .ah-pill__last-action--band {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ah-pill--band .ah-pill__nameform--band {
+  margin: 4px 0 0;
+}
+
+.ah-pill--band .ah-pill__nameform--band .ah-pill__nameform-label {
+  font-size: 0.56rem;
+  margin-bottom: 2px;
+}
+
+.ah-pill--band .ah-pill__nameform--band .ah-pill__nameform-input {
+  font-size: 0.7rem;
+  padding: 4px 6px;
+}
+
+.ah-pill--band .ah-pill__nameform--band .ah-pill__nameform-btn {
+  font-size: 0.64rem;
+  padding: 4px 8px;
+}
+
+/* 1 col = full rail width (useful ~1.75×+ vs a 2-up cell) + larger type so it doesn’t look “postage stamp” */
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band {
+  padding: 14px 18px 14px 14px;
+  gap: 14px;
+}
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band .ah-pill__avatar {
+  width: 60px;
+  height: 60px;
+  font-size: 1.1rem;
+}
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band .ah-pill__name {
+  font-size: 1.05rem;
+  -webkit-line-clamp: 2;
+}
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band .ah-pill__role {
+  font-size: 0.78rem;
+}
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band .ah-pill__last-action--band {
+  font-size: 0.9rem;
+  -webkit-line-clamp: 4;
+}
+.ah-tree__worker-rail-row[data-ah-cols="1"] .ah-pill--band .ah-pill__nameform--band .ah-pill__nameform-input {
+  font-size: 0.9rem;
+  padding: 7px 10px;
+}
+
+/* 2 cols (mid zoom) = still generous */
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band {
+  padding: 10px 12px 10px 10px;
+  gap: 10px;
+}
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band .ah-pill__avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 0.85rem;
+}
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band .ah-pill__name {
+  font-size: 0.86rem;
+  -webkit-line-clamp: 2;
+}
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band .ah-pill__role {
+  font-size: 0.64rem;
+}
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band .ah-pill__last-action--band {
+  font-size: 0.74rem;
+  -webkit-line-clamp: 3;
+}
+.ah-tree__worker-rail-row[data-ah-cols="2"] .ah-pill--band .ah-pill__nameform--band .ah-pill__nameform-input {
+  font-size: 0.74rem;
+  padding: 5px 8px;
+}
+
+/* 4–5 cols = narrower cells → compact but still readable */
+.ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band,
+.ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band {
+  padding: 6px 6px 6px 5px;
+  gap: 5px;
+}
+.ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band .ah-pill__avatar,
+.ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 0.55rem;
+}
+.ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band .ah-pill__name,
+.ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__name {
+  font-size: 0.66rem;
+  -webkit-line-clamp: 2;
+}
+.ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band .ah-pill__last-action--band,
+.ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__last-action--band {
+  font-size: 0.6rem;
+  -webkit-line-clamp: 2;
 }

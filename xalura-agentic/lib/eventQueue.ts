@@ -12,6 +12,8 @@ const FILE = "event-queue.log";
 export type KeywordReadyPayload = {
   bundle_id: string;
   keywords: string[];
+  /** Topic bank or logical row id; ties handoff to a single pipeline instance. */
+  topic_id?: string;
   /** From topic bank when SEO ran with `useTopicBank`. */
   content_type?: "article" | "course";
   subcategory?: string;
@@ -19,12 +21,19 @@ export type KeywordReadyPayload = {
   /** Matched SEO ↔ Publishing lane (`CONTENT_VERTICALS`). */
   vertical_id?: string;
   vertical_label?: string;
+  /**
+   * 10-point quality contract for Publishing; must be honored by Worker/Manager/Executive
+   * and available for Chief context.
+   */
+  checklist?: string[];
 };
 
 export type ArticlePublishedPayload = {
   article_id: string;
   title: string;
   url?: string;
+  /** Matches `KeywordReadyPayload.topic_id` when publishing used explicit handoff. */
+  topic_id?: string;
 };
 
 export type AuditCompletePayload = {

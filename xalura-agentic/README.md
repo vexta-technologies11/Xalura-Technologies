@@ -2,7 +2,7 @@
 
 Architecture for the PDF spec: Worker → Manager → Executive → Chief AI, markdown logs, 10-cycle audits.
 
-- **Progress:** `docs/agentic-workflow-architecture-log.md` (update every phase).
+- **System map (roles, handoffs, Compliance + Graphic designer, post-publish):** `../docs/agentic-workflows.md`
 - **Phase 1:** Folders + stubs + `npm run agentic:dry-run` (sample `logs/publishing/cycle-1.md`).
 - **Phase 2:** Cycle counters in `data/cycle-state.json` (gitignored), `recordApproval()` → `cycle-1..10.md`, then `audit-cycle-N.md`; Chief stub → `reports/chief-ai-daily-YYYY-MM-DD.md`. Try `npm run agentic:cycle-demo`.
 - **Phase 3:** Publishing vertical — `runPublishingPipeline()` (Worker → Manager → Executive → `recordApproval`). Optional **`GEMINI_API_KEY`** / **`GEMINI_MODEL`** (`gemini-2.5-flash-lite` default). Try `npm run agentic:publishing-demo`.

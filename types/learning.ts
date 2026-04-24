@@ -10,6 +10,8 @@ export type ArticleRow = {
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  /** Topic lane for library filtering; optional on legacy rows. */
+  subcategory?: string | null;
 };
 
 export type CourseRow = {

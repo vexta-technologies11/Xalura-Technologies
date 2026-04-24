@@ -86,6 +86,8 @@ export type RunAgentParams = {
   task: string;
   context?: unknown;
   cycleLog?: string;
+  /** From `xalura-agentic/config/agents.json` when the dashboard sets a display name. */
+  assignedName?: string;
 };
 
 export async function isGeminiConfigured(): Promise<boolean> {
@@ -113,10 +115,13 @@ function buildPrompt(params: RunAgentParams): string {
     params.cycleLog != null && params.cycleLog.length > 0
       ? `Current cycle context:\n${params.cycleLog.slice(0, 8000)}`
       : "";
+  const nameLine = params.assignedName?.trim()
+    ? `Your assigned display name for this run: **${params.assignedName.trim()}**. Use it when signing or referring to yourself; stay within role + department.`
+    : `You do not have a personal name unless assigned in config — identify by role and department.`;
   return [
     `You are a ${params.role} in the ${params.department} department of Xalura Tech.`,
     `You operate within a strict hierarchy: Worker → Manager → Executive → Chief AI.`,
-    `You do not have a personal name unless assigned in config — identify by role and department.`,
+    nameLine,
     `Respond in clear markdown unless asked for JSON.`,
     ``,
     `## Task`,
@@ -146,6 +151,9 @@ function runAgentStub(params: RunAgentParams): string {
     ``,
     `- **Role:** ${params.role}`,
     `- **Department:** ${params.department}`,
+    params.assignedName?.trim()
+      ? `- **Assigned name:** ${params.assignedName.trim()}`
+      : ``,
     ``,
     `## Task`,
     params.task,

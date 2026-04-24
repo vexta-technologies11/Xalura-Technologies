@@ -17,7 +17,8 @@ export type Phase7WorkerExtras = Record<string, unknown>;
 
 /**
  * Optional live data for the first Worker turn: Firecrawl (`referenceUrl`),
- * and for SEO only — Search Analytics top queries when GSC env is set.
+ * for SEO — Search Analytics top queries when GSC env is set.
+ * For SEO with a topic bank row, `seoTopicResearchContext.ts` also merges **per-topic** SerpAPI + Firecrawl.
  */
 export async function buildPhase7WorkerContext(args: {
   departmentId: DepartmentId;

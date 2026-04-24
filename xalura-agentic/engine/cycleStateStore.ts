@@ -3,6 +3,7 @@ import path from "path";
 import type { DepartmentId } from "./departments";
 import { DEPARTMENT_IDS } from "./departments";
 import { isAgenticDiskWritable, writeFileUtf8Agentic } from "../lib/agenticDisk";
+import { isValidAgentLaneId } from "../lib/agentLaneIds";
 import { getAgenticRoot } from "../lib/paths";
 
 export type DepartmentCycleState = {
@@ -17,8 +18,9 @@ export type CycleStateFile = {
   version: 2 | 3;
   departments: Record<DepartmentId, DepartmentCycleState>;
   /**
-   * Isolated 10-cycle ladders per vertical lane (`seo` / `publishing` only).
-   * Key: `${department}:${vertical_id}` e.g. `seo:cloud-infrastructure`.
+   * Isolated 10-cycle ladders per agent lane (`seo` / `publishing` only).
+   * Key: `${department}:${laneId}` — **content pillar** `sc-…` (10 subcategory agents, preferred when
+   * the article uses a public label), **topic bank id** `tp-…`, or catalog `vertical_id` (legacy).
    */
   agentLanes?: Record<string, DepartmentCycleState>;
 };
@@ -43,11 +45,11 @@ function defaultState(): CycleStateFile {
 /** When set for `seo` | `publishing`, approvals use an isolated lane (separate Chief ladder). */
 export function agentLaneStateKey(
   dept: DepartmentId,
-  verticalId: string | undefined,
+  laneId: string | undefined,
 ): string | null {
-  const id = verticalId?.trim();
+  const id = laneId?.trim();
   if (!id || (dept !== "seo" && dept !== "publishing")) return null;
-  if (!/^[a-z0-9-]{1,80}$/i.test(id)) return null;
+  if (!isValidAgentLaneId(id)) return null;
   return `${dept}:${id.toLowerCase()}`;
 }
 

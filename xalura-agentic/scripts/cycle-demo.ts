@@ -7,16 +7,25 @@ import { writeChiefDailyReport } from "../engine/chiefStub";
 
 const dept = "publishing" as const;
 
-for (let i = 1; i <= 10; i += 1) {
-  const r = recordApproval({
-    department: dept,
-    taskType: "Article",
-    inputSummary: `Demo approval ${i}/10`,
-    outputSummary: `Stub worker output ${i}`,
-    managerReason: "Demo run",
-  });
-  console.log(`Approval ${i}: ${r.cycleFileRelative}${r.auditTriggered ? ` → ${r.auditFileRelative}` : ""}`);
+async function main() {
+  for (let i = 1; i <= 10; i += 1) {
+    const r = await recordApproval({
+      department: dept,
+      taskType: "Article",
+      inputSummary: `Demo approval ${i}/10`,
+      outputSummary: `Stub worker output ${i}`,
+      managerReason: "Demo run",
+    });
+    console.log(
+      `Approval ${i}: ${r.cycleFileRelative}${r.auditTriggered ? ` → ${r.auditFileRelative}` : ""}`,
+    );
+  }
+
+  const report = writeChiefDailyReport();
+  console.log(`Chief stub report: ${report}`);
 }
 
-const report = writeChiefDailyReport();
-console.log(`Chief stub report: ${report}`);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

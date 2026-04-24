@@ -7,6 +7,7 @@ import { generateImagenImage } from "./imagenGenerate";
 import { readEvents } from "./eventQueue";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
+import { complianceOfficerDisplayName, graphicDesignerDisplayName } from "./agentNames";
 import { resolveGeminiApiKey, runAgent } from "./gemini";
 import { getAgenticRoot } from "./paths";
 import { COMPLIANCE_OFFICER_RUBRIC } from "./complianceOfficerRubric";
@@ -136,6 +137,10 @@ export async function executeFounderOversightPublishEmail(
     );
     return;
   }
+
+  const cwd = process.cwd();
+  const complianceName = complianceOfficerDisplayName(cwd);
+  const graphicName = graphicDesignerDisplayName(cwd);
 
   const briefing = buildFounderOversightBriefing(p);
 
@@ -279,6 +284,7 @@ ${chiefAuditMd.slice(0, 4500)}
       department: "Compliance Officer (advisory)",
       task: complianceTask,
       context: { kind: "compliance_officer_memo", slug: p.slug },
+      assignedName: complianceName,
     });
   } catch (e) {
     complianceMd = `_(Compliance memo failed: ${esc(String(e))})_`;
@@ -305,6 +311,7 @@ Article title: ${p.title}
 Executive summary:
 ${p.executiveSummary.slice(0, 2000)}`,
         context: { kind: "graphic_designer_prompt", slug: p.slug },
+        assignedName: graphicName,
       });
       const imagePrompt = promptBrief.trim().slice(0, 500);
       const apiKey = await resolveGeminiApiKey();

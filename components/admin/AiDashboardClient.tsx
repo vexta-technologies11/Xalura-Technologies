@@ -11,8 +11,10 @@ export function AiDashboardClient() {
       <Link href="/admin/ai-dashboard/settings" className="admin-ai-dashboard-settings-link">
         API keys
       </Link>
-      <AgenticPublishBar />
-      <AgenticHierarchyLive />
+      <div className="admin-ai-dashboard-merged">
+        <AgenticPublishBar />
+        <AgenticHierarchyLive />
+      </div>
     </div>
   );
 }

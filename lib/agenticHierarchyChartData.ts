@@ -1,8 +1,18 @@
 import fs from "fs";
 import path from "path";
+import type { PersonaActivityEntry } from "@/lib/agenticPersonaActivity";
+import { buildPersonaActivity } from "@/lib/agenticPersonaActivity";
 import type { AgenticLiveSnapshot } from "@/lib/agenticLiveSnapshot";
 import type { AgenticLiveDeptId } from "@/lib/agenticLiveSnapshot";
+import {
+  ARTICLE_SUBCATEGORY_AGENT_LANE_ID_LIST,
+  articleSubcategoryTitleForAgentLaneId,
+} from "@/lib/articleSubcategoryAgentLanes";
+import type { AgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
+import { loadAgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
 import { getAgenticRoot } from "@/xalura-agentic/lib/paths";
+
+const CHART_LANE_ORDER: AgenticLiveDeptId[] = ["seo", "publishing", "marketing"];
 
 export type HierarchySource = "live" | "example";
 
@@ -25,7 +35,11 @@ export type HierarchyLane = {
   deptLabel: string;
   executive: HierarchyPersona;
   manager: HierarchyPersona;
-  worker: HierarchyPersona;
+  /**
+   * One Worker (marketing) or ten fixed pillar Workers (`sc-…`) for SEO and Publishing;
+   * same ids as `logs/{dept}/lanes/{id}/` and `assignedName` / `config.agents.json` `workersByPillar`.
+   */
+  workers: HierarchyPersona[];
 };
 
 export type HierarchyEnvHints = {
@@ -42,8 +56,15 @@ export type HierarchyChartPayload = {
   lanes: HierarchyLane[];
   /** Visual-only: between Publishing Manager and Worker; code is `Publishing — Graphic Designer` + Imagen. */
   publishingGraphicDesigner: HierarchyPersona;
-  /** Optional first-person blurbs keyed by `HierarchyPersona.id` — from Gemini */
-  narratives?: Record<string, string>;
+  /**
+   * One plain-English line per `HierarchyPersona.id` for the **latest** `personaActivity[0]`.
+   * Filled in `/api/admin/agentic-live` via Gemini (easy-to-read) with fallback to raw line.
+   */
+  lastActionSummaries: Record<string, string>;
+  /** Up to 20 log lines per card id — cycle logs, audits, publish events */
+  personaActivity: Record<string, PersonaActivityEntry[]>;
+  /** `config/agents.json` (for display names; dashboard may PATCH) */
+  agentNames: AgentNamesConfig;
 };
 
 function readLatestCycleMd(dept: string, cwd: string): string | null {
@@ -92,10 +113,42 @@ function deptLabel(id: AgenticLiveDeptId): string {
   return "Publishing";
 }
 
+function withConfiguredName(
+  defaultDisplay: string,
+  nameFromFile?: string,
+): string {
+  const t = nameFromFile?.trim();
+  return t ? t : defaultDisplay;
+}
+
+function pillarWorkerPersonas(
+  dept: "seo" | "publishing",
+  d: AgenticLiveSnapshot["departments"][number],
+  names: AgentNamesConfig,
+): HierarchyPersona[] {
+  const label = deptLabel(dept);
+  const dnames = names.departments[dept]!;
+  const byPillar = dnames.workersByPillar ?? {};
+  return ARTICLE_SUBCATEGORY_AGENT_LANE_ID_LIST.map((laneId) => {
+    const pillar = articleSubcategoryTitleForAgentLaneId(laneId) ?? laneId;
+    const custom = byPillar[laneId]?.name?.trim();
+    const defaultDisplay = `${pillar} · ${label} Worker`;
+    return {
+      id: `${dept}_worker_${laneId}`,
+      displayName: withConfiguredName(defaultDisplay, custom),
+      position: `Worker · ${label} · ${pillar}`,
+      subtitle: `Pillar \`${laneId}\` — isolated 10-cycle ladder; paired SEO + Publishing per column`,
+      facts: d.worker,
+      source: d.source,
+    };
+  });
+}
+
 function lanePersonas(
   dept: AgenticLiveDeptId,
   d: AgenticLiveSnapshot["departments"][number],
   cwd: string,
+  names: AgentNamesConfig,
 ): HierarchyLane {
   const label = deptLabel(dept);
   const cycleMd = readLatestCycleMd(dept, cwd);
@@ -107,13 +160,28 @@ function lanePersonas(
     parsed?.reason && parsed.reason.length > 0
       ? `${d.manager} — Reason: ${parsed.reason}`
       : d.manager;
+  const dnames = names.departments[dept]!;
+
+  const workers: HierarchyPersona[] =
+    dept === "seo" || dept === "publishing"
+      ? pillarWorkerPersonas(dept, d, names)
+      : [
+          {
+            id: "marketing_worker",
+            displayName: withConfiguredName(`${label} Worker`, dnames.worker.name),
+            position: `Worker · ${label}`,
+            subtitle: "Research, drafting, tooling",
+            facts: d.worker,
+            source: d.source,
+          },
+        ];
 
   return {
     deptId: dept,
     deptLabel: label,
     executive: {
       id: `${dept}_executive`,
-      displayName: `${label} Executive`,
+      displayName: withConfiguredName(`${label} Executive`, dnames.executive.name),
       position: `Executive · ${label}`,
       subtitle: "Handoff & cross-desk visibility",
       facts: d.executive,
@@ -121,21 +189,14 @@ function lanePersonas(
     },
     manager: {
       id: `${dept}_manager`,
-      displayName: `${label} Manager`,
+      displayName: withConfiguredName(`${label} Manager`, dnames.manager.name),
       position: `Manager · ${label}`,
       subtitle: "Quality gate · checklist in cycle log",
       facts: mgrFacts,
       managerChecklist: mgrCheck,
       source: d.source,
     },
-    worker: {
-      id: `${dept}_worker`,
-      displayName: `${label} Worker`,
-      position: `Worker · ${label}`,
-      subtitle: "Research, drafting, tooling",
-      facts: d.worker,
-      source: d.source,
-    },
+    workers,
   };
 }
 
@@ -147,39 +208,47 @@ function lastArticlePublishedLine(snap: AgenticLiveSnapshot): string | null {
   return null;
 }
 
-function compliancePersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHints): HierarchyPersona {
+function compliancePersona(
+  snap: AgenticLiveSnapshot,
+  hints: HierarchyEnvHints,
+  names: AgentNamesConfig,
+): HierarchyPersona {
   const lastPub = lastArticlePublishedLine(snap);
   const pubHint = lastPub ? ` Last publish in tail: ${lastPub}` : "";
   if (hints.complianceOrFounderEmailOn) {
     return {
       id: "compliance_officer",
-      displayName: "Compliance Officer",
-      position: "Compliance Officer (advisory)",
+      displayName: withConfiguredName("Head of Compliance", names.complianceOfficer?.name),
+      position: "Head of Compliance (advisory)",
       subtitle:
-        "UI: under Chief · code: post-publish QA/Risk/Chief-line audit + memo; email to Founder inbox (no veto; Cc Chief/Exec display-only in body).",
+        "Column 4 in this chart · post-publish QA/Risk/Chief-line audit + memo; email to Founder inbox (no veto; Cc Chief/Exec display-only in body).",
       facts: `Enabled for post-publish advisory run.${pubHint} Inbox falls back: AGENTIC_COMPLIANCE_EMAIL → AGENTIC_FOUNDER_OVERSIGHT_EMAIL → AGENTIC_CHIEF_DIGEST_EMAIL.`,
       source: "live",
     };
   }
   return {
     id: "compliance_officer",
-    displayName: "Compliance Officer",
-    position: "Compliance Officer (advisory)",
+    displayName: withConfiguredName("Head of Compliance", names.complianceOfficer?.name),
+    position: "Head of Compliance (advisory)",
     subtitle:
-      "UI: under Chief · code: same advisory path when compliance or founder oversight env is on.",
+      "Column 4 in this chart · same advisory path when compliance or founder oversight env is on.",
     facts: `Currently off. Set AGENTIC_COMPLIANCE_ON_PUBLISH or AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH and a recipient email.${pubHint}`,
     source: "example",
   };
 }
 
-function graphicDesignerPersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHints): HierarchyPersona {
+function graphicDesignerPersona(
+  snap: AgenticLiveSnapshot,
+  hints: HierarchyEnvHints,
+  names: AgentNamesConfig,
+): HierarchyPersona {
   const pub = snap.departments.find((d) => d.id === "publishing");
   const lastPub = lastArticlePublishedLine(snap);
   const pubHint = lastPub ? ` Tail: ${lastPub}` : "";
   if (hints.graphicDesignerOn) {
     return {
       id: "publishing_graphic_designer",
-      displayName: "Graphic Designer",
+      displayName: withConfiguredName("Graphic Designer", names.graphicDesigner?.name),
       position: "Graphic Designer · Publishing",
       subtitle:
         "UI: under Publishing Manager · code: Worker role `Publishing — Graphic Designer` → Imagen hero → Storage `article-covers`.",
@@ -189,7 +258,7 @@ function graphicDesignerPersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHi
   }
   return {
     id: "publishing_graphic_designer",
-    displayName: "Graphic Designer",
+    displayName: withConfiguredName("Graphic Designer", names.graphicDesigner?.name),
     position: "Graphic Designer · Publishing",
     subtitle: "UI: under Publishing Manager when enabled.",
     facts: `Off — set AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH on the Worker.${pubHint}`,
@@ -197,7 +266,7 @@ function graphicDesignerPersona(snap: AgenticLiveSnapshot, hints: HierarchyEnvHi
   };
 }
 
-function chiefPersona(snap: AgenticLiveSnapshot): HierarchyPersona {
+function chiefPersona(snap: AgenticLiveSnapshot, names: AgentNamesConfig): HierarchyPersona {
   const tail = snap.tail.slice(-5);
   const tailText = tail.map((t) => `${t.type}: ${t.summary}`).join(" · ");
   const fail = snap.failed_hint ? ` Last issue: ${snap.failed_hint}` : "";
@@ -207,7 +276,7 @@ function chiefPersona(snap: AgenticLiveSnapshot): HierarchyPersona {
       : `No recent events in queue.${fail}`.trim();
   return {
     id: "chief",
-    displayName: "Chief AI",
+    displayName: withConfiguredName("Chief AI", names.chiefAI.name),
     position: "Chief AI",
     subtitle: "Fleet read · audits & cadence",
     facts,
@@ -219,12 +288,24 @@ export function buildHierarchyChartPayload(
   cwd: string,
   snap: AgenticLiveSnapshot,
   envHints: HierarchyEnvHints,
+  options?: { names?: AgentNamesConfig; activityLimitPerPersona?: number },
 ): HierarchyChartPayload {
-  const lanes = snap.departments.map((d) => lanePersonas(d.id, d, cwd));
+  const names = options?.names ?? loadAgentNamesConfig(cwd);
+  const activityLimit = options?.activityLimitPerPersona ?? 20;
+  const orderIdx = (id: AgenticLiveDeptId) => {
+    const i = CHART_LANE_ORDER.indexOf(id);
+    return i < 0 ? 99 : i;
+  };
+  const lanes = [...snap.departments]
+    .sort((a, b) => orderIdx(a.id) - orderIdx(b.id))
+    .map((d) => lanePersonas(d.id, d, cwd, names));
   return {
-    chief: chiefPersona(snap),
-    complianceOfficer: compliancePersona(snap, envHints),
-    publishingGraphicDesigner: graphicDesignerPersona(snap, envHints),
+    chief: chiefPersona(snap, names),
+    complianceOfficer: compliancePersona(snap, envHints, names),
+    publishingGraphicDesigner: graphicDesignerPersona(snap, envHints, names),
     lanes,
+    lastActionSummaries: {},
+    personaActivity: buildPersonaActivity(cwd, snap, activityLimit),
+    agentNames: names,
   };
 }

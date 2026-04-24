@@ -17,7 +17,7 @@ export type TopicBankEntry = {
   final_score: number;
   supporting_keywords: string[];
   source_urls: string[];
-  status: "unused" | "used" | "skipped";
+  status: "unused" | "used" | "skipped" | "seo_in_progress";
   used_at: string | null;
 };
 

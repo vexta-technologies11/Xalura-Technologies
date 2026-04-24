@@ -1,3 +1,7 @@
+import {
+  agentLaneIdForArticleSubcategory,
+  articleSubcategoryTitleForAgentLaneId,
+} from "@/lib/articleSubcategoryAgentLanes";
 import { runExecutive } from "../agents/executive";
 import { runManager } from "../agents/manager";
 import { runWorker } from "../agents/worker";
@@ -6,8 +10,19 @@ import {
   type RecordApprovalResult,
 } from "../engine/cycleEngine";
 import type { DepartmentId } from "../engine/departments";
-import { executiveDisplayName } from "./agentNames";
+import {
+  executiveDisplayName,
+  getExecutiveAssignedName,
+  getWorkerAssignedNameForLane,
+  loadAgentNamesConfig,
+} from "./agentNames";
 import { enrichAuditWithChief } from "./chiefEnrichAudit";
+import {
+  formatStrategyNoteForManager,
+  formatStrategyPreamble,
+  loadStrategyOverlay,
+} from "./auditStrategyOverlayStore";
+import type { AuditStrategyOverlayV1 } from "./auditStrategyOverlayStore";
 import { getVerticalById } from "./contentWorkflow/contentVerticals";
 import { getLatestEvent, type KeywordReadyPayload } from "./eventQueue";
 import { parseManagerDecision } from "./managerDecision";
@@ -18,6 +33,10 @@ import { getNextTopic } from "./contentWorkflow/topicBank";
 import { recordSubcategoryUsed } from "./contentWorkflow/topicRotationStore";
 import { zernioListProfiles } from "./phase7Clients";
 import { buildPhase7WorkerContext } from "./phase7PipelineContext";
+import {
+  buildSeoTopicResearchContext,
+  mergePhase7Extras,
+} from "./seoTopicResearchContext";
 
 const MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
@@ -25,6 +44,9 @@ const MAX_ESCALATION_PHASES = 2;
 function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
   const kw = (p.keywords[0] ?? "").trim();
   const lines: string[] = ["## SEO → Publishing handoff (mandatory)"];
+  if (p.topic_id?.trim()) {
+    lines.push(`- **Topic id:** \`${p.topic_id.trim()}\` — do not mix with other topics.`);
+  }
   if (kw) {
     lines.push(`- **Primary keyword:** ${kw}`);
   } else {
@@ -36,13 +58,19 @@ function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
   if (p.content_type) lines.push(`- **Content type:** ${p.content_type}`);
   if (p.vertical_label?.trim() || p.vertical_id?.trim()) {
     lines.push(
-      `- **Vertical:** ${(p.vertical_label ?? p.vertical_id)!.trim()} (\`${(p.vertical_id ?? "").trim() || "n/a"}\`)`,
+      `- **Vertical (theme):** ${(p.vertical_label ?? p.vertical_id)!.trim()} (\`${(p.vertical_id ?? "").trim() || "n/a"}\`)`,
     );
   }
   if (p.source_urls?.length) {
     lines.push("- **Source URLs** (ground claims here; do not invent a different pillar topic):");
     for (const u of p.source_urls) {
       if (u?.trim()) lines.push(`  - ${u.trim()}`);
+    }
+  }
+  if (p.checklist?.length) {
+    lines.push("", "## SEO quality checklist (mandatory — every item must be satisfied)");
+    for (const item of p.checklist) {
+      lines.push(`- ${item}`);
     }
   }
   lines.push(
@@ -62,12 +90,14 @@ function keywordReadyToContentWorkflow(
   if (!kw) return undefined;
   return {
     topic_bank: true,
+    topic_id: p.topic_id?.trim(),
     keyword: kw,
     content_type: p.content_type ?? "article",
     subcategory: p.subcategory?.trim() ?? "",
     source_urls: (p.source_urls ?? []).filter((u): u is string => Boolean(u?.trim())),
     vertical_id: p.vertical_id?.trim() ?? "",
     vertical_label: (p.vertical_label ?? p.vertical_id ?? "").trim(),
+    checklist: p.checklist,
   };
 }
 
@@ -83,7 +113,7 @@ export type DepartmentPipelineInput = {
   skipUpstreamCheck?: boolean;
   /** Optional page to scrape (Firecrawl) for Worker context — SEO, Publishing, or Marketing. */
   referenceUrl?: string;
-  /** Skip Firecrawl / GSC fetches (faster tests). */
+  /** Skip optional fetches: `referenceUrl` Firecrawl, GSC (SEO), and per-topic SerpAPI + Firecrawl (SEO + `useTopicBank`). */
   skipPhase7Fetch?: boolean;
   /** SEO: pull next keyword from topic bank (SerpAPI + Firecrawl + Gemini rank). */
   useTopicBank?: boolean;
@@ -98,20 +128,30 @@ export type DepartmentPipelineInput = {
   /** Publishing: record subcategory for rotation file after approve. */
   contentSubcategory?: string;
   /**
-   * SEO with `useTopicBank`: consume next unused topic in this vertical (`CONTENT_VERTICALS` id).
-   * Publishing: optional override for lane focus; otherwise latest `KEYWORD_READY.vertical_id` is used.
+   * SEO without a `topicSnapshot`: prefer next unused topic in this vertical (`CONTENT_VERTICALS` id).
+   * Publishing: optional theme override; **agent lane** id prefers `topic_id` from the handoff when present.
    */
   contentVerticalId?: string;
+  /**
+   * Publishing: use this handoff instead of the global latest `KEYWORD_READY` (required for parallel topics).
+   */
+  keywordReady?: KeywordReadyPayload;
+  /**
+   * SEO with `useTopicBank`: use this row instead of consuming the next from the bank (batch / parallel).
+   */
+  topicSnapshot?: TopicBankEntry;
 };
 
 export type ContentWorkflowHandoff = {
   topic_bank: true;
+  topic_id?: string;
   keyword: string;
   content_type: "article" | "course";
   subcategory: string;
   source_urls: string[];
   vertical_id: string;
   vertical_label: string;
+  checklist?: string[];
 };
 
 export type DepartmentPipelineResult =
@@ -156,29 +196,109 @@ export type DepartmentPipelineResult =
     }
   | { status: "blocked"; reason: string };
 
-/** Isolated Worker→Manager→Executive→Chief ladder per vertical (`seo` / `publishing` only). */
+/**
+ * Isolated ladder (`seo` / `publishing` only): **content pillar** (one of 10 public
+ * subcategory lane ids) when the topic/handoff has a matching label — SEO and Publishing
+ * **share the same** `sc-…` id. Else topic id, else catalog `vertical_id` (legacy).
+ */
 function resolveAgentLaneId(
   departmentId: DepartmentId,
   input: DepartmentPipelineInput,
   activeContentTopic: TopicBankEntry | undefined,
+  publishingKeywordReady: KeywordReadyPayload | null,
   cwd: string,
 ): string | undefined {
   if (departmentId === "marketing") return undefined;
   if (departmentId === "seo") {
-    const fromTopic = activeContentTopic?.vertical_id?.trim();
+    const fromPillar = agentLaneIdForArticleSubcategory(
+      activeContentTopic?.subcategory,
+    );
+    if (fromPillar) return fromPillar;
+    const fromTopic = activeContentTopic?.id?.trim();
     if (fromTopic) return fromTopic;
     return input.contentVerticalId?.trim();
   }
   if (departmentId === "publishing") {
+    const evKw = getLatestEvent("KEYWORD_READY", cwd);
+    const fromPillar = agentLaneIdForArticleSubcategory(
+      publishingKeywordReady?.subcategory || input.keywordReady?.subcategory,
+    );
+    if (fromPillar) return fromPillar;
+    if (evKw?.type === "KEYWORD_READY") {
+      const pillar = agentLaneIdForArticleSubcategory(evKw.payload.subcategory);
+      if (pillar) return pillar;
+    }
+    const fromHandoff =
+      publishingKeywordReady?.topic_id?.trim() || input.keywordReady?.topic_id?.trim();
+    if (fromHandoff) return fromHandoff;
+    if (evKw?.type === "KEYWORD_READY" && evKw.payload.topic_id?.trim()) {
+      return evKw.payload.topic_id!.trim();
+    }
     const explicit = input.contentVerticalId?.trim();
     if (explicit) return explicit;
-    const ev = getLatestEvent("KEYWORD_READY", cwd);
-    if (ev?.type === "KEYWORD_READY" && ev.payload.vertical_id?.trim()) {
-      return ev.payload.vertical_id!.trim();
+    const fromPayload = publishingKeywordReady?.vertical_id?.trim();
+    if (fromPayload) return fromPayload;
+    if (evKw?.type === "KEYWORD_READY" && evKw.payload.vertical_id?.trim()) {
+      return evKw.payload.vertical_id!.trim();
     }
     return undefined;
   }
   return undefined;
+}
+
+function resolveAgentLaneHumanLabel(
+  agentLaneId: string | undefined,
+  activeContentTopic: TopicBankEntry | undefined,
+  publishingKeywordReady: KeywordReadyPayload | null,
+): string | undefined {
+  if (!agentLaneId) return undefined;
+  const pillarTitle = articleSubcategoryTitleForAgentLaneId(agentLaneId);
+  if (pillarTitle) {
+    return `Content pillar: ${pillarTitle}`;
+  }
+  const v = getVerticalById(agentLaneId);
+  if (v) return v.label;
+  if (activeContentTopic?.id === agentLaneId) {
+    const k = activeContentTopic.keyword.trim();
+    return `one article — “${k.length > 64 ? `${k.slice(0, 64)}…` : k}”`;
+  }
+  const tid = publishingKeywordReady?.topic_id?.trim();
+  if (tid === agentLaneId && publishingKeywordReady) {
+    const kw = (publishingKeywordReady.keywords[0] ?? "").trim();
+    return kw
+      ? `one article — “${kw.length > 64 ? `${kw.slice(0, 64)}…` : kw}”`
+      : `one article (topic ${agentLaneId})`;
+  }
+  return `topic lane ${agentLaneId}`;
+}
+
+function buildSeoTaskFromTopicRow(topic: TopicBankEntry, task: string): string {
+  const vLabel = topic.vertical_label ?? topic.vertical_id;
+  const sub = topic.subcategory?.trim() ?? "";
+  const pillarLane = agentLaneIdForArticleSubcategory(sub);
+  const intro = pillarLane
+    ? `You are the **SEO Worker** for the **${sub}** content pillar — one of **ten** fixed library columns. The **Publishing Worker** for this **same** pillar will draft the article from your handoff: one paired agent track per column (names TBD), independent of the other nine pillars. **Theme vertical:** **${vLabel}** (\`${topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`
+    : `You are the **SEO Worker** for vertical **${vLabel}** (\`${topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`;
+  const lines = [
+    intro,
+    ``,
+    `- **Traceability:** topic id \`${topic.id}\` (topic bank).`,
+    ``,
+    `- Primary keyword: **${topic.keyword}**`,
+    `- Subcategory: ${topic.subcategory}`,
+  ];
+  if (topic.angle?.trim()) {
+    lines.push(`- Editorial angle: ${topic.angle.trim()}`);
+  }
+  lines.push(
+    `- Planned content type: **${topic.content_type}**`,
+    `- Supporting keywords: ${topic.supporting_keywords.join(", ") || "(none)"}`,
+    `- Source URLs (reference): ${topic.source_urls.join("\n") || "(none)"}`,
+    ``,
+    `## Department task`,
+    task,
+  );
+  return lines.join("\n");
 }
 
 async function guardStep<T>(
@@ -223,6 +343,10 @@ export async function runDepartmentPipeline(
   const execName =
     input.executiveName?.trim() ||
     executiveDisplayName(departmentId, cwd);
+  const nameCfg = loadAgentNamesConfig(cwd);
+  const dn = nameCfg.departments[departmentId]!;
+  const managerAssigned = dn.manager.name?.trim() || undefined;
+  const executiveAssigned = getExecutiveAssignedName(departmentId, cwd, input.executiveName);
 
   let effectiveTask = input.task;
   let effectiveKeyword = input.keyword;
@@ -231,14 +355,22 @@ export async function runDepartmentPipeline(
 
   let publishingVerticalLine = "";
   if (departmentId === "publishing") {
-    const evKw = getLatestEvent("KEYWORD_READY", cwd);
-    if (evKw?.type === "KEYWORD_READY") {
-      publishingKeywordReady = evKw.payload;
+    if (input.keywordReady) {
+      publishingKeywordReady = input.keywordReady;
+    } else {
+      const evKw = getLatestEvent("KEYWORD_READY", cwd);
+      if (evKw?.type === "KEYWORD_READY") {
+        publishingKeywordReady = evKw.payload;
+      }
     }
     const explicit = input.contentVerticalId?.trim();
     if (explicit) {
+      const topicIdOverride = publishingKeywordReady?.topic_id?.trim();
+      if (topicIdOverride) {
+        publishingVerticalLine = `You are the **Publishing Worker** for the **same article** as SEO (topic id \`${topicIdOverride}\`). Reuse the SEO voice — one byline, one narrative (author names TBD).\n\n`;
+      }
       const meta = getVerticalById(explicit);
-      publishingVerticalLine = meta
+      publishingVerticalLine += meta
         ? `You are the **Publishing Worker** for vertical **${meta.label}** (\`${meta.id}\`). Stay in this lane; angles: ${meta.exampleAngles}.\n\n`
         : `You are the **Publishing Worker** for vertical \`${explicit}\`.\n\n`;
       const hv = publishingKeywordReady?.vertical_id?.trim();
@@ -246,12 +378,24 @@ export async function runDepartmentPipeline(
         publishingVerticalLine += `Note: latest SEO handoff vertical is \`${hv}\` — still obey the **keyword** in the handoff block below; escalate only if irreconcilable.\n\n`;
       }
     } else if (publishingKeywordReady) {
+      const topicId = publishingKeywordReady.topic_id?.trim();
+      if (topicId) {
+        publishingVerticalLine = `You are the **Publishing Worker** for the **same article** as SEO (topic id \`${topicId}\`). Reuse the SEO voice and promises — one byline, one narrative (author names TBD). Theme vertical still applies below.\n\n`;
+      }
       const vid = publishingKeywordReady.vertical_id?.trim();
       const lbl = publishingKeywordReady.vertical_label?.trim();
       if (vid && lbl) {
-        publishingVerticalLine = `You are the **Publishing Worker** for vertical **${lbl}** (\`${vid}\`) — **matched to the prior SEO handoff**. Align draft, metadata, and CTA with this lane only.\n\n`;
+        publishingVerticalLine += `You are the **Publishing Worker** for vertical **${lbl}** (\`${vid}\`) — **matched to the prior SEO handoff**. Align draft, metadata, and CTA with this lane only.\n\n`;
+      } else if (topicId && !vid) {
+        publishingVerticalLine += `Match the handoff block below; stay consistent with the SEO Worker's framing.\n\n`;
       }
     }
+
+    const pubSub = publishingKeywordReady?.subcategory?.trim();
+    const publishingPillarIntro =
+      pubSub && agentLaneIdForArticleSubcategory(pubSub)
+        ? `You are the **Publishing Worker** for the **${pubSub}** content pillar — **the same** named column as the SEO Worker who produced this handoff (one of ten independent SEO↔Publishing pairs; each pillar has its own cycle logs toward Chief).\n\n`
+        : "";
 
     const kwFromHandoff = publishingKeywordReady?.keywords[0]?.trim();
     if (kwFromHandoff) {
@@ -260,39 +404,28 @@ export async function runDepartmentPipeline(
     const handoffBlock = publishingKeywordReady
       ? formatPublishingKeywordHandoffBlock(publishingKeywordReady)
       : "";
-    effectiveTask = publishingVerticalLine + handoffBlock + input.task;
+    effectiveTask =
+      publishingPillarIntro + publishingVerticalLine + handoffBlock + input.task;
   }
 
   if (departmentId === "seo" && input.useTopicBank) {
-    const gate = await getNextTopic(cwd, {
-      forceRefresh: input.forceTopicBankRefresh === true,
-      allowStubFallback: input.allowStubFallback === true,
-      verticalId: input.contentVerticalId,
-    });
-    if (!gate.ok) {
-      return { status: "blocked", reason: gate.reason };
+    if (input.topicSnapshot) {
+      activeContentTopic = input.topicSnapshot;
+      effectiveKeyword = input.topicSnapshot.keyword;
+      effectiveTask = buildSeoTaskFromTopicRow(input.topicSnapshot, input.task);
+    } else {
+      const gate = await getNextTopic(cwd, {
+        forceRefresh: input.forceTopicBankRefresh === true,
+        allowStubFallback: input.allowStubFallback === true,
+        verticalId: input.contentVerticalId,
+      });
+      if (!gate.ok) {
+        return { status: "blocked", reason: gate.reason };
+      }
+      activeContentTopic = gate.topic;
+      effectiveKeyword = gate.topic.keyword;
+      effectiveTask = buildSeoTaskFromTopicRow(gate.topic, input.task);
     }
-    activeContentTopic = gate.topic;
-    effectiveKeyword = gate.topic.keyword;
-    const vLabel = gate.topic.vertical_label ?? gate.topic.vertical_id;
-    const lines = [
-      `You are the **SEO Worker** for vertical **${vLabel}** (\`${gate.topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`,
-      ``,
-      `- Primary keyword: **${gate.topic.keyword}**`,
-      `- Subcategory: ${gate.topic.subcategory}`,
-    ];
-    if (gate.topic.angle?.trim()) {
-      lines.push(`- Editorial angle: ${gate.topic.angle.trim()}`);
-    }
-    lines.push(
-      `- Planned content type: **${gate.topic.content_type}**`,
-      `- Supporting keywords: ${gate.topic.supporting_keywords.join(", ") || "(none)"}`,
-      `- Source URLs (reference): ${gate.topic.source_urls.join("\n") || "(none)"}`,
-      ``,
-      `## Department task`,
-      input.task,
-    );
-    effectiveTask = lines.join("\n");
   }
 
   if (departmentId === "publishing" && input.useDailyPublishingBrief) {
@@ -303,11 +436,25 @@ export async function runDepartmentPipeline(
     departmentId,
     input,
     activeContentTopic,
+    publishingKeywordReady,
     cwd,
   );
-  const agentLaneLabelMeta = agentLaneId
-    ? getVerticalById(agentLaneId)?.label
-    : undefined;
+  const agentLaneLabelMeta = resolveAgentLaneHumanLabel(
+    agentLaneId,
+    activeContentTopic,
+    publishingKeywordReady,
+  );
+
+  const workerAssigned =
+    getWorkerAssignedNameForLane(departmentId, agentLaneId, dn) || undefined;
+
+  const strategyOverlay: AuditStrategyOverlayV1 | null = loadStrategyOverlay(
+    cwd,
+    departmentId,
+    agentLaneId,
+  );
+  const strategyPreamble = formatStrategyPreamble(departmentId, strategyOverlay);
+  const strategyManagerNote = formatStrategyNoteForManager(strategyOverlay);
 
   let escalationPhase = 0;
   let managerOutputs: string[] = [];
@@ -329,19 +476,36 @@ export async function runDepartmentPipeline(
           ? `\n\n## Executive instruction\nThe Executive ordered a full rewrite. Start fresh; do not assume prior drafts were acceptable.`
           : "";
 
-      const workerTask =
+      const workerTaskCore =
         escalationPhase === 0 && attempt === 0
           ? effectiveTask
           : `${effectiveTask}${phaseHint}${revisionHint}`;
+      const workerTask = `${strategyPreamble}${workerTaskCore}`;
 
-      const phase7extras =
-        escalationPhase === 0 && attempt === 0
-          ? await buildPhase7WorkerContext({
-              departmentId,
-              referenceUrl: input.referenceUrl,
-              skipPhase7Fetch: input.skipPhase7Fetch,
-            })
-          : {};
+      let phase7extras: Record<string, unknown> = {};
+      if (escalationPhase === 0 && attempt === 0) {
+        phase7extras = await buildPhase7WorkerContext({
+          departmentId,
+          referenceUrl: input.referenceUrl,
+          skipPhase7Fetch: input.skipPhase7Fetch,
+        });
+        if (
+          departmentId === "seo" &&
+          activeContentTopic &&
+          input.useTopicBank &&
+          !input.skipPhase7Fetch
+        ) {
+          const topicResearch = await buildSeoTopicResearchContext({
+            keyword: activeContentTopic.keyword,
+            subcategory: activeContentTopic.subcategory,
+            verticalId: activeContentTopic.vertical_id,
+            verticalLabel: activeContentTopic.vertical_label,
+            skipPhase7Fetch: false,
+            strategyOverlay: strategyOverlay ?? undefined,
+          });
+          phase7extras = mergePhase7Extras(phase7extras, topicResearch);
+        }
+      }
       const workerContextPieces: Record<string, unknown> = {};
       if (effectiveKeyword) workerContextPieces.keyword = effectiveKeyword;
       if (
@@ -384,6 +548,7 @@ export async function runDepartmentPipeline(
           task: workerTask,
           context: workerContext,
           cycleLog: input.cycleLog,
+          assignedName: workerAssigned,
         }),
       );
       if (!w.ok) {
@@ -394,17 +559,31 @@ export async function runDepartmentPipeline(
 
       const publishingManagerKw =
         departmentId === "publishing" ? (effectiveKeyword?.trim() ?? "") : "";
+      const checklistGate =
+        departmentId === "publishing" && publishingKeywordReady?.checklist?.length
+          ? `
+
+## Publishing Manager — 10-point checklist gate
+Verify the Worker output against **each** item below. If **any** item is not clearly met, first line must be \`REJECTED\` and you must name the failed item(s) by number. There are no partial passes — only \`APPROVED\` if the piece is specific, expert-level, non-generic, and fully on-keyword.
+
+${publishingKeywordReady.checklist!.map((c) => `${c}`).join("\n")}
+`
+          : "";
       const managerTask = publishingManagerKw
         ? `Review the Worker output below.
-First line MUST be exactly APPROVED or REJECTED.
+First line MUST be exactly APPROVED or REJECTED (strict — no other text on line 1).
 The assignment fixed primary keyword **${publishingManagerKw}**. REJECT if the # title or body pivots to a different pillar (e.g. a generic audience theme) instead of materially serving that keyword and the SEO handoff.
-Following lines: your reason (quality, brand, handoff fidelity).
+REJECT if the writing is generic, shallow, repetitive, or “AI slop” tone. Reject if any SEO checklist item is not satisfied.
+${checklistGate}
+Following lines: your reason (quality, brand, handoff fidelity, checklist result).
+${strategyManagerNote}
 
 ---
 ${workerOutput}`
         : `Review the Worker output below.
 First line MUST be exactly APPROVED or REJECTED.
 Following lines: your reason (quality, brand, alignment with ${departmentLabel} goals).
+${strategyManagerNote}
 
 ---
 ${workerOutput}`;
@@ -415,6 +594,7 @@ ${workerOutput}`;
           department: DEPT,
           task: managerTask,
           context: workerOutput,
+          assignedName: managerAssigned,
         }),
       );
       if (!m.ok) {
@@ -423,18 +603,28 @@ ${workerOutput}`;
       const managerOutput = m.value;
       managerOutputs.push(managerOutput);
 
-      const decision = parseManagerDecision(managerOutput);
+      const decision = parseManagerDecision(managerOutput, {
+        strict: departmentId === "publishing",
+      });
       if (decision.approved) {
         const laneExecHint =
           agentLaneId && (departmentId === "seo" || departmentId === "publishing")
-            ? ` This approval is for **vertical agent lane** \`${agentLaneId}\`${agentLaneLabelMeta ? ` (${agentLaneLabelMeta})` : ""} — an isolated ladder (own cycle files toward Chief).`
+            ? ` This approval is for **dedicated article agent lane** \`${agentLaneId}\`${agentLaneLabelMeta ? ` — ${agentLaneLabelMeta}` : ""} (isolated 10-approval window toward Chief).`
             : "";
         const e = await guardStep(() =>
           runExecutive({
             role: "Executive",
             department: DEPT,
             task: `Manager APPROVED this Worker output. Write a short executive summary (3–6 sentences) of what is being stored for the ${executiveStoreLabel} department.${laneExecHint}`,
-            context: { workerOutput, managerReview: managerOutput },
+            context:
+              departmentId === "publishing" && publishingKeywordReady
+                ? {
+                    workerOutput,
+                    managerReview: managerOutput,
+                    keyword_ready: publishingKeywordReady,
+                  }
+                : { workerOutput, managerReview: managerOutput },
+            assignedName: executiveAssigned,
           }),
         );
         if (!e.ok) {
@@ -442,7 +632,7 @@ ${workerOutput}`;
         }
         const executiveSummary = e.value;
 
-        const cycle = recordApproval(
+        const cycle = await recordApproval(
           {
             department: departmentId,
             taskType,
@@ -503,6 +693,13 @@ ${workerOutput}`;
                 ? `${departmentId}:${agentLaneId}`
                 : undefined,
             agentLaneHumanLabel: agentLaneLabelMeta,
+            strategyContext: {
+              keyword: effectiveKeyword,
+              subcategory: activeContentTopic?.subcategory ?? publishingKeywordReady?.subcategory,
+              verticalLabel:
+                activeContentTopic?.vertical_label?.trim() ||
+                publishingKeywordReady?.vertical_label?.trim(),
+            },
           });
         }
 
@@ -515,6 +712,7 @@ ${workerOutput}`;
           activeContentTopic && input.useTopicBank
             ? {
                 topic_bank: true,
+                topic_id: activeContentTopic.id,
                 keyword: activeContentTopic.keyword,
                 content_type: activeContentTopic.content_type,
                 subcategory: activeContentTopic.subcategory,
@@ -560,6 +758,7 @@ Then a short paragraph explaining why. If REWRITE, the Worker gets one more clea
         department: DEPT,
         task: escTask,
         context: { workerOutput, rejectionReasons },
+        assignedName: executiveAssigned,
       }),
     );
     if (!esc.ok) {

@@ -1,6 +1,7 @@
 import { runChiefAI } from "../agents/chiefAI";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
+import { chiefDisplayName } from "./agentNames";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 
@@ -73,6 +74,7 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
     failBlock,
   ].join("\n");
 
+  const chiefN = chiefDisplayName(params.cwd);
   let body: string;
   try {
     body = await runChiefAI({
@@ -97,6 +99,7 @@ BRIEFING:
 ${briefing}
 ---`,
       context: { kind: "publish_digest", slug: params.slug },
+      assignedName: chiefN,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

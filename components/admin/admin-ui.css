@@ -19,6 +19,40 @@
   }
 }
 
+/* AI dashboard: one full-width dark page (no light gutter / max-width rail) */
+.admin-root:has(.admin-ai-dashboard-fullbleed) {
+  background: #020617;
+  color: #e2e8f0;
+}
+
+.admin-main:has(> .admin-ai-dashboard-fullbleed) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  min-height: calc(100dvh - 4.5rem);
+  background: #020617;
+}
+
+.admin-root:has(.admin-ai-dashboard-fullbleed) .admin-nav {
+  background: rgba(2, 6, 23, 0.92);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom-color: rgba(51, 65, 85, 0.6);
+}
+
+.admin-root:has(.admin-ai-dashboard-fullbleed) .admin-nav-link {
+  color: #94a3b8;
+}
+
+.admin-root:has(.admin-ai-dashboard-fullbleed) .admin-nav-link:hover {
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+}
+
+.admin-root:has(.admin-ai-dashboard-fullbleed) .admin-nav-email {
+  color: #64748b;
+}
+
 .admin-page-title {
   font-size: 1.5rem;
   font-weight: 650;

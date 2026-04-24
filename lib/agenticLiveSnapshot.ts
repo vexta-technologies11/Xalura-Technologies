@@ -228,7 +228,7 @@ export function getAgenticLiveSnapshot(cwd: string = process.cwd()): AgenticLive
   }));
 
   const st = loadCycleState(cwd);
-  const departments: AgenticLiveDepartmentView[] = (["marketing", "publishing", "seo"] as const).map(
+  const departments: AgenticLiveDepartmentView[] = (["seo", "publishing", "marketing"] as const).map(
     (id) => {
       const latest = latestForDept(events, id);
       const cycle = st.departments[id];
