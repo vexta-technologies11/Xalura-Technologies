@@ -26,7 +26,7 @@ export function opsAlertBriefFromFailedOperation(op: FailedOperation): string {
   }
   if (hay.includes("cannot be saved") || hay.includes("read-only agentic")) {
     return clipWords(
-      "Mr President — SEO could not **save** the keyword vault to disk. APIs may be fine, but this host cannot write `xalura-agentic/state` (read-only edge is common). Run incremental from Node with disk or mount persistent storage.",
+      "Mr President — SEO could not **persist** the keyword vault. On Cloudflare, set `AGENTIC_TOPIC_BANK_USE_SUPABASE=true` and bind `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` on the Worker, or run from a host with writable `xalura-agentic/state`.",
     );
   }
   if (hay.includes("topic bank refresh failed")) {
@@ -90,7 +90,7 @@ export function humanIncrementalSeoFailureMessage(
     r.includes("read-back")
   ) {
     return clipWords(
-      `Mr President — SEO for “${verticalLabel}” could not **save** the keyword vault to disk. The crawl may have run, but the filesystem rejected or dropped the file — common on edge hosts without writable \`xalura-agentic/state\`. Publishing never starts until this path is fixed.`,
+      `Mr President — SEO for “${verticalLabel}” could not **persist** the keyword vault. On Cloudflare, set \`AGENTIC_TOPIC_BANK_USE_SUPABASE=true\` **and** bind \`NEXT_PUBLIC_SUPABASE_URL\` + \`SUPABASE_SERVICE_ROLE_KEY\` on the Worker (not only process env), or use writable disk. Publishing waits until the vault saves.`,
     );
   }
   if (r.includes("topic bank refresh failed")) {

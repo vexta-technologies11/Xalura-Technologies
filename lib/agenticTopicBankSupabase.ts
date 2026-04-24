@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/service";
+import { createServiceClient, readEnvSync } from "@/lib/supabase/service";
 import type { TopicBankFile } from "@/xalura-agentic/lib/contentWorkflow/types";
 
 const TABLE = "agentic_topic_bank";
@@ -6,7 +6,7 @@ const ROW_ID = "default";
 
 /** When true, topic bank reads/writes go to Supabase (survives read-only edge filesystems). */
 export function topicBankSupabaseEnabled(): boolean {
-  const v = process.env["AGENTIC_TOPIC_BANK_USE_SUPABASE"]?.trim().toLowerCase();
+  const v = readEnvSync("AGENTIC_TOPIC_BANK_USE_SUPABASE")?.toLowerCase();
   return v === "true" || v === "1";
 }
 
