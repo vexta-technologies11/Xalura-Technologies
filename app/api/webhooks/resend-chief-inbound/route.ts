@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { waitUntilAfterResponse } from "@/xalura-agentic/lib/cloudflareWaitUntil";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 import { chiefReplyToInboundEmail } from "@/lib/chiefInboundReply";
-import { resendFetchReceivedEmail } from "@/lib/resendReceiving";
+import {
+  mergeResendReceivedWithWebhook,
+  resendFetchReceivedEmail,
+} from "@/lib/resendReceiving";
 
 export const dynamic = "force-dynamic";
 
@@ -67,10 +70,24 @@ export async function POST(req: NextRequest) {
   waitUntilAfterResponse(
     (async () => {
       try {
-        const row = await resendFetchReceivedEmail(emailId);
-        if (!row?.from?.trim()) {
-          console.warn("[resend-chief-inbound] missing row or from after fetch");
+        const api = await resendFetchReceivedEmail(emailId);
+        const row = mergeResendReceivedWithWebhook(
+          emailId,
+          data,
+          api,
+        );
+        if (!row.from?.trim()) {
+          console.warn(
+            "[resend-chief-inbound] missing from (webhook + API)",
+            { emailId },
+          );
           return;
+        }
+        if (!api?.from?.trim() && data?.["from"]) {
+          console.warn(
+            "[resend-chief-inbound] using webhook metadata only; receiving GET failed or no from in API",
+            { emailId },
+          );
         }
         const out = await chiefReplyToInboundEmail({ row });
         if (!out.ok) {
