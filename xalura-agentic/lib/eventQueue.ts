@@ -73,6 +73,21 @@ export type AgenticEvent =
 
 export type AgenticEventType = AgenticEvent["type"];
 
+/**
+ * When `xalura-agentic/shared/event-queue.log` cannot be written (read-only Workers),
+ * `appendFileUtf8Agentic` is a no-op but SEO still needs Publishing to see `KEYWORD_READY`
+ * in the same request. We mirror the latest event per (cwd, type) in memory for this isolate.
+ */
+const latestInProcessByCwdType = new Map<string, AgenticEvent>();
+
+function eventMemoryKey(cwd: string, type: AgenticEventType): string {
+  return `${path.resolve(cwd)}\0${type}`;
+}
+
+function newerEvent(a: AgenticEvent, b: AgenticEvent): AgenticEvent {
+  return a.ts >= b.ts ? a : b;
+}
+
 function queuePath(cwd: string): string {
   return path.join(getAgenticRoot(cwd), "shared", FILE);
 }
@@ -92,6 +107,7 @@ export function appendEvent(
     ts: new Date().toISOString(),
   } as AgenticEvent;
   appendFileUtf8Agentic(queuePath(cwd), `${JSON.stringify(full)}\n`);
+  latestInProcessByCwdType.set(eventMemoryKey(cwd, full.type), full);
   return full;
 }
 
@@ -118,5 +134,9 @@ export function getLatestEvent(
   cwd: string = process.cwd(),
 ): AgenticEvent | null {
   const all = readEvents(cwd).filter((e) => e.type === type);
-  return all.length ? all[all.length - 1]! : null;
+  const fromFile = all.length ? all[all.length - 1]! : null;
+  const fromMem = latestInProcessByCwdType.get(eventMemoryKey(cwd, type)) ?? null;
+  if (!fromMem) return fromFile;
+  if (!fromFile) return fromMem;
+  return newerEvent(fromMem, fromFile);
 }
