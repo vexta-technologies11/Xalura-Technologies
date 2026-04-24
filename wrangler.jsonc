@@ -10,8 +10,11 @@
     ]
   },
   // Public origin for cron self-fetch → /api/cron/agentic-publish (no trailing slash).
+  // Topic bank + service Supabase client read these at runtime on the Worker (readEnvSync).
   "vars": {
-    "AGENTIC_CRON_BASE_URL": "https://www.xaluratech.com"
+    "AGENTIC_CRON_BASE_URL": "https://www.xaluratech.com",
+    "AGENTIC_TOPIC_BANK_USE_SUPABASE": "true",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://utwbidakrliphhuenvcn.supabase.co"
   },
   "compatibility_date": "2025-04-01",
   "compatibility_flags": [
