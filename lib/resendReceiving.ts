@@ -8,6 +8,10 @@ export type ResendReceivedEmailRow = {
   text?: string | null;
   html?: string | null;
   message_id?: string | null;
+  /** If Resend includes it, or from `headers`["In-Reply-To"] in merge. */
+  in_reply_to?: string | null;
+  /** Raw email headers (case may vary) from `GET /emails/receiving/:id`. */
+  headers?: Record<string, string> | null;
 };
 
 /** `GET /emails/receiving/:id` — full body after `email.received` webhook. */
@@ -62,6 +66,23 @@ export function mergeResendReceivedWithWebhook(
       : null;
 
   const base = api ?? { id: emailId };
+  const baseHeaders =
+    base.headers && typeof base.headers === "object"
+      ? (base.headers as Record<string, string>)
+      : undefined;
+  const inFromHeaders = (h: Record<string, string> | undefined): string | null => {
+    if (!h) return null;
+    for (const k of Object.keys(h)) {
+      if (k.toLowerCase() === "in-reply-to" && h[k] != null && String(h[k]).trim()) {
+        return String(h[k]);
+      }
+    }
+    return null;
+  };
+  const baseIrt = base.in_reply_to?.trim()
+    ? base.in_reply_to
+    : inFromHeaders(baseHeaders);
+
   return {
     ...base,
     id: base.id ?? emailId,
@@ -72,5 +93,6 @@ export function mergeResendReceivedWithWebhook(
         ? base.subject
         : (subjectVal ?? null),
     message_id: base.message_id?.trim() ? base.message_id : wMsg ?? null,
+    in_reply_to: baseIrt ?? null,
   };
 }

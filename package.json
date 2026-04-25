@@ -30,7 +30,8 @@
     "agentic:smoke-manager-seo": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-manager-seo.ts",
     "agentic:incremental-once": "tsx --env-file=.env.local xalura-agentic/scripts/incremental-hour-once.ts",
     "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts",
-    "agentic:smoke-pipeline-log": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-pipeline-log.ts"
+    "agentic:smoke-pipeline-log": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-pipeline-log.ts",
+    "db:apply-chief-email": "npx -y supabase@latest db query -f supabase/migrations/20250424000000_chief_email_threads.sql --db-url \"$SUPABASE_DB_URL\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

@@ -13,6 +13,15 @@ import {
   finishChiefPlainBody,
   wrapChiefEmailHtml,
 } from "@/lib/chiefEmailBranding";
+import { normalizeRfcMessageId } from "@/lib/chiefEmailIds";
+import {
+  buildReferencesForReply,
+  loadThreadTranscriptForPrompt,
+  newOutboundRfcMessageId,
+  recordInboundAndResolveThread,
+  recordOutboundMessage,
+  type RecordInboundResult,
+} from "@/lib/chiefEmailThreadSupabase";
 import { runChiefAI } from "@/xalura-agentic/agents/chiefAI";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
 import { chiefDisplayName } from "@/xalura-agentic/lib/agentNames";
@@ -33,27 +42,61 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function normalizeMessageId(mid: string): string {
-  const t = mid.trim();
-  if (!t) return t;
-  if (t.startsWith("<") && t.endsWith(">")) return t;
-  return `<${t}>`;
+type ThreadingForSend = {
+  parentRfc: string;
+  references: string;
+  outboundRfc: string;
+  shouldRecord: boolean;
+  threadId: string | null;
+};
+
+async function prepareThreadingForSend(
+  rec: RecordInboundResult,
+  row: ResendReceivedEmailRow,
+  chiefFrom: string,
+): Promise<ThreadingForSend> {
+  const outboundRfc = newOutboundRfcMessageId(chiefFrom);
+  if (rec.kind !== "recorded") {
+    const pr = normalizeRfcMessageId(row.message_id) || "";
+    return {
+      parentRfc: pr,
+      references: pr,
+      outboundRfc,
+      shouldRecord: false,
+      threadId: null,
+    };
+  }
+  const references = await buildReferencesForReply(rec.threadId, rec.inboundRfc);
+  return {
+    parentRfc: rec.inboundRfc,
+    references,
+    outboundRfc,
+    shouldRecord: true,
+    threadId: rec.threadId,
+  };
 }
 
-/** Plain + HTML, memo + signature, optional threading headers. */
+/** Plain + HTML, memo + signature; RFC `Message-ID` + thread headers; optional Supabase log. */
 async function sendHtmlChiefReply(
   mainBody: string,
   subject: string,
-  rowParams: { row: ResendReceivedEmailRow },
+  args: {
+    row: ResendReceivedEmailRow;
+    toUserAddr: string;
+    chiefFrom: string;
+    th: ThreadingForSend;
+  },
 ): Promise<{ error?: string }> {
   const textBody = finishChiefPlainBody(mainBody.replace(/\r\n/g, "\n").trim(), true);
   const htmlBody = wrapChiefEmailHtml({
     bodyPlain: mainBody.replace(/\r\n/g, "\n").trim(),
     includeMemo: true,
   });
-  const fromAddr =
+  const fromUsed =
+    args.chiefFrom.trim() ||
     (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
-    (await resolveWorkerEnv("RESEND_FROM"))?.trim();
+    (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
+    "";
   const ccRaw = (await resolveWorkerEnv("CHIEF_EMAIL_CC"))?.trim();
   const cc = ccRaw
     ? ccRaw
@@ -64,22 +107,34 @@ async function sendHtmlChiefReply(
   const replySubject = subject.toLowerCase().startsWith("re:")
     ? subject
     : `Re: ${subject.slice(0, 900)}`;
-  const mid = rowParams.row.message_id?.trim();
-  const headers =
-    mid && mid.length > 0
-      ? { "In-Reply-To": normalizeMessageId(mid), References: normalizeMessageId(mid) }
-      : undefined;
-  const toAddr = parseEmailAddress(rowParams.row.from ?? "");
-  if (!toAddr) return { error: "no recipient" };
-  return sendResendEmail({
-    from: fromAddr,
-    to: [toAddr],
+  const headers: Record<string, string> = { "Message-ID": args.th.outboundRfc };
+  if (args.th.parentRfc) {
+    headers["In-Reply-To"] = args.th.parentRfc;
+    headers["References"] = args.th.references || args.th.parentRfc;
+  }
+  const res = await sendResendEmail({
+    from: fromUsed,
+    to: [args.toUserAddr],
     cc,
     subject: replySubject.slice(0, 998),
     text: textBody,
     html: htmlBody,
     headers,
   });
+  if (res.error) return { error: res.error };
+  if (args.th.shouldRecord && args.th.threadId) {
+    await recordOutboundMessage({
+      threadId: args.th.threadId,
+      rfcMessageId: args.th.outboundRfc,
+      inReplyTo: args.th.parentRfc,
+      fromAddr: fromUsed,
+      toAddr: args.toUserAddr,
+      subject: replySubject.slice(0, 500),
+      bodyText: mainBody,
+      resendOutboundId: res.id,
+    });
+  }
+  return {};
 }
 
 async function buildOpsSnapshot(cwd: string): Promise<string> {
@@ -130,6 +185,20 @@ async function buildOpsSnapshot(cwd: string): Promise<string> {
   ].join("\n");
 }
 
+const sharedSend = (
+  row: ResendReceivedEmailRow,
+  toUser: string,
+  chiefFrom: string,
+  th: ThreadingForSend,
+) =>
+  ({ main, sub }: { main: string; sub: string }) =>
+    sendHtmlChiefReply(clipChiefEmailWords(main), sub, {
+      row,
+      toUserAddr: toUser,
+      chiefFrom,
+      th,
+    });
+
 /**
  * After Resend `email.received` — Chief replies by email (plain text), strict org role.
  * Caller must have verified the webhook and allowlisted the sender.
@@ -158,6 +227,37 @@ export async function chiefReplyToInboundEmail(params: {
     (params.row.html ? stripHtml(params.row.html) : "") ||
     "(empty body)";
 
+  const inboundRec = await recordInboundAndResolveThread(
+    params.row,
+    bodyText,
+    fromAddr,
+    subject,
+  );
+  if (inboundRec.kind === "duplicate") {
+    return { ok: true };
+  }
+
+  const historyText =
+    inboundRec.kind === "recorded"
+      ? await loadThreadTranscriptForPrompt(inboundRec.threadId, {
+          excludeMessageId: inboundRec.inboundMessageDbId,
+          maxMessages: 24,
+          maxChars: 8_000,
+        })
+      : "";
+
+  const chiefFromBase =
+    (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
+    "";
+  const th = await prepareThreadingForSend(
+    inboundRec,
+    params.row,
+    chiefFromBase,
+  );
+
+  const doSend = sharedSend(params.row, fromAddr, chiefFromBase, th);
+
   const actionsRaw = (await resolveWorkerEnv("CHIEF_INBOUND_ACTIONS_SENDERS"))?.trim();
   const actionSenders = actionsRaw
     ? actionsRaw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -168,36 +268,27 @@ export async function chiefReplyToInboundEmail(params: {
 
   const cmd = parseChiefInboundCommand(bodyText);
   if (cmd.kind === "error") {
-    const s = await sendHtmlChiefReply(
-      clipChiefEmailWords(
-        `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
-      ),
-      subject,
-      params,
-    );
+    const s = await doSend({
+      main: `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
+      sub: subject,
+    });
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
   if (cmd.kind === "need_approve") {
-    const s = await sendHtmlChiefReply(
-      clipChiefEmailWords(
-        `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
-      ),
-      subject,
-      params,
-    );
+    const s = await doSend({
+      main: `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
+      sub: subject,
+    });
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
   if (cmd.kind === "ready") {
     if (!canRunActions) {
-      const s = await sendHtmlChiefReply(
-        clipChiefEmailWords(
-          `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
-        ),
-        subject,
-        params,
-      );
+      const s = await doSend({
+        main: `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
+        sub: subject,
+      });
       if (s.error) return { ok: false, error: s.error };
       return { ok: true };
     }
@@ -207,7 +298,7 @@ export async function chiefReplyToInboundEmail(params: {
         ? `Done. ${ex.text.replace(/\s+/g, " ").trim()}`
         : `Failed: ${ex.error?.replace(/\s+/g, " ").trim() ?? "unknown"}`,
     );
-    const s = await sendHtmlChiefReply(bodyOut, subject, params);
+    const s = await doSend({ main: bodyOut, sub: subject });
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
@@ -233,15 +324,23 @@ export async function chiefReplyToInboundEmail(params: {
     ? "Executive operator: be decisive on marketing/publishing/SEO; never invent runs or URLs."
     : "Scope: org ops only; redirect other topics in one line.";
 
+  const historyBlock = historyText.trim()
+    ? `**Earlier in this email thread (newest at bottom):**
+${historyText}
+`
+    : `**(No prior thread in log — new topic or logging disabled.)**
+`;
+
   const chiefRaw = await runChiefAI({
     department: "All",
     task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech, emailing the CEO.
 
 **Hard rule: your entire reply body must be at most 30 words.** Count. No lists longer than one line. No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then use one 10-word hint max (still keep total ≤30 if possible, else 30 words max for the whole reply).
 
-Summarize only what matters from their message + snapshot: answer the question, or the single most important operational fact. Warm one-liner OK. ${automationNote} ${executiveBlock}
+Summarize only what matters from their message + earlier thread + snapshot: answer the question, or the single most important operational fact. Use the thread to stay consistent; do not contradict prior agreements in the snippet below. ${automationNote} ${executiveBlock}
 
-**Their email** — Subject: ${subject}
+${historyBlock}
+**Their current email** — Subject: ${subject}
 ${forConversation.slice(0, 8_000)}
 
 **Snapshot (facts only)**
@@ -253,7 +352,7 @@ Write **only** the reply body (no signature). **≤30 words.**`,
   });
 
   const chiefMd = clipChiefEmailWords(chiefRaw);
-  const sent = await sendHtmlChiefReply(chiefMd, subject, params);
+  const sent = await doSend({ main: chiefMd, sub: subject });
   if (sent.error) return { ok: false, error: sent.error };
   return { ok: true };
 }
