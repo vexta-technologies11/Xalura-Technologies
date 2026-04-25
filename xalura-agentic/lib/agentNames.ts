@@ -33,6 +33,10 @@ export type AgentNamesConfig = {
   complianceOfficer?: NameTitleAvatar;
   /** Publishing hero (Imagen) step; optional — empty keeps generic UI label. */
   graphicDesigner?: NameTitleAvatar;
+  /** Head of News: digest + pipeline ownership in org chart. */
+  headOfNews?: NameTitleAvatar;
+  /** News cover image (Leonardo / same slot as “Photographer”). */
+  newsPhotographer?: NameTitleAvatar;
 };
 
 const defaultName = (): NameTitleAvatar => ({ name: "" });
@@ -42,10 +46,14 @@ const DEFAULT: AgentNamesConfig = {
     marketing: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
     publishing: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
     seo: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
+    news: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
+    news_preprod: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
   },
   chiefAI: defaultName(),
   complianceOfficer: defaultName(),
   graphicDesigner: defaultName(),
+  headOfNews: defaultName(),
+  newsPhotographer: defaultName(),
 };
 
 function mergeNtaFromPartial(
@@ -109,10 +117,17 @@ function mergeConfig(parsed: Partial<AgentNamesConfig>): AgentNamesConfig {
       DEFAULT.graphicDesigner!,
       parsed.graphicDesigner,
     ),
+    headOfNews: mergeNtaFromPartial(DEFAULT.headOfNews!, parsed.headOfNews),
+    newsPhotographer: mergeNtaFromPartial(
+      DEFAULT.newsPhotographer!,
+      parsed.newsPhotographer,
+    ),
     departments: {
       marketing: d("marketing"),
       publishing: d("publishing"),
       seo: d("seo"),
+      news: d("news"),
+      news_preprod: d("news_preprod"),
     },
   };
 }
@@ -215,7 +230,8 @@ export function executiveDisplayName(
   return n || "(unnamed)";
 }
 
-const PERSONA_ID_RE = /^(marketing|publishing|seo)_(worker|manager|executive)$/;
+const PERSONA_ID_RE =
+  /^(marketing|publishing|seo|news|news_preprod)_(worker|manager|executive)$/;
 const PILLAR_WORKER_RE = /^(seo|publishing)_worker_(.+)$/;
 
 export type PersonaFieldUpdate = { name?: string; title?: string; avatar?: string };
@@ -254,6 +270,14 @@ export function setPersonaFieldsInConfig(
   }
   if (personaId === "publishing_graphic_designer") {
     config.graphicDesigner = mergeNta(config.graphicDesigner, fields);
+    return;
+  }
+  if (personaId === "head_of_news") {
+    config.headOfNews = mergeNta(config.headOfNews, fields);
+    return;
+  }
+  if (personaId === "news_photographer") {
+    config.newsPhotographer = mergeNta(config.newsPhotographer, fields);
     return;
   }
   const pw = PILLAR_WORKER_RE.exec(personaId);

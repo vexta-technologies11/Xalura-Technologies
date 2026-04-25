@@ -29,6 +29,9 @@ export function Nav() {
             <a href="/dashboard">Dashboard</a>
           </li>
           <li>
+            <a href="/news">News</a>
+          </li>
+          <li>
             <a href="/articles">Articles</a>
           </li>
           <li>

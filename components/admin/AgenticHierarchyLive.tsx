@@ -21,7 +21,7 @@ function formatRemaining(ms: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.replace(/\s+/g, " ").trim().split(" ");
   if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   const p = parts[0] ?? "?";
@@ -199,7 +199,7 @@ function readStoredLayout(): WorkerLayoutMode {
   return "auto";
 }
 
-function personaFieldsFromConfig(
+export function personaFieldsFromConfig(
   names: AgentNamesConfig | undefined,
   personaId: string,
 ): { name: string; title: string; avatar: string } {
@@ -216,6 +216,14 @@ function personaFieldsFromConfig(
     const c = names.graphicDesigner ?? { name: "" };
     return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
   }
+  if (personaId === "head_of_news") {
+    const c = names.headOfNews ?? { name: "" };
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
+  }
+  if (personaId === "news_photographer") {
+    const c = names.newsPhotographer ?? { name: "" };
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
+  }
   const pillar = /^(seo|publishing)_worker_(.+)$/.exec(personaId);
   if (pillar) {
     const d = pillar[1] as "seo" | "publishing";
@@ -223,7 +231,7 @@ function personaFieldsFromConfig(
     const c = names.departments[d]?.workersByPillar?.[lane] ?? { name: "" };
     return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
   }
-  const m = /^(marketing|publishing|seo)_(worker|manager|executive)$/.exec(personaId);
+  const m = /^(marketing|publishing|seo|news|news_preprod)_(worker|manager|executive)$/.exec(personaId);
   if (m) {
     const d = m[1] as keyof typeof names.departments;
     const r = m[2] as "worker" | "manager" | "executive";
@@ -240,7 +248,7 @@ function looksLikeImageUrl(url: string): boolean {
   return false;
 }
 
-function PersonaPill(props: {
+export function PersonaPill(props: {
   persona: HierarchyPersona;
   tier: "chief" | "exec" | "mgr" | "worker" | "compliance" | "graphic";
   configNameKey: string;

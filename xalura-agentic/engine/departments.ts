@@ -1,4 +1,10 @@
-export const DEPARTMENT_IDS = ["marketing", "publishing", "seo"] as const;
+export const DEPARTMENT_IDS = [
+  "marketing",
+  "publishing",
+  "seo",
+  "news",
+  "news_preprod",
+] as const;
 
 export type DepartmentId = (typeof DEPARTMENT_IDS)[number];
 

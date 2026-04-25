@@ -3,28 +3,22 @@
   "overlays": {
     "seo:sc-smoke-test-lane": {
       "version": 1,
-      "updatedAt": "2026-04-24T19:59:26.124Z",
-      "auditFileRelative": "logs/seo/audit-cycle-smoke-enrich.md",
+      "updatedAt": "2026-04-25T05:03:47.063Z",
+      "auditFileRelative": "logs/seo/audit-cycle-smoke.md",
       "department": "seo",
       "agentLaneKey": "seo:sc-smoke-test-lane",
       "directive": "OPTIMIZE",
-      "seo_positioning": "Focus on emerging threats and predictive security measures powered by AI within the 'security trust AI' pillar. Frame content around 'AI-driven threat intelligence' and 'proactive AI security frameworks' for the next 10 cycles.",
-      "seo_serp_query_hint": " emerging threats predictive security AI",
-      "publishing_template": "Structure articles with an initial section on 'The Current AI Security Landscape,' followed by deep dives into specific 'Emerging AI Security Threats,' and concluding with 'Proactive Defense Strategies using AI.' Emphasize case studies and expert predictions.",
-      "marketing_positioning": "Uncover the next wave of AI-powered security threats and defenses to build unparalleled trust in AI.",
+      "seo_positioning": "Reframe research toward current *hot* subtopics and angles for the fixed pillar; avoid generic 'best of' listicles.",
+      "seo_serp_query_hint": "trends 2025",
+      "publishing_template": "",
+      "marketing_positioning": "",
       "world_evidence": {
-        "serp_query": "security trust AI AI Security trends hot topics Security and trust AI",
+        "serp_query": "smoke query",
         "serp_titles": [
-          "Top Cybersecurity Trends of 2026: AI, Zero Trust & ...",
-          "9 AI Cybersecurity Trends to Watch in 2026",
-          "Claude Mythos and the AI Cybersecurity Wake-Up Call",
-          "AI Security Statistics 2026: Latest Data, Trends & Research ...",
-          "9 Trends on AI Security Shaping the Future of Defense",
-          "What Is AI Security?",
-          "Security & Trust in the AI Era",
-          "What Is AI Security? Risks, Principles and Benefits"
+          "Title A",
+          "Title B"
         ],
-        "firecrawl_excerpt": "![](https://cdn-cookieyes.com/assets/images/close.svg) We Care Ensuring that you get the best experience is our only purpose for using cookies. If you wish to continue, please accept. You are welcome to provide a controlled consent by visiting the cookie settings. For any further queries or information, please see our [privacy policy](https://www.eccu.edu/privacy-policy/). Cookie SettingsReject AllAccept All Customize Consent Preferences![](https://cdn-cookieyes.com/assets/images/close.svg) We use cookies to help you navigate efficiently and perform certain functions. You will find detailed information about all cookies under each consent category below. The cookies that are categorized as \"Necessary\" are stored on your browser as they are essential for enabling the basic functionalities of the site. ... Show more NecessaryAlways Active Necessary cookies are required to enable the basic features of this site, such as providing secure log-in or adjusting your consent preferences. These cookies do not store any personally identifiable data. Functional Functional cookies help perform certain functionalities like sharing the content of the website on social media platforms, collecting "
+        "firecrawl_excerpt": "excerpt"
       }
     }
   }

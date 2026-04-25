@@ -145,6 +145,20 @@ const DEMO = {
       e: "Executive: feeding Publishing outline slots",
     },
   ],
+  news: [
+    {
+      w: "Worker: same-day story draft + citations",
+      m: "Manager: editorial pass",
+      e: "Executive: Chief of Audit (fact check)",
+    },
+  ],
+  news_preprod: [
+    {
+      w: "Worker: Serp News pool + Firecrawl excerpts",
+      m: "Manager: checklist vs 30 AI headlines",
+      e: "Executive: (n/a — Pre-Prod)",
+    },
+  ],
 } as const;
 
 function exampleLines(
@@ -204,6 +218,8 @@ const DEPT_LABEL: Record<AgenticLiveDeptId, string> = {
   marketing: "Marketing",
   publishing: "Publishing",
   seo: "SEO",
+  news: "News",
+  news_preprod: "News — Pre-Production",
 };
 
 /**
@@ -229,6 +245,76 @@ export function getAgenticLiveSnapshot(cwd: string = process.cwd()): AgenticLive
 
   const st = loadCycleState(cwd);
   const departments: AgenticLiveDepartmentView[] = (["seo", "publishing", "marketing"] as const).map(
+    (id) => {
+      const latest = latestForDept(events, id);
+      const cycle = st.departments[id];
+      if (!latest) {
+        const ex = exampleLines(id, now);
+        return {
+          id,
+          label: DEPT_LABEL[id],
+          source: "example" as const,
+          worker: ex.worker,
+          manager: ex.manager,
+          executive: ex.executive,
+          cycle: { ...cycle },
+        };
+      }
+      const lines = liveLines(latest, id, cycle);
+      return {
+        id,
+        label: DEPT_LABEL[id],
+        source: "live" as const,
+        ...lines,
+        cycle: { ...cycle },
+      };
+    },
+  );
+
+  let failed_hint: string | undefined;
+  try {
+    const failed = readFailedQueue(cwd);
+    const last = failed[failed.length - 1];
+    if (last) {
+      failed_hint = `${last.kind}: ${last.message}`.slice(0, 220);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return {
+    ts: new Date().toISOString(),
+    publishCycleMs: cycleMs,
+    slot,
+    departments,
+    tail,
+    failed_hint,
+  };
+}
+
+/**
+ * Same shape as the main live snapshot, but only **news** and **news_preprod** (News team dashboard).
+ */
+export function getNewsTeamLiveSnapshot(cwd: string = process.cwd()): AgenticLiveSnapshot {
+  const cycleMs = publishCycleMs();
+  const now = Date.now();
+  const slot = slotForNow(cycleMs);
+
+  let events: AgenticEvent[] = [];
+  try {
+    events = readEvents(cwd);
+  } catch {
+    events = [];
+  }
+
+  const tail: AgenticLiveTailItem[] = events.slice(-14).map((e) => ({
+    ts: e.ts,
+    type: e.type,
+    summary: summarizeEvent(e),
+  }));
+
+  const st = loadCycleState(cwd);
+  const departments: AgenticLiveDepartmentView[] = (["news", "news_preprod"] as const).map(
     (id) => {
       const latest = latestForDept(events, id);
       const cycle = st.departments[id];

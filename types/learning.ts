@@ -34,3 +34,19 @@ export type LessonRow = {
   display_order: number;
   created_at: string;
 };
+
+export type NewsRow = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  body: string | null;
+  cover_image_url: string | null;
+  author: string | null;
+  published_at: string | null;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  track: string | null;
+  source_citations: unknown | null;
+};

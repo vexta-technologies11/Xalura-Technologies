@@ -116,6 +116,8 @@ export type AgenticHealthPayload = {
     marketing: { approvalsInWindow: number; auditsCompleted: number };
     publishing: { approvalsInWindow: number; auditsCompleted: number };
     seo: { approvalsInWindow: number; auditsCompleted: number };
+    news: { approvalsInWindow: number; auditsCompleted: number };
+    news_preprod: { approvalsInWindow: number; auditsCompleted: number };
   } | null;
   event_queue_length: number;
   failed_operations: number;
@@ -164,6 +166,8 @@ export async function getAgenticHealth(
       marketing: { ...st.departments.marketing },
       publishing: { ...st.departments.publishing },
       seo: { ...st.departments.seo },
+      news: { ...st.departments.news },
+      news_preprod: { ...st.departments.news_preprod },
     };
   } catch {
     departments = null;

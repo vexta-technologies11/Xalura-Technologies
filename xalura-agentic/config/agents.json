@@ -96,6 +96,28 @@
           "name": "Morgan Lee"
         }
       }
+    },
+    "news": {
+      "worker": {
+        "name": "Rowan Ellis"
+      },
+      "manager": {
+        "name": "Sage Park"
+      },
+      "executive": {
+        "name": "Drew Okonkwo"
+      }
+    },
+    "news_preprod": {
+      "worker": {
+        "name": "Mika Chen"
+      },
+      "manager": {
+        "name": "Nina Flores"
+      },
+      "executive": {
+        "name": ""
+      }
     }
   },
   "chiefAI": {
@@ -109,5 +131,5 @@
   "graphicDesigner": {
     "name": ""
   },
-  "note": "Per-pillar Worker names (seo/publishing `workersByPillar`) are the 10 public library columns (`sc-…`); used in live hierarchy and Worker `assignedName` when that lane runs. Department `worker.name` is the fallback when a lane has no entry. Empty strings keep generated pillar labels in the UI."
+  "note": "Per-pillar Worker names (seo/publishing `workersByPillar`) are the 10 public library columns (`sc-…`). `news` = Writers (W/M) + Chief of Audit (executive). `news_preprod` = Pre-Production. Head of News: pipeline logs to `news_run_events` + `logs/news/`."
 }

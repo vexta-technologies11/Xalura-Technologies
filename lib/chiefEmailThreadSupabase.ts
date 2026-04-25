@@ -51,11 +51,17 @@ export type RecordInboundResult =
 /**
  * Idempotent: same Resend `email_id` (receiving) only inserts once; retries return `duplicate`.
  */
+export type RecordInboundOptions = {
+  /** New thread only — `chief` | `head_of_news` | `chief_of_audit_news` (defaults to `chief`). */
+  inbox?: string;
+};
+
 export async function recordInboundAndResolveThread(
   row: ResendReceivedEmailRow,
   bodyText: string,
   fromAddr: string,
   subject: string,
+  options?: RecordInboundOptions,
 ): Promise<RecordInboundResult> {
   if (disabled()) return { kind: "disabled" };
   const supabase = createServiceClient();
@@ -105,9 +111,10 @@ export async function recordInboundAndResolveThread(
   }
 
   if (!threadId) {
+    const inbox = (options?.inbox ?? "chief").trim().slice(0, 64) || "chief";
     const { data: tw, error: eT } = await supabase
       .from(TABLE_THREAD)
-      .insert({})
+      .insert({ inbox })
       .select("id")
       .single();
     if (eT || !tw?.id) {
@@ -161,7 +168,13 @@ export async function recordInboundAndResolveThread(
  */
 export async function loadThreadTranscriptForPrompt(
   threadId: string,
-  opts: { excludeMessageId: string; maxMessages: number; maxChars: number },
+  opts: {
+    excludeMessageId: string;
+    maxMessages: number;
+    maxChars: number;
+    /** Outbound line in thread log (e.g. "Head of News" or "Chief of Audit (News)"). */
+    outboundPersonaLabel?: string;
+  },
 ): Promise<string> {
   if (disabled()) return "";
   const supabase = createServiceClient();
@@ -191,8 +204,9 @@ export async function loadThreadTranscriptForPrompt(
   const take = rows.slice(-opts.maxMessages);
   const lines: string[] = [];
   let used = 0;
+  const outLabel = opts.outboundPersonaLabel?.trim() || "Chief (Ryzen Qi)";
   for (const r of take) {
-    const who = r.direction === "inbound" ? (r.from_addr || "sender") : "Chief (Ryzen Qi)";
+    const who = r.direction === "inbound" ? (r.from_addr || "sender") : outLabel;
     const body = trimBody(r.body_text, 1_200);
     const line = `[${r.created_at.slice(0, 19)}Z] ${r.direction} — ${who}: ${body}`;
     if (used + line.length + 1 > opts.maxChars) {

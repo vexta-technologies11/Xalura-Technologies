@@ -68,7 +68,7 @@ export type HierarchyChartPayload = {
   agentNames: AgentNamesConfig;
 };
 
-function readLatestCycleMd(dept: string, cwd: string): string | null {
+export function readLatestCycleMd(dept: string, cwd: string): string | null {
   const dir = path.join(getAgenticRoot(cwd), "logs", dept);
   try {
     if (!fs.existsSync(dir)) return null;

@@ -11,18 +11,22 @@ import { Partners } from "@/components/public/Partners";
 import { Closing } from "@/components/public/Closing";
 import { Footer } from "@/components/public/Footer";
 import { getEmployees, getPageContent, getPartners } from "@/lib/data";
+import { getLatestNews } from "@/lib/data-learning";
+import { LatestNewsStrip } from "@/components/public/LatestNewsStrip";
 
 export default async function Home() {
-  const [employees, partners, pageContent] = await Promise.all([
+  const [employees, partners, pageContent, latestNews] = await Promise.all([
     getEmployees(),
     getPartners(),
     getPageContent(),
+    getLatestNews(3),
   ]);
 
   return (
     <>
       <Nav />
       <Hero content={pageContent.hero} />
+      <LatestNewsStrip items={latestNews} />
       <Ticker />
       <Mission content={pageContent.mission} />
       <AIEmployees employees={employees} />

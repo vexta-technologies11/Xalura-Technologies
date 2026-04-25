@@ -106,6 +106,31 @@ export async function fetchAgenticPipelineLogsForAdminFeed(
   return (data ?? []) as AgenticPipelineLogRow[];
 }
 
+export async function fetchAgenticPipelineLogsForAdminFeedByDepartment(
+  department: string,
+  limit: number,
+): Promise<AgenticPipelineLogRow[]> {
+  if (disabled()) return [];
+  const supabase = createServiceClient();
+  if (!supabase) return [];
+  const n = Math.min(Math.max(1, limit), 500);
+  const d = department.trim().slice(0, 64);
+  if (!d) return [];
+  const { data, error } = await supabase
+    .from("agentic_pipeline_stage_log")
+    .select(
+      "id, created_at, release_id, department, agent_lane_id, stage, event, summary, detail",
+    )
+    .eq("department", d)
+    .order("created_at", { ascending: false })
+    .limit(n);
+  if (error) {
+    console.warn("[agenticPipelineLogSupabase] admin feed by dept", error.message);
+    return [];
+  }
+  return (data ?? []) as AgenticPipelineLogRow[];
+}
+
 export function formatAgenticPipelineLogsForSnapshot(
   rows: Awaited<ReturnType<typeof fetchRecentAgenticPipelineLogs>>,
   maxLines: number,

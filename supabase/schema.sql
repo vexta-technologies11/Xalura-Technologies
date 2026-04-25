@@ -428,7 +428,8 @@ alter table public.agentic_pipeline_stage_log enable row level security;
 create table if not exists public.chief_email_threads (
   id uuid default gen_random_uuid() primary key,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  inbox text not null default 'chief'
 );
 
 create table if not exists public.chief_email_messages (
@@ -453,10 +454,58 @@ create unique index if not exists chief_email_messages_resend_inbound_unique
 create index if not exists chief_email_messages_thread_created_idx
   on public.chief_email_messages (thread_id, created_at asc);
 
-comment on table public.chief_email_threads is 'Resend inbound/outbound email thread. Insert via SUPABASE_SERVICE_ROLE_KEY only; used for Chief back-read.';
+comment on table public.chief_email_threads is 'Resend inbound/outbound email thread. `inbox` = chief | head_of_news | chief_of_audit_news. Insert via SUPABASE_SERVICE_ROLE_KEY only; used for back-read.';
 comment on table public.chief_email_messages is 'Message bodies and RFC Message-Ids for `chief` threading; set CHIEF_EMAIL_THREAD_LOG_DISABLE=true to skip.';
 
 alter table public.chief_email_threads enable row level security;
 alter table public.chief_email_messages enable row level security;
+
+-- ── News (agentic News team; public /news) ───────────────────────────────────
+create table if not exists news_items (
+  id uuid default gen_random_uuid() primary key,
+  slug text not null unique,
+  title text not null,
+  excerpt text,
+  body text,
+  cover_image_url text,
+  author text,
+  published_at timestamptz,
+  is_published boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  track text,
+  source_citations jsonb
+);
+
+create index if not exists news_items_published_at_idx
+  on news_items (published_at desc nulls last)
+  where is_published = true;
+
+create table if not exists news_run_events (
+  id uuid default gen_random_uuid() primary key,
+  run_id text not null,
+  stage text not null,
+  summary text,
+  detail jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists news_run_events_run_id_idx on news_run_events (run_id, created_at);
+
+alter table news_items enable row level security;
+alter table news_run_events enable row level security;
+
+drop policy if exists "news_items_select_public" on news_items;
+drop policy if exists "news_items_write_authenticated" on news_items;
+drop policy if exists "news_run_events_select_auth" on news_run_events;
+
+create policy "news_items_select_public" on news_items
+  for select to anon, authenticated using (is_published = true);
+
+create policy "news_items_write_authenticated" on news_items
+  for all to authenticated using (true) with check (true);
+
+create policy "news_run_events_select_auth" on news_run_events
+  for select to authenticated using (true);
 
 notify pgrst, 'reload schema';

@@ -457,6 +457,50 @@
   align-self: stretch;
 }
 
+.ah-tree__fork--duo {
+  width: 100%;
+  max-width: 720px;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.ah-tree__columns--duo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(20px, 3vw, 40px);
+  width: 100%;
+  max-width: 720px;
+}
+
+.ah-tree__column-title {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+  text-align: center;
+  width: 100%;
+}
+
+/* News team: L1 row is ≤720px; without this, the fork/columns stay left while Head of News centers on the full scroller. */
+.ah-tree--news-team .ah-tree__l1-block {
+  align-items: center;
+}
+
+.ah-tree--news-team .ah-tree__fork--duo {
+  align-self: center;
+  width: min(100%, 720px);
+}
+
+.ah-tree--news-team .ah-tree__columns-outer {
+  width: min(100%, 720px);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .ah-tree__reports-to {
   margin: 0;
   font-size: 0.62rem;

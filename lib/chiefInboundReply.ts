@@ -233,6 +233,7 @@ export async function chiefReplyToInboundEmail(params: {
     bodyText,
     fromAddr,
     subject,
+    { inbox: "chief" },
   );
   if (inboundRec.kind === "duplicate") {
     return { ok: true };

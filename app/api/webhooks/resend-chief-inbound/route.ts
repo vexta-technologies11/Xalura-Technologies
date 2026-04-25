@@ -4,6 +4,10 @@ import { waitUntilAfterResponse } from "@/xalura-agentic/lib/cloudflareWaitUntil
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 import { chiefReplyToInboundEmail } from "@/lib/chiefInboundReply";
 import {
+  headOfNewsReplyToInboundEmail,
+  chiefOfAuditNewsReplyToInboundEmail,
+} from "@/lib/newsTeamInboundReplies";
+import {
   mergeResendReceivedWithWebhook,
   resendFetchReceivedEmail,
 } from "@/lib/resendReceiving";
@@ -56,13 +60,19 @@ export async function POST(req: NextRequest) {
   }
 
   const toFilter = (await resolveWorkerEnv("CHIEF_INBOUND_TO_FILTER"))?.trim().toLowerCase();
+  const toHon = (await resolveWorkerEnv("HEAD_OF_NEWS_INBOUND_TO"))?.trim().toLowerCase();
+  const toAud = (await resolveWorkerEnv("CHIEF_OF_AUDIT_NEWS_INBOUND_TO"))?.trim().toLowerCase();
   const toList = Array.isArray(data?.["to"])
     ? (data["to"] as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  const toLower = (a: string[]) => a.map((t) => t.toLowerCase());
+
   if (
     toFilter &&
     toList.length > 0 &&
-    !toList.some((t) => t.toLowerCase().includes(toFilter))
+    !toLower(toList).some((t) => t.includes(toFilter)) &&
+    !(toHon && toLower(toList).some((t) => t.includes(toHon))) &&
+    !(toAud && toLower(toList).some((t) => t.includes(toAud)))
   ) {
     return NextResponse.json({ ok: true, ignored: true, reason: "to_filter" });
   }
@@ -89,7 +99,15 @@ export async function POST(req: NextRequest) {
             { emailId },
           );
         }
-        const out = await chiefReplyToInboundEmail({ row });
+        const rawTo = row.to?.length ? row.to : toList;
+        const recipients = toLower(rawTo);
+        const matchHon = Boolean(toHon && recipients.some((t) => t.includes(toHon)));
+        const matchAud = Boolean(toAud && recipients.some((t) => t.includes(toAud)));
+        const out = matchHon
+          ? await headOfNewsReplyToInboundEmail({ row })
+          : matchAud
+            ? await chiefOfAuditNewsReplyToInboundEmail({ row })
+            : await chiefReplyToInboundEmail({ row });
         if (!out.ok) {
           console.warn("[resend-chief-inbound]", out.error);
         }
