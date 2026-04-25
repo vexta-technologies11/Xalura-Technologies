@@ -1,4 +1,8 @@
-import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
+import {
+  clipChiefEmailWords,
+  finishChiefPlainBody,
+  wrapChiefEmailHtml,
+} from "@/lib/chiefEmailBranding";
 import { runChiefAI } from "../agents/chiefAI";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
@@ -78,20 +82,11 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
   const chiefN = chiefDisplayName(params.cwd);
   let body: string;
   try {
-    body = await runChiefAI({
+    const raw = await runChiefAI({
       department: "All",
-      task: `You are **Ryzen Qi** — **CAI | Head of Operations** at Xalura Tech. A **live article** from Publishing just went out to the public site. Write an email to the CEO.
+      task: `You are **Ryzen Qi**, **CAI | Head of Operations**. Publishing just shipped an article to the site. Write one email to the CEO.
 
-**Voice:** Like a strong COO / chief of staff — clear, professional, a little warmth. You may start with a short "Hello, Boss" style line. Sound human: one sentence on what shipped and why it matters for our line, not a status robot.
-
-**Structure (plain text, no markdown tables, no section labels in ALL CAPS):**
-1) One short opening (greeting + what published).
-2) A tight read on this drop (angle, quality, fit for Xalura’s motion) — only what the briefing supports.
-3) Risks or follow-ups in plain language (failure queue, Zernio line). If nothing serious, say so in one line.
-
-**Do not** paste internal run codes, approval instructions, or long technical dumps unless the briefing already shows a concrete blocker worth naming.
-
-Max ~350 words. No email signature (added separately).
+**Your entire body must be at most 30 words.** One or two short sentences. Name the article/theme, one line on quality or risk if the briefing shows it, nothing else. No run codes, no sections, no signature.
 
 BRIEFING:
 ---
@@ -100,9 +95,12 @@ ${briefing}
       context: { kind: "publish_digest", slug: params.slug },
       assignedName: chiefN,
     });
+    body = clipChiefEmailWords(raw);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    body = `Hello, Boss — I hit a snag generating the full note (${msg}). Here’s the raw briefing so nothing’s lost:\n\n${briefing.slice(0, 6_000)}`;
+    body = clipChiefEmailWords(
+      `Published “${params.title.slice(0, 60)}” — note gen failed: ${msg.slice(0, 80)}. Check dashboard.`,
+    );
   }
 
   const subject = `Published: ${params.title.slice(0, 72)} — Chief note`;

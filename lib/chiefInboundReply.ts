@@ -8,7 +8,11 @@ import {
   formatAgenticPipelineLogsForSnapshot,
 } from "@/lib/agenticPipelineLogSupabase";
 import { formatChiefStrategicForSnapshot } from "@/lib/chiefStrategicDirectives";
-import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
+import {
+  clipChiefEmailWords,
+  finishChiefPlainBody,
+  wrapChiefEmailHtml,
+} from "@/lib/chiefEmailBranding";
 import { runChiefAI } from "@/xalura-agentic/agents/chiefAI";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
 import { chiefDisplayName } from "@/xalura-agentic/lib/agentNames";
@@ -165,7 +169,9 @@ export async function chiefReplyToInboundEmail(params: {
   const cmd = parseChiefInboundCommand(bodyText);
   if (cmd.kind === "error") {
     const s = await sendHtmlChiefReply(
-      `Quick note — I couldn’t read the command block in that email (${cmd.error}). If you were trying to trigger an automated run, the block needs to sit between the marked lines with key: value rows. If you were just writing to me, ignore this — send again without a command block and I’ll reply normally.`,
+      clipChiefEmailWords(
+        `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
+      ),
       subject,
       params,
     );
@@ -174,7 +180,9 @@ export async function chiefReplyToInboundEmail(params: {
   }
   if (cmd.kind === "need_approve") {
     const s = await sendHtmlChiefReply(
-      `Got it — I see you want to run: ${cmd.description}. I didn’t execute anything yet. When you’re ready, add a single line in a follow-up that says just: approve. (Or say the word in a new message.)`,
+      clipChiefEmailWords(
+        `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
+      ),
       subject,
       params,
     );
@@ -184,7 +192,9 @@ export async function chiefReplyToInboundEmail(params: {
   if (cmd.kind === "ready") {
     if (!canRunActions) {
       const s = await sendHtmlChiefReply(
-        `This inbox isn’t on the allowlist for automated email actions, so I didn’t run the command. Drop the CHIEF_COMMAND block and I’ll answer as usual — or we can get your address added to CHIEF_INBOUND_ACTIONS_SENDERS if you need the automation path.`,
+        clipChiefEmailWords(
+          `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
+        ),
         subject,
         params,
       );
@@ -192,9 +202,11 @@ export async function chiefReplyToInboundEmail(params: {
       return { ok: true };
     }
     const ex = await executeChiefInboundCommand(cmd.action, { cwd, fromEmail: fromAddr });
-    const bodyOut = ex.ok
-      ? `Here’s what ran:\n\n${ex.text}\n\nPing me if you want a read on how it fits the week.`
-      : `That action didn’t finish: ${ex.error}\n\nTell me what you were aiming for and I’ll help triage.`;
+    const bodyOut = clipChiefEmailWords(
+      ex.ok
+        ? `Done. ${ex.text.replace(/\s+/g, " ").trim()}`
+        : `Failed: ${ex.error?.replace(/\s+/g, " ").trim() ?? "unknown"}`,
+    );
     const s = await sendHtmlChiefReply(bodyOut, subject, params);
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
@@ -214,44 +226,33 @@ export async function chiefReplyToInboundEmail(params: {
       : executiveList.includes(fromAddr);
 
   const automationNote = canRunActions
-    ? "This sender may use the separate email **command + approve** path for production actions when they choose to."
-    : "This sender is not on CHIEF_INBOUND_ACTIONS_SENDERS — automated email actions are off; they get guidance only here.";
+    ? "Sender may use email command+approve for runs."
+    : "Sender cannot trigger email automation from this address.";
 
   const executiveBlock = isExecutiveOperator
-    ? `The human is a trusted **executive operator** for this inbox. When they ask for priorities across marketing, publishing, or SEO, be decisive and aligned with their direction. Do not fabricate completed runs or site URLs — the snapshot and facts only.`
-    : `Standard scope: org operations only (marketing, publishing, SEO). Redirect anything else briefly.`;
+    ? "Executive operator: be decisive on marketing/publishing/SEO; never invent runs or URLs."
+    : "Scope: org ops only; redirect other topics in one line.";
 
-  const chiefMd = await runChiefAI({
+  const chiefRaw = await runChiefAI({
     department: "All",
-    task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech. You are writing a real email to the CEO — not a ticket, not a robot status report.
+    task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech, emailing the CEO.
 
-**Voice:** Warm, professional, **human**. A light greeting is fine (e.g. "Hello, Boss" or a short line). Sound like a chief of staff: conversational where it fits, never stiff corporate filler. If the snapshot says Publishing shipped an article, you might say you saw it and one honest sentence on quality or fit — only if the data supports it. **Answer their actual questions** before anything else.
+**Hard rule: your entire reply body must be at most 30 words.** Count. No lists longer than one line. No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then use one 10-word hint max (still keep total ≤30 if possible, else 30 words max for the whole reply).
 
-**What NOT to do by default**
-- Do **not** dump long **run / approval / CHIEF_COMMAND** instructions, code blocks, or copy-paste templates unless they **explicitly** ask *how* to trigger an automated run or approve a command. If they only say hi or ask a business question, stay conversational.
-- No markdown tables. No "Mr President" or laboured formal openings unless that matches the thread.
-- You oversee the Worker → Manager → Executive **lenses** for marketing, publishing, and SEO — you do not impersonate those roles.
+Summarize only what matters from their message + snapshot: answer the question, or the single most important operational fact. Warm one-liner OK. ${automationNote} ${executiveBlock}
 
-**Automation (only if they ask)**
-- ${automationNote}
-- If and only if they **explicitly** ask how to run pipelines from email, give a **very short** pointer (one short paragraph): command block + a line with only the word \`approve\` — not a manual page. Otherwise skip.
+**Their email** — Subject: ${subject}
+${forConversation.slice(0, 8_000)}
 
-**${executiveBlock}**
-
-**Human email**
-Subject: ${subject}
-From: ${fromAddr}
-
-${forConversation.slice(0, 12_000)}
-
-**Operational snapshot** (use for color; if empty, say you’re light on live signals for this turn)
+**Snapshot (facts only)**
 ${snapshot}
 
-Write the **message body only** (plain text, no signature — that is added by the system). **Max ~550 words.**`,
+Write **only** the reply body (no signature). **≤30 words.**`,
     context: { channel: "chief_inbound_email", subject },
     assignedName: chiefN,
   });
 
+  const chiefMd = clipChiefEmailWords(chiefRaw);
   const sent = await sendHtmlChiefReply(chiefMd, subject, params);
   if (sent.error) return { ok: false, error: sent.error };
   return { ok: true };

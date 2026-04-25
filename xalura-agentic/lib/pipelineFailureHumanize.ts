@@ -223,8 +223,8 @@ export function humanChiefDigestEmailBody(input: {
   const lane = input.agentLaneKey ? ` (${input.agentLaneKey})` : "";
   const cwd = input.cwdLabel ? ` [${input.cwdLabel}]` : "";
   const text = clipWords(
-    `Hello, Boss — quick operations note. ${input.department} just closed another audit window${lane}. I left Chief commentary on ${input.auditFileRelative}; it’s the normal governance loop so you can see how the ladder’s behaving before the next publish push — not an alert.${cwd} If you want a deeper read on that file, just ask.`,
-    120,
+    `Hello, Boss — ${input.department} audit logged in ${input.auditFileRelative}${lane}. Routine governance, not an alert.${cwd}`.replace(/\s+/g, " ").trim(),
+    30,
   );
   return {
     subject: `Ops note — ${input.department} audit (CAI)`,

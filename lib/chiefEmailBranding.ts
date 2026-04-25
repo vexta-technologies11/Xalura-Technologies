@@ -4,6 +4,15 @@
  * HTML avoids gray card backgrounds; uses `color-scheme` + inherited colors for light/dark in the client.
  */
 
+/** Hard cap for Chief email body (inbound, digest, publish note) so replies stay brief. */
+export const CHIEF_EMAIL_MAX_WORDS = 30;
+
+export function clipChiefEmailWords(s: string, maxWords: number = CHIEF_EMAIL_MAX_WORDS): string {
+  const words = s.replace(/\s+/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return words.join(" ");
+  return `${words.slice(0, maxWords).join(" ")}…`;
+}
+
 function publicSiteBaseUrl(): string {
   return (
     process.env["NEXT_PUBLIC_SITE_URL"]?.replace(/\/$/, "") ||
