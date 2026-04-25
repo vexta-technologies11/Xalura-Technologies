@@ -29,7 +29,8 @@ import {
 const DEFAULT_SEO_TASK =
   "In 2–3 short paragraphs, justify why this bank keyword matters for Xalura Tech readers in **this vertical**. Every sentence must tie to the keyword; no fluff or generic audience essays. Explain **high real-world value** and why this is a **strong, safe** AI/tech topic (informational, product-focused — not medical, legal, or personal financial advice).";
 
-function incrementalSeoTask(): string {
+/** Same default task as hourly incremental SEO (env `AGENTIC_INCREMENTAL_SEO_TASK` overrides). */
+export function getIncrementalSeoTask(): string {
   const t = process.env["AGENTIC_INCREMENTAL_SEO_TASK"]?.trim();
   return t || DEFAULT_SEO_TASK;
 }
@@ -158,7 +159,7 @@ async function runIncrementalBatch(
       const seo = await runSeoPipelineWithHandoff(
         {
           cwd,
-          task: incrementalSeoTask(),
+          task: getIncrementalSeoTask(),
           useTopicBank: true,
           topicSnapshot: topic,
           contentVerticalId: topic.vertical_id,
@@ -265,10 +266,10 @@ async function runIncrementalSingleTopic(
     options?.forceTopicBankIfMissing === true &&
     (await shouldForceTopicBankForVertical(cwd, vertical_id));
 
-  const seo = await runSeoPipelineWithHandoff(
+    const seo = await runSeoPipelineWithHandoff(
     {
       cwd,
-      task: incrementalSeoTask(),
+      task: getIncrementalSeoTask(),
       useTopicBank: true,
       contentVerticalId: vertical_id,
       allowStubFallback: false,

@@ -11,6 +11,9 @@
  * skip_phase7: false
  * ---END_CHIEF_COMMAND---
  * approve
+ *
+ * Note: `use_topic_bank` defaults to **false** — set `true` plus `content_vertical_id` (a `sc-…` lane)
+ * to pull the next scored topic for that pillar. Without the topic bank, use `task:` and optional `keyword:`.
  */
 
 const BLOCK = /---\s*CHIEF_COMMAND\s*---\s*([\s\S]*?)\s*---\s*END_CHIEF_COMMAND\s*---/i;
@@ -153,7 +156,8 @@ function validateAction(map: RecordMap):
   }
 
   if (a === "run_seo") {
-    const useTopicBank = asBool(map["use_topic_bank"], true);
+    /** Default false so a minimal `task:` + `approve` run works without a pillar id (matches explicit API `useTopicBank`). */
+    const useTopicBank = asBool(map["use_topic_bank"], false);
     const cId = (map["content_vertical_id"] ?? "").trim() || undefined;
     if (useTopicBank) {
       if (!cId) {

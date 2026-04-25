@@ -152,6 +152,8 @@ export type ContentWorkflowHandoff = {
   source_urls: string[];
   vertical_id: string;
   vertical_label: string;
+  /** From topic bank row (SEO path). */
+  supporting_keywords?: string[];
   checklist?: string[];
 };
 
@@ -760,6 +762,7 @@ ${workerOutput}`;
                 vertical_label:
                   activeContentTopic.vertical_label ??
                   activeContentTopic.vertical_id,
+                supporting_keywords: activeContentTopic.supporting_keywords,
               }
             : publishingHandoffCw;
 
