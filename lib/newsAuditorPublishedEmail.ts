@@ -36,6 +36,27 @@ export type NewsPublishPostEmailContext = {
 const HON_PUBLISH_MAX_WORDS = 420;
 const AUDITOR_REPORT_MAX_WORDS = 1_200;
 
+function logEmailSkip(
+  kind: "head_of_news" | "chief_of_audit",
+  reason: string,
+): void {
+  console.warn(`[news-publish-email] ${kind} skipped: ${reason}`);
+}
+
+function logResendPub(
+  kind: "head_of_news" | "chief_of_audit",
+  r: { id?: string; error?: string },
+): void {
+  if (r.error) {
+    console.error(
+      `[news-publish-email] ${kind} Resend failed:`,
+      r.error,
+    );
+  } else if (r.id) {
+    console.log(`[news-publish-email] ${kind} sent resend_id=${r.id}`);
+  }
+}
+
 /**
  * After a story is **published** — email the operator with Chief of Audit findings: legitimacy, relevancy score, brief rationale.
  * Env: `NEWS_AUDITOR_EMAIL_ON_PUBLISH=true` and `NEWS_AUDITOR_DIGEST_EMAIL` (or falls back to `AGENTIC_CHIEF_DIGEST_EMAIL`).
@@ -53,6 +74,7 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
 }): Promise<void> {
   const on = (await resolveWorkerEnv("NEWS_AUDITOR_EMAIL_ON_PUBLISH"))?.trim().toLowerCase();
   if (on !== "true" && on !== "1") {
+    logEmailSkip("chief_of_audit", "set NEWS_AUDITOR_EMAIL_ON_PUBLISH=true (or 1) on the worker that runs the news pipeline");
     return;
   }
   const to =
@@ -60,6 +82,10 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
     (await resolveWorkerEnv("AGENTIC_CHIEF_DIGEST_EMAIL"))?.trim() ||
     "";
   if (!to) {
+    logEmailSkip(
+      "chief_of_audit",
+      "no recipient: set NEWS_AUDITOR_DIGEST_EMAIL or AGENTIC_CHIEF_DIGEST_EMAIL",
+    );
     return;
   }
   const cwd = params.cwd;
@@ -71,6 +97,10 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
     (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
     "";
   if (!from) {
+    logEmailSkip(
+      "chief_of_audit",
+      "no From: set CHIEF_OF_AUDIT_NEWS_RESEND_FROM or CHIEF_RESEND_FROM or RESEND_FROM",
+    );
     return;
   }
 
@@ -161,7 +191,15 @@ ${bodyClip}
         .filter(Boolean)
     : undefined;
 
-  await sendResendEmail({ from, to, cc, subject: sub.slice(0, 998), text: textOut, html: htmlOut });
+  const r = await sendResendEmail({
+    from,
+    to,
+    cc,
+    subject: sub.slice(0, 998),
+    text: textOut,
+    html: htmlOut,
+  });
+  logResendPub("chief_of_audit", r);
 }
 
 /**
@@ -176,6 +214,7 @@ export async function sendHeadOfNewsPublishedEmailIfEnabled(params: {
 }): Promise<void> {
   const on = (await resolveWorkerEnv("HEAD_OF_NEWS_EMAIL_ON_PUBLISH"))?.trim().toLowerCase();
   if (on !== "true" && on !== "1") {
+    logEmailSkip("head_of_news", "set HEAD_OF_NEWS_EMAIL_ON_PUBLISH=true (or 1) on the worker that runs the news pipeline");
     return;
   }
   const to =
@@ -183,6 +222,10 @@ export async function sendHeadOfNewsPublishedEmailIfEnabled(params: {
     (await resolveWorkerEnv("AGENTIC_CHIEF_DIGEST_EMAIL"))?.trim() ||
     "";
   if (!to) {
+    logEmailSkip(
+      "head_of_news",
+      "no recipient: set HEAD_OF_NEWS_DIGEST_EMAIL or AGENTIC_CHIEF_DIGEST_EMAIL",
+    );
     return;
   }
   const from =
@@ -191,6 +234,10 @@ export async function sendHeadOfNewsPublishedEmailIfEnabled(params: {
     (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
     "";
   if (!from) {
+    logEmailSkip(
+      "head_of_news",
+      "no From: set HEAD_OF_NEWS_RESEND_FROM or CHIEF_RESEND_FROM or RESEND_FROM",
+    );
     return;
   }
   const hon = loadAgentNamesConfig(params.cwd).headOfNews?.name?.trim() || "Head of News";
@@ -243,5 +290,13 @@ ${dataBlock}
         .map((s) => s.trim())
         .filter(Boolean)
     : undefined;
-  await sendResendEmail({ from, to, cc, subject: sub.slice(0, 998), text: textOut, html: htmlOut });
+  const rH = await sendResendEmail({
+    from,
+    to,
+    cc,
+    subject: sub.slice(0, 998),
+    text: textOut,
+    html: htmlOut,
+  });
+  logResendPub("head_of_news", rH);
 }

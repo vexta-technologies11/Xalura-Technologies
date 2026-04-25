@@ -368,21 +368,29 @@ ${draft}
     cwd,
   );
 
-  void sendHeadOfNewsPublishedEmailIfEnabled({
-    cwd,
-    runId,
-    title,
-    slug: pub.slug,
-    postEmailContext,
-  });
-  void sendNewsAuditorPublishedEmailIfEnabled({
-    cwd,
-    runId,
-    title,
-    slug: pub.slug,
-    bodyExcerpt: draft,
-    auditText: lastAuditTextForEmail,
-    postEmailContext,
+  void Promise.allSettled([
+    sendHeadOfNewsPublishedEmailIfEnabled({
+      cwd,
+      runId,
+      title,
+      slug: pub.slug,
+      postEmailContext,
+    }),
+    sendNewsAuditorPublishedEmailIfEnabled({
+      cwd,
+      runId,
+      title,
+      slug: pub.slug,
+      bodyExcerpt: draft,
+      auditText: lastAuditTextForEmail,
+      postEmailContext,
+    }),
+  ]).then((results) => {
+    for (const r of results) {
+      if (r.status === "rejected") {
+        console.error("[news-pipeline] post-publish email threw", r.reason);
+      }
+    }
   });
 
   return { status: "published", slug: pub.slug, runId, title };
