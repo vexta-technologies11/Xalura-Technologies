@@ -13,6 +13,7 @@ export {
   refreshTopicBank,
   seedStubTopicBank,
 } from "./topicBankRefresh";
+export { refreshTopicBankForTenPillars, discoverPillarTopicWithGemini } from "./pillarTopicBankRefresh";
 export { buildPublishingDailyBriefPrefix } from "./publishingBrief";
 export { readDailyProduction, bumpArticleCompleted } from "./dailyProductionStore";
 export { recordArticlePublished, readPublishedTopics } from "./publishedTopicsStore";

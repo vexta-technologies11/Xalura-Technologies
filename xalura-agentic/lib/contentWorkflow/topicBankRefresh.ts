@@ -22,7 +22,8 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-async function buildCrawlSummary(urls: string[]): Promise<string> {
+/** Reused by pillar-based refresh (one Serp + crawl per public subcategory). */
+export async function buildCrawlSummary(urls: string[]): Promise<string> {
   const parts: string[] = [];
   for (const url of urls.slice(0, 4)) {
     const r = await firecrawlScrape(url, ["markdown"]);
@@ -195,6 +196,7 @@ export async function refreshTopicBank(
         crawl_count: persisted.crawl_count,
         vertical_catalog_size: CONTENT_VERTICALS.length,
         trend_log_path: "state/seo-trend-logs.json",
+        mode: "catalog_serp",
       },
     },
     cwd,

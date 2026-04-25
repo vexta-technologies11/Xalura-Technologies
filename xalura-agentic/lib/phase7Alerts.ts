@@ -1,3 +1,4 @@
+import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
 import type { DepartmentId } from "../engine/departments";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import type { FailedOperation } from "./failedQueue";
@@ -42,15 +43,12 @@ async function runChiefDigestEmailWork(params: {
     agentLaneKey: params.agentLaneKey,
     cwdLabel: params.cwdLabel,
   });
-  const footer = [
-    "",
-    "--- reference ---",
-    `department: ${params.department}`,
-    params.agentLaneKey ? `lane: ${params.agentLaneKey}` : "",
-    `audit: ${params.auditFileRelative}`,
-    params.cwdLabel ? `cwd: ${params.cwdLabel}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  await sendResendEmail({ to, subject: `[Xalura agentic] ${subject}`, text: `${text}${footer}` });
+  const plain = finishChiefPlainBody(text.trim(), true);
+  const html = wrapChiefEmailHtml({ bodyPlain: text.trim(), includeMemo: true });
+  await sendResendEmail({
+    to,
+    subject: `[Xalura] ${subject}`,
+    text: plain,
+    html,
+  });
 }

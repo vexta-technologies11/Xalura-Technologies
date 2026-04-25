@@ -42,6 +42,9 @@ export async function getPhase7Configured(): Promise<Phase7Configured> {
 export async function sendResendEmail(input: {
   from?: string;
   to: string | string[];
+  /** Optional CC recipients (verified domains in Resend). */
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html?: string;
   text?: string;
@@ -66,6 +69,18 @@ export async function sendResendEmail(input: {
     html: input.html,
     text: input.text,
   };
+  if (input.cc !== undefined) {
+    const cc = (Array.isArray(input.cc) ? input.cc : [input.cc]).filter(
+      (x) => typeof x === "string" && x.trim().length > 0,
+    );
+    if (cc.length > 0) payload["cc"] = cc;
+  }
+  if (input.bcc !== undefined) {
+    const bcc = (Array.isArray(input.bcc) ? input.bcc : [input.bcc]).filter(
+      (x) => typeof x === "string" && x.trim().length > 0,
+    );
+    if (bcc.length > 0) payload["bcc"] = bcc;
+  }
   if (input.replyTo !== undefined) {
     payload["reply_to"] = Array.isArray(input.replyTo) ? input.replyTo : [input.replyTo];
   }

@@ -12,9 +12,13 @@ export async function readResponseJson<T>(res: Response): Promise<
     return { ok: false, error: "Empty response from server", status: res.status, notJson: true };
   }
   if (t.startsWith("<!") || /^<html[\s>]/i.test(t)) {
+    const notFoundHint =
+      res.status === 404
+        ? " If you see 404, open /api/health in a new tab: JSON means API routes are deployed; HTML 404 means a bad host or a deploy without app routes."
+        : "";
     return {
       ok: false,
-      error: `Server returned a web page instead of JSON (HTTP ${res.status}). The API may be missing, the app may have crashed, or your session expired — try refreshing or signing in to Admin again.`,
+      error: `Server returned a web page instead of JSON (HTTP ${res.status}). The API may be missing, the app may have crashed, or your session expired — try refreshing or signing in to Admin again.${notFoundHint}`,
       status: res.status,
       notJson: true,
     };

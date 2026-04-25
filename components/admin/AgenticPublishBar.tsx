@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readResponseJson } from "@/lib/readResponseJson";
 
 export function AgenticPublishBar() {
   const [busy, setBusy] = useState(false);
@@ -19,7 +20,12 @@ export function AgenticPublishBar() {
         credentials: "include",
         body: "{}",
       });
-      const data = (await res.json()) as Record<string, unknown>;
+      const parsed = await readResponseJson<Record<string, unknown>>(res);
+      if (!parsed.ok) {
+        setErr(parsed.error);
+        return;
+      }
+      const data = parsed.data;
       if (!res.ok) {
         setErr(
           typeof data["error"] === "string" ? (data["error"] as string) : res.statusText,
@@ -49,7 +55,12 @@ export function AgenticPublishBar() {
         credentials: "include",
         body: "{}",
       });
-      const data = (await res.json()) as Record<string, unknown>;
+      const parsed = await readResponseJson<Record<string, unknown>>(res);
+      if (!parsed.ok) {
+        setErr(parsed.error);
+        return;
+      }
+      const data = parsed.data;
       const human =
         typeof data["human_summary"] === "string" && data["human_summary"].trim()
           ? (data["human_summary"] as string)
@@ -100,10 +111,11 @@ export function AgenticPublishBar() {
         (bypasses the usual crawl cooldown for that tick only).
         <br />
         <br />
-        <strong>All SEO lanes</strong> runs the same incremental-style SEO task <strong>once per pillar</strong>{" "}
-        (all ten <code>sc-…</code> lanes), pulling the next scored topic in each — long request (up to a few
-        minutes). Pushes primary and supporting keywords to Supabase <code>agentic_pipeline_stage_log</code>{" "}
-        for publishing handoff; it does <strong>not</strong> run Publishing or site upsert.
+        <strong>All SEO lanes</strong> first <strong>refills the topic bank</strong> (Serp + Firecrawl + Gemini for
+        each of the ten public pillars, <code>sc-…</code> ids), then runs the same incremental-style SEO task{" "}
+        <strong>once per pillar</strong> on those new topics. Very long request. Pushes primary and supporting
+        keywords to Supabase <code>agentic_pipeline_stage_log</code> for publishing handoff; it does{" "}
+        <strong>not</strong> run Publishing or site upsert.
       </p>
       <div className="admin-agentic-publish-bar__actions">
         <button

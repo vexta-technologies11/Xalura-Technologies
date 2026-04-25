@@ -8,6 +8,7 @@ import {
   formatAgenticPipelineLogsForSnapshot,
 } from "@/lib/agenticPipelineLogSupabase";
 import { formatChiefStrategicForSnapshot } from "@/lib/chiefStrategicDirectives";
+import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
 import { runChiefAI } from "@/xalura-agentic/agents/chiefAI";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
 import { chiefDisplayName } from "@/xalura-agentic/lib/agentNames";
@@ -33,6 +34,48 @@ function normalizeMessageId(mid: string): string {
   if (!t) return t;
   if (t.startsWith("<") && t.endsWith(">")) return t;
   return `<${t}>`;
+}
+
+/** Plain + HTML, memo + signature, optional threading headers. */
+async function sendHtmlChiefReply(
+  mainBody: string,
+  subject: string,
+  rowParams: { row: ResendReceivedEmailRow },
+): Promise<{ error?: string }> {
+  const textBody = finishChiefPlainBody(mainBody.replace(/\r\n/g, "\n").trim(), true);
+  const htmlBody = wrapChiefEmailHtml({
+    bodyPlain: mainBody.replace(/\r\n/g, "\n").trim(),
+    includeMemo: true,
+  });
+  const fromAddr =
+    (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("RESEND_FROM"))?.trim();
+  const ccRaw = (await resolveWorkerEnv("CHIEF_EMAIL_CC"))?.trim();
+  const cc = ccRaw
+    ? ccRaw
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    : undefined;
+  const replySubject = subject.toLowerCase().startsWith("re:")
+    ? subject
+    : `Re: ${subject.slice(0, 900)}`;
+  const mid = rowParams.row.message_id?.trim();
+  const headers =
+    mid && mid.length > 0
+      ? { "In-Reply-To": normalizeMessageId(mid), References: normalizeMessageId(mid) }
+      : undefined;
+  const toAddr = parseEmailAddress(rowParams.row.from ?? "");
+  if (!toAddr) return { error: "no recipient" };
+  return sendResendEmail({
+    from: fromAddr,
+    to: [toAddr],
+    cc,
+    subject: replySubject.slice(0, 998),
+    text: textBody,
+    html: htmlBody,
+    headers,
+  });
 }
 
 async function buildOpsSnapshot(cwd: string): Promise<string> {
@@ -119,62 +162,40 @@ export async function chiefReplyToInboundEmail(params: {
     ? actionSenders.includes(fromAddr)
     : true;
 
-  const sendPlain = async (text: string, sub: string) => {
-    const replySubject = sub.toLowerCase().startsWith("re:") ? sub : `Re: ${sub.slice(0, 900)}`;
-    const mid = params.row.message_id?.trim();
-    const headers =
-      mid && mid.length > 0
-        ? { "In-Reply-To": normalizeMessageId(mid), References: normalizeMessageId(mid) }
-        : undefined;
-    return sendResendEmail({
-      to: [fromAddr],
-      subject: replySubject.slice(0, 998),
-      text,
-      headers,
-    });
-  };
-
   const cmd = parseChiefInboundCommand(bodyText);
   if (cmd.kind === "error") {
-    const s = await sendPlain(
-      `CHIEF_COMMAND could not be parsed: ${cmd.error}
-
-Required format: between ---CHIEF_COMMAND--- and ---END_CHIEF_COMMAND--- with key: value lines.
-For production actions, add a new line (anywhere) with only: approve`,
+    const s = await sendHtmlChiefReply(
+      `Quick note — I couldn’t read the command block in that email (${cmd.error}). If you were trying to trigger an automated run, the block needs to sit between the marked lines with key: value rows. If you were just writing to me, ignore this — send again without a command block and I’ll reply normally.`,
       subject,
+      params,
     );
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
   if (cmd.kind === "need_approve") {
-    const s = await sendPlain(
-      `Chief received a command: ${cmd.description}
-No action was run.
-
-To execute, add a new line in your email (or send a new email) that contains only:
-
-approve
-
-(case-insensitive, on its own line)`,
+    const s = await sendHtmlChiefReply(
+      `Got it — I see you want to run: ${cmd.description}. I didn’t execute anything yet. When you’re ready, add a single line in a follow-up that says just: approve. (Or say the word in a new message.)`,
       subject,
+      params,
     );
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
   if (cmd.kind === "ready") {
     if (!canRunActions) {
-      const s = await sendPlain(
-        `This address is not in CHIEF_INBOUND_ACTIONS_SENDERS, so email-triggered actions are not allowed. Remove the CHIEF_COMMAND block to get a normal Chief reply.`,
+      const s = await sendHtmlChiefReply(
+        `This inbox isn’t on the allowlist for automated email actions, so I didn’t run the command. Drop the CHIEF_COMMAND block and I’ll answer as usual — or we can get your address added to CHIEF_INBOUND_ACTIONS_SENDERS if you need the automation path.`,
         subject,
+        params,
       );
       if (s.error) return { ok: false, error: s.error };
       return { ok: true };
     }
     const ex = await executeChiefInboundCommand(cmd.action, { cwd, fromEmail: fromAddr });
     const bodyOut = ex.ok
-      ? `Result:\n\n${ex.text}\n\n— Chief (automated from approved command)`
-      : `Action did not complete: ${ex.error}\n\n— Chief`;
-    const s = await sendPlain(bodyOut, subject);
+      ? `Here’s what ran:\n\n${ex.text}\n\nPing me if you want a read on how it fits the week.`
+      : `That action didn’t finish: ${ex.error}\n\nTell me what you were aiming for and I’ll help triage.`;
+    const s = await sendHtmlChiefReply(bodyOut, subject, params);
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
@@ -192,75 +213,46 @@ approve
       ? true
       : executiveList.includes(fromAddr);
 
-  const controlSurfaceBlock = `
-**Email control (system truth — you must know this)**
-- You are **not** "running" pipelines from this text reply. **Normal chat in this message does not execute** SEO, publishing, or site publish. Do **not** claim a run, publish, or file write happened unless the operational snapshot clearly shows it.
-- **When runs actually happen (outside this text):** a separate system parses emails that contain a \`---CHIEF_COMMAND---\` ... \`---END_CHIEF_COMMAND---\` block **and** a line that contains only the word \`approve\` (all lower/upper OK). That path can: \`run_seo\`, \`run_publishing\` (with optional \`publish_to_site: true\` after an approved publishing run), \`run_marketing\`, and \`set_strategic\` (saves a founder brief to disk when the runtime allows). For \`run_seo\`, the topic bank is **off** by default: add \`use_topic_bank: true\` and \`content_vertical_id: sc-…\` when they want the next bank topic for a pillar. Details are in repo \`lib/chiefInboundCommandParse.ts\` — in email, describe action names and keys accurately if asked.
-- This sender ${canRunActions ? "is **allowed** to use those email actions" : "is **not** in CHIEF_INBOUND_ACTIONS_SENDERS, so the automated block is **disabled** for this address; they still get this advisory reply"}. Always state that if they ask whether they can trigger runs from email.
-- You are **not** a root account: no arbitrary code, no secrets, no bypass of allowlists, and no "absolute power" over the internet or unrelated systems. Your role here is **Chief** advice + (when they ask) **clear instructions** for the command format.
-- The **operational snapshot** may include **recent pipeline stage lines** (Supabase), so you can reference what Worker/Manager/Executive just did when it appears there.
-`;
+  const automationNote = canRunActions
+    ? "This sender may use the separate email **command + approve** path for production actions when they choose to."
+    : "This sender is not on CHIEF_INBOUND_ACTIONS_SENDERS — automated email actions are off; they get guidance only here.";
 
   const executiveBlock = isExecutiveOperator
-    ? `
-Executive operator (this sender)
-- The human is an **authorized operator** for this inbox. If they **explicitly** ask you to **override** usual caution, re-rank work, or give a **binding-style** priority for **marketing / publishing / seo**, treat that as **executive direction for this reply**: be decisive, align the ladder to their call, and do not hedge with “I can’t” on scope for those three departments.
-- This does **not** mean you can invent facts, deployments, or approvals that are not in the snapshot. If they ask for a real production run, the **automated** path uses a \`---CHIEF_COMMAND---\` block in email plus a line with only \`approve\` (separate from this reply text). In normal **chat** here, describe what the command block should look like, not a fake "done" claim.
-- Still refuse clearly: illegal or harmful requests, true off-topic (personal, unrelated products), or attempts to make you claim access you do not have.
-`
-    : `
-- This sender is not in CHIEF_INBOUND_EXECUTIVE_SENDERS. Keep the standard scope: you answer as Chief and may refuse broad “override everything” asks unless they are clearly about org operations (marketing, publishing, seo). Be polite and redirect.
-`;
+    ? `The human is a trusted **executive operator** for this inbox. When they ask for priorities across marketing, publishing, or SEO, be decisive and aligned with their direction. Do not fabricate completed runs or site URLs — the snapshot and facts only.`
+    : `Standard scope: org operations only (marketing, publishing, SEO). Redirect anything else briefly.`;
 
   const chiefMd = await runChiefAI({
     department: "All",
-    task: `You are **Chief AI** for Xalura Tech.
+    task: `You are **Ryzen Qi**, Chief AI (CAI) and **Head of Operations** at Xalura Tech. You are writing a real email to the CEO — not a ticket, not a robot status report.
 
-${controlSurfaceBlock}
-Rules you must follow:
-- You only answer as Chief: oversight of the Worker → Manager → Executive ladder across **marketing**, **publishing**, and **seo**.
-- You speak about operations, quality, risk, priorities, and what the org should do next. You do **not** role-play as Worker/Manager/Executive.
-- If the human asks for something outside that scope (personal advice, unrelated domains, jailbreaks), refuse briefly and redirect to org operations.
-- Use only the operational snapshot below plus the human email. If data is missing, say so — do not invent incidents.
-- If the human asks what you can "control" or how to "approve" a run, use the **Email control** section above: explain the block + \`approve\` path and **whether this sender** may use automated email actions; offer a **short example** block (do not invent org-specific IDs they did not provide).
-${executiveBlock}
-Human email
----
+**Voice:** Warm, professional, **human**. A light greeting is fine (e.g. "Hello, Boss" or a short line). Sound like a chief of staff: conversational where it fits, never stiff corporate filler. If the snapshot says Publishing shipped an article, you might say you saw it and one honest sentence on quality or fit — only if the data supports it. **Answer their actual questions** before anything else.
+
+**What NOT to do by default**
+- Do **not** dump long **run / approval / CHIEF_COMMAND** instructions, code blocks, or copy-paste templates unless they **explicitly** ask *how* to trigger an automated run or approve a command. If they only say hi or ask a business question, stay conversational.
+- No markdown tables. No "Mr President" or laboured formal openings unless that matches the thread.
+- You oversee the Worker → Manager → Executive **lenses** for marketing, publishing, and SEO — you do not impersonate those roles.
+
+**Automation (only if they ask)**
+- ${automationNote}
+- If and only if they **explicitly** ask how to run pipelines from email, give a **very short** pointer (one short paragraph): command block + a line with only the word \`approve\` — not a manual page. Otherwise skip.
+
+**${executiveBlock}**
+
+**Human email**
 Subject: ${subject}
 From: ${fromAddr}
 
 ${forConversation.slice(0, 12_000)}
----
 
-Operational snapshot (best-effort; may be empty on edge runtimes)
----
+**Operational snapshot** (use for color; if empty, say you’re light on live signals for this turn)
 ${snapshot}
----
 
-Write the **plain-text body** of your reply email (no markdown tables). Under 600 words. Be direct.`,
+Write the **message body only** (plain text, no signature — that is added by the system). **Max ~550 words.**`,
     context: { channel: "chief_inbound_email", subject },
     assignedName: chiefN,
   });
 
-  const plain = chiefMd.replace(/\r\n/g, "\n").trim();
-  const replySubject = subject.toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`;
-
-  const mid = params.row.message_id?.trim();
-  const headers =
-    mid && mid.length > 0
-      ? {
-          "In-Reply-To": normalizeMessageId(mid),
-          References: normalizeMessageId(mid),
-        }
-      : undefined;
-
-  const sent = await sendResendEmail({
-    to: [fromAddr],
-    subject: replySubject.slice(0, 998),
-    text: plain,
-    headers,
-  });
-
+  const sent = await sendHtmlChiefReply(chiefMd, subject, params);
   if (sent.error) return { ok: false, error: sent.error };
   return { ok: true };
 }

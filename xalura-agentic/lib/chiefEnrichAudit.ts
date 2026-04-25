@@ -1,4 +1,5 @@
 import path from "path";
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { appendFileUtf8Agentic, readFileUtf8Agentic } from "./agenticDisk";
 import { runChiefAI } from "../agents/chiefAI";
 import type { DepartmentId } from "../engine/departments";
@@ -91,6 +92,13 @@ ${existing.slice(0, 28_000)}`,
       cwdLabel: cwd,
       agentLaneKey: params.agentLaneKey,
     });
+    fireAgenticPipelineLog({
+      department: "chief",
+      stage: "audit_enrich",
+      event: "ok",
+      summary: `Chief AI appended live session to ${params.auditFileRelative.replace(/\\/g, "/")} (${params.department})`,
+      detail: { agent_lane: params.agentLaneKey ?? null },
+    });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -98,6 +106,13 @@ ${existing.slice(0, 28_000)}`,
       abs,
       `\n\n---\n\n## Chief AI (live session)\n\n_Chief enrichment failed: ${msg.replace(/\s+/g, " ").slice(0, 400)}_\n`,
     );
+    fireAgenticPipelineLog({
+      department: "chief",
+      stage: "audit_enrich",
+      event: "error",
+      summary: msg.replace(/\s+/g, " ").slice(0, 500),
+      detail: { audit: params.auditFileRelative },
+    });
     return { ok: false, error: msg };
   }
 }

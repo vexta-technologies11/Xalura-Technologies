@@ -220,14 +220,14 @@ export function humanChiefDigestEmailBody(input: {
   agentLaneKey?: string;
   cwdLabel?: string;
 }): { subject: string; text: string } {
-  const lane = input.agentLaneKey ? ` Lane ${input.agentLaneKey}.` : "";
-  const cwd = input.cwdLabel ? ` Host: ${input.cwdLabel}.` : "";
+  const lane = input.agentLaneKey ? ` (${input.agentLaneKey})` : "";
+  const cwd = input.cwdLabel ? ` [${input.cwdLabel}]` : "";
   const text = clipWords(
-    `Mr President — Chief AI, plain English.${lane}${cwd} The ${input.department} team finished another audit cycle; I appended notes to ${input.auditFileRelative}. That is routine governance so you can see discipline before the next publish wave, not an outage alert.`,
-    98,
+    `Hello, Boss — quick operations note. ${input.department} just closed another audit window${lane}. I left Chief commentary on ${input.auditFileRelative}; it’s the normal governance loop so you can see how the ladder’s behaving before the next publish push — not an alert.${cwd} If you want a deeper read on that file, just ask.`,
+    120,
   );
   return {
-    subject: `Chief AI — ${input.department} audit note`,
+    subject: `Ops note — ${input.department} audit (Chief AI)`,
     text,
   };
 }

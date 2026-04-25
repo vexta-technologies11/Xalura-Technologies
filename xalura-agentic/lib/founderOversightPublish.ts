@@ -1,4 +1,5 @@
 import path from "path";
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { readFileUtf8Agentic } from "./agenticDisk";
 import type { ChiefPublishDigestParams } from "./chiefPublishDigest";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
@@ -387,5 +388,20 @@ ${graphicSection}
       },
       p.cwd,
     );
+    fireAgenticPipelineLog({
+      department: "compliance",
+      stage: "founder_oversight_email",
+      event: "error",
+      summary: `Compliance email Resend failed: ${sent.error} (slug ${p.slug})`,
+      detail: { slug: p.slug, to },
+    });
+  } else {
+    fireAgenticPipelineLog({
+      department: "compliance",
+      stage: "founder_oversight_email",
+      event: "sent",
+      summary: `Compliance / founder oversight memo sent for “${p.title.slice(0, 80)}” (${p.slug})`,
+      detail: { slug: p.slug, to },
+    });
   }
 }

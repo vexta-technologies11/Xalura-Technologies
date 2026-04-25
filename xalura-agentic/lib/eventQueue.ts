@@ -46,6 +46,8 @@ export type TopicBankRefreshedPayload = {
   crawl_count: number;
   vertical_catalog_size?: number;
   trend_log_path?: string;
+  /** When set, bank was refilled with one `sc-…` topic per public subcategory. */
+  mode?: "catalog_serp" | "ten_pillars";
 };
 
 export type AgenticEvent =

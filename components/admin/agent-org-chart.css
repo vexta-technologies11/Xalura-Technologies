@@ -482,9 +482,11 @@
   text-align: left;
 }
 
-/* Band workers must not inherit the 320px cap when the grid cell is wider (2×+ width). */
+/* Band workers: keep the same cap as other pills (e.g. Graphic Designer ~320px); center in wide grid cells. */
 .ah-tree__worker-rail .ah-pill.ah-pill--band {
-  max-width: none;
+  max-width: min(320px, 100%);
+  width: 100%;
+  justify-self: center;
 }
 
 .ah-pill--chief {
@@ -1039,8 +1041,8 @@
   --ah-pillar-cols: 2;
   display: grid;
   grid-auto-rows: auto;
-  justify-items: stretch;
-  align-items: stretch;
+  justify-items: center;
+  align-items: start;
   gap: 6px 6px;
   width: 100%;
   min-width: 0;
@@ -1054,7 +1056,7 @@
 .ah-tree__worker-rail-item {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   width: 100%;
   max-width: none;
   min-width: 0;
@@ -1075,7 +1077,7 @@
 }
 
 .ah-tree__worker-rail-item .ah-pill.ah-pill--band {
-  max-width: 100%;
+  max-width: min(320px, 100%);
   width: 100%;
   box-sizing: border-box;
 }
@@ -1255,18 +1257,35 @@
   border: 1px solid rgba(51, 65, 85, 0.5);
 }
 
-.admin-agentic-activity-feed__list {
-  margin: 0;
-  padding: 0 0 0 1.1rem;
-  list-style: decimal;
+.admin-agentic-activity-feed__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   color: #cbd5e1;
   font-size: 0.78rem;
   line-height: 1.5;
 }
 
+.admin-agentic-activity-feed__dept {
+  margin: 10px 0 6px;
+  padding: 0 0 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+}
+
+.admin-agentic-activity-feed__body > .admin-agentic-activity-feed__dept:first-child {
+  margin-top: 0;
+}
+
 .admin-agentic-activity-feed__line {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.45rem 0;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
+  color: #cbd5e1;
 }

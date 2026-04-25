@@ -47,6 +47,104 @@ function formatPipelineFeedLine(r: PipelineLogFeedRow): string {
   return `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
 }
 
+type PipelineDeptKey = "seo" | "publishing" | "marketing" | "chief" | "compliance" | "other";
+
+const PIPELINE_DEPT_LABEL: Record<PipelineDeptKey, string> = {
+  seo: "SEO",
+  publishing: "Publishing",
+  marketing: "Marketing",
+  chief: "Chief AI",
+  compliance: "Head of Compliance",
+  other: "Other",
+};
+
+const PIPELINE_DEPT_ORDER: Record<PipelineDeptKey, number> = {
+  seo: 0,
+  publishing: 1,
+  marketing: 2,
+  chief: 3,
+  compliance: 4,
+  other: 5,
+};
+
+/** Synthetic line prefix (never from Supabase) so the word cap can round-trip section headers. */
+const ACTIVITY_DEPT_SECTION_PREFIX = "\u200cdep|";
+
+function normalizePipelineDepartment(raw: string): PipelineDeptKey {
+  const s = raw.trim().toLowerCase();
+  if (!s) return "other";
+  if (s === "seo") return "seo";
+  if (s === "publishing") return "publishing";
+  if (s === "marketing") return "marketing";
+  if (s === "chief" || s.startsWith("chief") || s.includes("chiefai") || s.includes("chief ai")) {
+    return "chief";
+  }
+  if (s === "compliance" || s.includes("compliance") || s.includes("head of compliance")) {
+    return "compliance";
+  }
+  return "other";
+}
+
+function makeActivityDeptSectionLine(k: PipelineDeptKey): string {
+  return `${ACTIVITY_DEPT_SECTION_PREFIX}${k}|${PIPELINE_DEPT_LABEL[k]}`;
+}
+
+function parseActivityDeptSectionLine(line: string): { key: PipelineDeptKey; label: string } | null {
+  if (!line.startsWith(ACTIVITY_DEPT_SECTION_PREFIX)) return null;
+  const rest = line.slice(ACTIVITY_DEPT_SECTION_PREFIX.length);
+  const i = rest.indexOf("|");
+  if (i < 0) return null;
+  const key = rest.slice(0, i) as PipelineDeptKey;
+  const label = rest.slice(i + 1);
+  if (key in PIPELINE_DEPT_LABEL) return { key, label };
+  return { key: "other", label };
+}
+
+function buildActivityFeedLinesByDepartment(rows: PipelineLogFeedRow[]): string[] {
+  const by = new Map<PipelineDeptKey, PipelineLogFeedRow[]>();
+  for (const r of rows) {
+    const k = normalizePipelineDepartment(r.department);
+    if (!by.has(k)) by.set(k, []);
+    by.get(k)!.push(r);
+  }
+  const keys: PipelineDeptKey[] = Array.from(by.keys()).filter(
+    (k) => (by.get(k) ?? []).length > 0,
+  );
+  const maxT = (list: PipelineLogFeedRow[]) =>
+    list.length > 0 ? Math.max(...list.map((r) => new Date(r.created_at).getTime())) : 0;
+  keys.sort((a: PipelineDeptKey, b: PipelineDeptKey) => {
+    const d = maxT(by.get(b)!) - maxT(by.get(a)!);
+    if (d !== 0) return d;
+    return PIPELINE_DEPT_ORDER[a] - PIPELINE_DEPT_ORDER[b];
+  });
+  const out: string[] = [];
+  for (const k of keys) {
+    const list = by.get(k)!;
+    out.push(makeActivityDeptSectionLine(k));
+    for (const r of list) {
+      out.push(formatPipelineFeedLine(r));
+    }
+  }
+  return out;
+}
+
+type ActivityFeedItem =
+  | { t: "section"; label: string }
+  | { t: "row"; text: string };
+
+function cappedActivityLinesToFeedItems(capped: string[]): ActivityFeedItem[] {
+  const items: ActivityFeedItem[] = [];
+  for (const line of capped) {
+    const p = parseActivityDeptSectionLine(line);
+    if (p) {
+      items.push({ t: "section", label: p.label });
+    } else {
+      items.push({ t: "row", text: line });
+    }
+  }
+  return items;
+}
+
 const ZOOM_KEY = "xalura-hierarchy-chart-zoom";
 const LAYOUT_KEY = "xalura-hierarchy-worker-layout";
 const ZOOM_MIN = 0.35;
@@ -548,7 +646,7 @@ export function AgenticHierarchyLive() {
 
   const agentNames = chart?.agentNames;
 
-  const [activityLines, setActivityLines] = useState<string[]>([]);
+  const [activityItems, setActivityItems] = useState<ActivityFeedItem[]>([]);
   const [activityErr, setActivityErr] = useState<string | null>(null);
   const [activityWordNote, setActivityWordNote] = useState<string | null>(null);
 
@@ -557,23 +655,34 @@ export function AgenticHierarchyLive() {
     async function loadFeed() {
       try {
         const res = await fetch("/api/admin/agentic-activity-feed?limit=400", { credentials: "include" });
-        const j = (await res.json()) as { ok?: boolean; rows?: PipelineLogFeedRow[]; error?: string };
+        const parsed = await readResponseJson<{ ok?: boolean; rows?: PipelineLogFeedRow[]; error?: string }>(res);
         if (cancelled) return;
-        if (!res.ok || j.ok !== true || !j.rows) {
-          setActivityErr(j.error ?? res.statusText);
+        if (!parsed.ok) {
+          setActivityErr(parsed.error);
+          return;
+        }
+        const j = parsed.data;
+        if (!res.ok) {
+          setActivityErr(typeof j["error"] === "string" ? j["error"] : res.statusText);
+          return;
+        }
+        if (j.ok !== true || !j.rows) {
+          setActivityErr(typeof j["error"] === "string" ? j["error"] : "Activity feed response invalid");
           return;
         }
         setActivityErr(null);
-        const lines = j.rows.map(formatPipelineFeedLine);
-        const capped = capNewestFirstLinesToWordBudget(lines, MAX_ACTIVITY_WORDS);
-        const before = countWords(lines.join(" "));
+        const byDept = buildActivityFeedLinesByDepartment(j.rows);
+        const capped = capNewestFirstLinesToWordBudget(byDept, MAX_ACTIVITY_WORDS);
+        const before = countWords(byDept.join(" "));
         const after = countWords(capped.join(" "));
         if (before > after) {
-          setActivityWordNote(`Showing newest first; trimmed to ${MAX_ACTIVITY_WORDS} words (full history stays in Supabase).`);
+          setActivityWordNote(
+            `Newest first within each department; display trimmed to ${MAX_ACTIVITY_WORDS} words (full history stays in Supabase).`,
+          );
         } else {
           setActivityWordNote(null);
         }
-        setActivityLines(capped);
+        setActivityItems(cappedActivityLinesToFeedItems(capped));
       } catch (e) {
         if (!cancelled) {
           setActivityErr(e instanceof Error ? e.message : String(e));
@@ -610,8 +719,9 @@ export function AgenticHierarchyLive() {
           <p className="admin-agentic-live__sub">
             Each card shows <strong>name</strong>, <strong>title</strong>, and an optional <strong>avatar</strong> (JPG/PNG
             via URL in <code>config/agents.json</code> — use <code>public/agentic-avatars/…</code> or an https link). Open
-            <strong> Identity</strong> to edit. Activity for every role (Worker → Chief) comes from the same Supabase table as
-            the pipeline: <code>agentic_pipeline_stage_log</code> in the <strong>feed below</strong> (newest first, display
+            <strong> Identity</strong> to edit.             Activity for every role (Worker → Chief) comes from the same Supabase table as
+            the pipeline: <code>agentic_pipeline_stage_log</code> in the <strong>feed below</strong> (grouped by department
+            — SEO, Publishing, Marketing, Chief AI, Head of Compliance — with newest entries first within each group, display
             capped at 1,000 words). Use the chart zoom bar and <strong>⌘/Ctrl + scroll</strong> on the tree. The four report
             lines stay <strong>one row</strong>; at 100% zoom the row can scale to fit. Under SEO / Publishing,{" "}
             <strong>Auto</strong> / <strong>Band</strong> reflows pillar workers in a grid as you zoom out.
@@ -870,11 +980,11 @@ export function AgenticHierarchyLive() {
         <p className="admin-agentic-live__warn">Last failure: {snap.failed_hint}</p>
       ) : null}
 
-      <div className="admin-agentic-activity-feed" aria-label="Supabase agent activity from pipeline log">
-        <h3 className="admin-agentic-activity-feed__title">Activity · all agents (Supabase <code>agentic_pipeline_stage_log</code>)</h3>
+      <div className="admin-agentic-activity-feed" aria-label="Supabase agent activity from pipeline log by department">
+        <h3 className="admin-agentic-activity-feed__title">Activity by department (Supabase <code>agentic_pipeline_stage_log</code>)</h3>
         <p className="admin-agentic-activity-feed__sub">
-          Newest first. Display is limited to <strong>{MAX_ACTIVITY_WORDS} words</strong> so the dashboard stays light; data is
-          not deleted in the database.
+          Grouped by department, newest first within each group. Sections are ordered by most recent log time in that department.
+          Display is limited to <strong>{MAX_ACTIVITY_WORDS} words</strong>; data is not deleted in the database.
           {activityWordNote != null && activityWordNote ? (
             <span className="admin-agentic-activity-feed__note"> {activityWordNote}</span>
           ) : null}
@@ -883,16 +993,22 @@ export function AgenticHierarchyLive() {
           <p className="admin-agentic-live__err">{activityErr}</p>
         ) : null}
         <div className="admin-agentic-activity-feed__scroll" tabIndex={0}>
-          {activityLines.length === 0 && !activityErr ? (
+          {activityItems.length === 0 && !activityErr ? (
             <p className="admin-agentic-activity-feed__empty">No log rows yet — run a pipeline (or set <code>SUPABASE_SERVICE_ROLE_KEY</code>).</p>
           ) : (
-            <ol className="admin-agentic-activity-feed__list">
-              {activityLines.map((line, i) => (
-                <li key={i} className="admin-agentic-activity-feed__line">
-                  {line}
-                </li>
-              ))}
-            </ol>
+            <div className="admin-agentic-activity-feed__body">
+              {activityItems.map((it, i) =>
+                it.t === "section" ? (
+                  <h4 key={`s-${i}-${it.label}`} className="admin-agentic-activity-feed__dept">
+                    {it.label}
+                  </h4>
+                ) : (
+                  <p key={`r-${i}`} className="admin-agentic-activity-feed__line">
+                    {it.text}
+                  </p>
+                ),
+              )}
+            </div>
           )}
         </div>
       </div>

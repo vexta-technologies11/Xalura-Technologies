@@ -1,3 +1,4 @@
+import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
 import { runChiefAI } from "../agents/chiefAI";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
@@ -79,20 +80,18 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
   try {
     body = await runChiefAI({
       department: "All",
-      task: `A Publishing article was just approved and published to the public site.
+      task: `You are Ryzen Qi, Chief AI and Head of Operations. A **live article** from Publishing just went out to the public site. Write an email to the CEO.
 
-You must write the **body of an email** to leadership (plain text, no markdown tables). Use exactly these labeled sections in order:
+**Voice:** Like a strong COO / chief of staff — clear, professional, a little warmth. You may start with a short "Hello, Boss" style line. Sound human: one sentence on what shipped and why it matters for our line, not a status robot.
 
-Cycle production
-One tight paragraph: what shipped this run and how it fits our publishing motion.
+**Structure (plain text, no markdown tables, no section labels in ALL CAPS):**
+1) One short opening (greeting + what published).
+2) A tight read on this drop (angle, quality, fit for Xalura’s motion) — only what the briefing supports.
+3) Risks or follow-ups in plain language (failure queue, Zernio line). If nothing serious, say so in one line.
 
-Failures and risks
-Bullet or short lines: anything concerning from the failure list, Zernio line, or pipeline signals. If nothing material, say "Nothing blocking noted."
+**Do not** paste internal run codes, approval instructions, or long technical dumps unless the briefing already shows a concrete blocker worth naming.
 
-Chief read
-One short paragraph: your direct gut read on this cycle (energy, quality, discipline).
-
-Stay under 400 words total. Be specific to the briefing; do not invent URLs or metrics not shown.
+Max ~350 words. No email signature (added separately).
 
 BRIEFING:
 ---
@@ -103,11 +102,25 @@ ${briefing}
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    body = `[Chief AI call failed: ${msg}]\n\n---\n${briefing}`;
+    body = `Hello, Boss — I hit a snag generating the full note (${msg}). Here’s the raw briefing so nothing’s lost:\n\n${briefing.slice(0, 6_000)}`;
   }
 
-  const subject = `[Xalura agentic] Published — ${params.title.slice(0, 72)}`;
-  const sent = await sendResendEmail({ to, subject, text: body });
+  const subject = `Published: ${params.title.slice(0, 72)} — Chief note`;
+  const textOut = finishChiefPlainBody(body.replace(/\r\n/g, "\n").trim(), true);
+  const htmlOut = wrapChiefEmailHtml({
+    bodyPlain: body.replace(/\r\n/g, "\n").trim(),
+    includeMemo: true,
+  });
+  const fromChief =
+    (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("RESEND_FROM"))?.trim();
+  const sent = await sendResendEmail({
+    from: fromChief,
+    to,
+    subject: `[Xalura] ${subject}`,
+    text: textOut,
+    html: htmlOut,
+  });
   if (sent.error) {
     appendFailedOperation({
       kind: "other",

@@ -1,51 +1,113 @@
 {
-  "note": "Per-pillar Worker names (seo/publishing `workersByPillar`) are the 10 public library columns (`sc-…`); used in live hierarchy and Worker `assignedName` when that lane runs. Department `worker.name` is the fallback when a lane has no entry. Empty strings keep generated pillar labels in the UI.",
+  "departments": {
+    "marketing": {
+      "worker": {
+        "name": ""
+      },
+      "manager": {
+        "name": ""
+      },
+      "executive": {
+        "name": ""
+      }
+    },
+    "publishing": {
+      "worker": {
+        "name": ""
+      },
+      "manager": {
+        "name": ""
+      },
+      "executive": {
+        "name": ""
+      },
+      "workersByPillar": {
+        "sc-smb-automation": {
+          "name": "Mia Park"
+        },
+        "sc-content-marketing": {
+          "name": "Jordan Flores"
+        },
+        "sc-support-chatbots": {
+          "name": "Casey Okonkwo"
+        },
+        "sc-dev-productivity": {
+          "name": "Rina Shah"
+        },
+        "sc-ecommerce-personalization": {
+          "name": "Dev Morgan"
+        },
+        "sc-workplace-productivity": {
+          "name": "Alex Wright"
+        },
+        "sc-creative-design": {
+          "name": "Jamie Nguyen"
+        },
+        "sc-data-insights": {
+          "name": "Priya Desai"
+        },
+        "sc-education-learning": {
+          "name": "Sam Rivera"
+        },
+        "sc-personal-productivity": {
+          "name": "Noah Chen"
+        }
+      }
+    },
+    "seo": {
+      "worker": {
+        "name": ""
+      },
+      "manager": {
+        "name": ""
+      },
+      "executive": {
+        "name": ""
+      },
+      "workersByPillar": {
+        "sc-smb-automation": {
+          "name": "Avery Kim"
+        },
+        "sc-content-marketing": {
+          "name": "Noah Singh"
+        },
+        "sc-support-chatbots": {
+          "name": "Sam Okonkwo"
+        },
+        "sc-dev-productivity": {
+          "name": "Rina Patel"
+        },
+        "sc-ecommerce-personalization": {
+          "name": "Chris Morgan"
+        },
+        "sc-workplace-productivity": {
+          "name": "Taylor Brooks"
+        },
+        "sc-creative-design": {
+          "name": "Jamie Kim"
+        },
+        "sc-data-insights": {
+          "name": "Priya Nair"
+        },
+        "sc-education-learning": {
+          "name": "Alex Rivera"
+        },
+        "sc-personal-productivity": {
+          "name": "Morgan Lee"
+        }
+      }
+    }
+  },
+  "chiefAI": {
+    "name": "Ryzen Qi",
+    "title": "CAI | Head of Operations",
+    "avatar": ""
+  },
   "complianceOfficer": {
     "name": ""
   },
   "graphicDesigner": {
     "name": ""
   },
-  "departments": {
-    "marketing": {
-      "worker": { "name": "" },
-      "manager": { "name": "" },
-      "executive": { "name": "" }
-    },
-    "publishing": {
-      "worker": { "name": "" },
-      "manager": { "name": "" },
-      "executive": { "name": "" },
-      "workersByPillar": {
-        "sc-smb-automation": { "name": "Mia Park" },
-        "sc-content-marketing": { "name": "Jordan Flores" },
-        "sc-support-chatbots": { "name": "Casey Okonkwo" },
-        "sc-dev-productivity": { "name": "Rina Shah" },
-        "sc-ecommerce-personalization": { "name": "Dev Morgan" },
-        "sc-workplace-productivity": { "name": "Alex Wright" },
-        "sc-creative-design": { "name": "Jamie Nguyen" },
-        "sc-data-insights": { "name": "Priya Desai" },
-        "sc-education-learning": { "name": "Sam Rivera" },
-        "sc-personal-productivity": { "name": "Noah Chen" }
-      }
-    },
-    "seo": {
-      "worker": { "name": "" },
-      "manager": { "name": "" },
-      "executive": { "name": "" },
-      "workersByPillar": {
-        "sc-smb-automation": { "name": "Avery Kim" },
-        "sc-content-marketing": { "name": "Noah Singh" },
-        "sc-support-chatbots": { "name": "Sam Okonkwo" },
-        "sc-dev-productivity": { "name": "Rina Patel" },
-        "sc-ecommerce-personalization": { "name": "Chris Morgan" },
-        "sc-workplace-productivity": { "name": "Taylor Brooks" },
-        "sc-creative-design": { "name": "Jamie Kim" },
-        "sc-data-insights": { "name": "Priya Nair" },
-        "sc-education-learning": { "name": "Alex Rivera" },
-        "sc-personal-productivity": { "name": "Morgan Lee" }
-      }
-    }
-  },
-  "chiefAI": { "name": "" }
+  "note": "Per-pillar Worker names (seo/publishing `workersByPillar`) are the 10 public library columns (`sc-…`); used in live hierarchy and Worker `assignedName` when that lane runs. Department `worker.name` is the fallback when a lane has no entry. Empty strings keep generated pillar labels in the UI."
 }

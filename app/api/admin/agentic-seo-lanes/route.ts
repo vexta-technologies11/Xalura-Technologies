@@ -8,11 +8,15 @@ import { createClient } from "@/lib/supabase/server";
 import { isAgenticDiskWritable } from "@/xalura-agentic/lib/agenticDisk";
 import { getIncrementalSeoTask } from "@/xalura-agentic/lib/incrementalContentCron";
 import { shouldForceTopicBankForVertical } from "@/xalura-agentic/lib/contentWorkflow/topicBank";
+import { refreshTopicBankForTenPillars } from "@/xalura-agentic/lib/contentWorkflow/pillarTopicBankRefresh";
 import { runSeoPipeline } from "@/xalura-agentic/departments/seo";
 
 export const dynamic = "force-dynamic";
-/** Vercel / compatible hosts: long run (10 sequential SEO lanes). */
-export const maxDuration = 300;
+/**
+ * Pillar bank refresh: 10× (Serp + Firecrawl + Gemini) + 10× full SEO pipelines — allow a long window.
+ * If your host caps lower, run from a local script or increase the platform limit.
+ */
+export const maxDuration = 800;
 
 type LaneResult =
   | {
@@ -31,8 +35,9 @@ type LaneResult =
     };
 
 /**
- * Logged-in admin. Runs **one** SEO pipeline per public pillar (`sc-…` lane), in order:
- * next scored unused topic in that vertical (topic bank) → same incremental SEO task as cron.
+ * Logged-in admin. **First** refills the topic bank: Serp + Firecrawl + Gemini for **each** of the 10
+ * public pillars (`sc-…`), replacing bank rows with fresh topics (aligned `vertical_id` + subcategory).
+ * **Then** runs one SEO pipeline per pillar so the Worker → Manager handoff uses those new topics.
  * Writes an extra `admin_sweep` / `keywords_for_publishing` row to `agentic_pipeline_stage_log` with
  * primary + supporting keywords for handoff to Publishing (no publishing step here).
  */
@@ -46,6 +51,22 @@ export async function POST() {
   }
 
   const cwd = process.cwd();
+  const pillar = await refreshTopicBankForTenPillars(cwd, {
+    skipAudit: true,
+    forceSerp: true,
+  });
+  if (!pillar.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        step: "pillar_topic_bank_refresh",
+        error: pillar.error,
+        agentic_disk_writable: isAgenticDiskWritable(),
+      },
+      { status: 502 },
+    );
+  }
+
   const task = getIncrementalSeoTask();
   const results: LaneResult[] = [];
 
@@ -143,6 +164,11 @@ export async function POST() {
   const okCount = results.filter((x) => x.status === "approved").length;
   return NextResponse.json({
     ok: true,
+    pillar_topic_bank: {
+      ok: true,
+      topicCount: pillar.topicCount,
+      skippedSerp: pillar.skippedSerp === true,
+    },
     agentic_disk_writable: isAgenticDiskWritable(),
     task_preview: task.slice(0, 200),
     lanes: ARTICLE_SUBCATEGORY_AGENT_LANE_ID_LIST.length,

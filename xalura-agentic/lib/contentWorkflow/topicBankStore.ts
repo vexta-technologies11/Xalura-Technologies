@@ -1,6 +1,10 @@
 import type { TopicBankEntry, TopicBankFile } from "./types";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { topicBankPath } from "./paths";
+import {
+  articleSubcategoryTitleForAgentLaneId,
+  isArticleSubcategoryAgentLaneId,
+} from "@/lib/articleSubcategoryAgentLanes";
 import { defaultVerticalId, getVerticalById } from "./contentVerticals";
 import {
   fetchTopicBankFromSupabase,
@@ -42,6 +46,12 @@ function migrateVerticalLabels(bank: TopicBankFile): { bank: TopicBankFile; muta
     if (v && !row.vertical_label) {
       row.vertical_label = v.label;
       mutated = true;
+    } else if (!v && isArticleSubcategoryAgentLaneId(row.vertical_id)) {
+      const title = articleSubcategoryTitleForAgentLaneId(row.vertical_id);
+      if (title && !row.vertical_label) {
+        row.vertical_label = title;
+        mutated = true;
+      }
     }
   }
   return { bank: { ...bank, topics }, mutated };

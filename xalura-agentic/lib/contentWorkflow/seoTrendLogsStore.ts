@@ -1,3 +1,4 @@
+import { articleSubcategoryTitleForAgentLaneId } from "@/lib/articleSubcategoryAgentLanes";
 import type { TopicBankEntry, TopicBankFile } from "./types";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { seoTrendLogsPath } from "./paths";
@@ -37,10 +38,12 @@ export function readSeoTrendLogs(cwd: string): SeoTrendLogsFile {
 export function writeSeoTrendLogsFromBank(cwd: string, bank: TopicBankFile): void {
   const entries: SeoTrendLogEntry[] = (bank.topics ?? []).map((t) => {
     const v = getVerticalById(t.vertical_id);
+    const pillar =
+      v == null ? articleSubcategoryTitleForAgentLaneId(t.vertical_id) : null;
     return {
       rank: t.rank,
       vertical_id: t.vertical_id,
-      vertical_label: t.vertical_label ?? v?.label ?? t.vertical_id,
+      vertical_label: t.vertical_label ?? v?.label ?? pillar ?? t.vertical_id,
       keyword: t.keyword,
       subcategory: t.subcategory,
       angle: t.angle,
