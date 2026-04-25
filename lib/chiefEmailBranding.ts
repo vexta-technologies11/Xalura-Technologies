@@ -1,6 +1,7 @@
 /**
- * Chief AI (Ryzen Qi) — consistent memo line + signature for inbound and digest emails.
+ * Ryzen Qi (CAI | Head of Operations) — memo line + signature for Chief email bodies.
  * Logo: `public/email/xalura-xt-logo.png` (served as `/email/xalura-xt-logo.png`).
+ * HTML avoids gray card backgrounds; uses `color-scheme` + inherited colors for light/dark in the client.
  */
 
 function publicSiteBaseUrl(): string {
@@ -45,16 +46,16 @@ export function chiefEmailLogoUrlSync(): string {
   return `${publicSiteBaseUrl()}/email/xalura-xt-logo.png`;
 }
 
-/** Minimal HTML for clients that render HTML; includes logo. */
+/** Minimal HTML for clients that render HTML; includes logo. No fixed page/card backgrounds so light/dark can follow the client. */
 export function chiefEmailSignatureHtmlSync(): string {
   const src = chiefEmailLogoUrlSync();
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:16px;max-width:420px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#0f172a;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;padding-top:8px;max-width:420px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:inherit;">
 <tr><td style="padding:0 16px 12px 0;vertical-align:top;"><img src="${src}" width="120" height="auto" alt="Xalura Tech" style="display:block;border:0;max-width:120px;height:auto;" /></td>
 <td style="vertical-align:top;padding-top:4px;">
 <div style="font-weight:600;">Ryzen Qi</div>
-<div style="color:#64748b;font-size:13px;">CAI | Head of Operations</div>
-<div style="margin-top:8px;font-size:13px;">Phone: <a href="tel:+17154911674" style="color:#2563eb;">(715) 491-1674</a></div>
-<div style="font-size:13px;">Email: <a href="mailto:RyzenQi@xaluratech.com" style="color:#2563eb;">RyzenQi@xaluratech.com</a></div>
+<div style="font-size:13px;opacity:0.9;">CAI | Head of Operations</div>
+<div style="margin-top:8px;font-size:13px;">Phone: <a href="tel:+17154911674" style="color:inherit;">(715) 491-1674</a></div>
+<div style="font-size:13px;">Email: <a href="mailto:RyzenQi@xaluratech.com" style="color:inherit;">RyzenQi@xaluratech.com</a></div>
 </td></tr></table>`;
 }
 
@@ -71,7 +72,10 @@ export function plainToHtmlParagraphs(text: string): string {
   if (!t) return "";
   return t
     .split(/\n\n+/)
-    .map((p) => `<p style="margin:0 0 12px 0;line-height:1.55;color:#0f172a;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 12px 0;line-height:1.55;color:inherit;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`,
+    )
     .join("");
 }
 
@@ -82,14 +86,15 @@ export function wrapChiefEmailHtml(params: {
   const memoHtml =
     params.includeMemo === false
       ? ""
-      : `<div style="font-size:12px;color:#64748b;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;line-height:1.5;">${chiefEmailMemoBlockSync()
+      : `<div style="font-size:12px;padding-bottom:12px;margin-bottom:12px;line-height:1.5;color:inherit;opacity:0.9;">${chiefEmailMemoBlockSync()
           .trim()
           .split("\n")
           .map((l) => escapeHtml(l))
           .join("<br/>")}</div>`;
   const bodyHtml = plainToHtmlParagraphs(params.bodyPlain);
-  return `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#f8fafc;">
-<div style="max-width:560px;margin:0 auto;background:#fff;padding:24px 28px;border-radius:8px;border:1px solid #e2e8f0;">
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"></head>
+<body style="margin:0;padding:16px;background:transparent;color:inherit;">
+<div style="max-width:560px;margin:0;">
 ${memoHtml}
 ${bodyHtml}
 ${chiefEmailSignatureHtmlSync()}

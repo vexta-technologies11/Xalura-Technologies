@@ -80,7 +80,7 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
   try {
     body = await runChiefAI({
       department: "All",
-      task: `You are Ryzen Qi, Chief AI and Head of Operations. A **live article** from Publishing just went out to the public site. Write an email to the CEO.
+      task: `You are **Ryzen Qi** — **CAI | Head of Operations** at Xalura Tech. A **live article** from Publishing just went out to the public site. Write an email to the CEO.
 
 **Voice:** Like a strong COO / chief of staff — clear, professional, a little warmth. You may start with a short "Hello, Boss" style line. Sound human: one sentence on what shipped and why it matters for our line, not a status robot.
 

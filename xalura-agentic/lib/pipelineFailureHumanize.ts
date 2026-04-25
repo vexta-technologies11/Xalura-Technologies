@@ -227,7 +227,7 @@ export function humanChiefDigestEmailBody(input: {
     120,
   );
   return {
-    subject: `Ops note — ${input.department} audit (Chief AI)`,
+    subject: `Ops note — ${input.department} audit (CAI)`,
     text,
   };
 }
