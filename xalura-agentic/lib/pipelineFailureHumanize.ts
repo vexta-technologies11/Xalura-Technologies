@@ -60,7 +60,7 @@ export function opsAlertBriefFromFailedOperation(op: FailedOperation): string {
     hay.includes("article-covers")
   ) {
     return clipWords(
-      "Mr President — the **Graphic designer / hero image** step failed (Gemini Imagen or Supabase Storage `article-covers`). See the technical block for the exact API message — often Imagen billing/model access, wrong `AGENTIC_IMAGE_MODEL`, or a missing Storage bucket/policy.",
+      "Mr President — the **Graphic designer / hero image** step failed (Leonardo, Imagen, or Supabase Storage `article-covers`). See the technical block for the exact API message — often missing `LEONARDO_API_KEY` / API credits, wrong `LEONARDO_MODEL_ID`, or a missing Storage bucket/policy.",
     );
   }
   return clipWords(

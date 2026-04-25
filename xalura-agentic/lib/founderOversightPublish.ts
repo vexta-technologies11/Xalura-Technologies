@@ -4,7 +4,7 @@ import { readFileUtf8Agentic } from "./agenticDisk";
 import type { ChiefPublishDigestParams } from "./chiefPublishDigest";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
-import { generateImagenImage } from "./imagenGenerate";
+import { generateHeroImage } from "./heroImageGenerate";
 import { readEvents } from "./eventQueue";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
@@ -98,7 +98,7 @@ export function buildFounderOversightBriefing(p: FounderOversightPublishParams):
  * Env: **`AGENTIC_COMPLIANCE_ON_PUBLISH`** or **`AGENTIC_FOUNDER_OVERSIGHT_ON_PUBLISH`** (`true`/`1`);
  * inbox: **`AGENTIC_COMPLIANCE_EMAIL`** → **`AGENTIC_FOUNDER_OVERSIGHT_EMAIL`** → **`AGENTIC_CHIEF_DIGEST_EMAIL`**.
  * Uses **Gemini 2.5 flash lite** (default `GEMINI_MODEL`) for QA, Risk, Chief-line audit, then **Compliance Officer** memo + draft “Cc: Chief AI, Executives” (display only in body — not Resend `cc`).
- * Optional **Graphic designer** uses **Imagen** (`AGENTIC_IMAGE_MODEL`, default Ultra) + same API key.
+ * Optional **Graphic designer** uses **Leonardo** (photoreal, default when `LEONARDO_API_KEY` is set) or **Imagen** + `GEMINI_API_KEY`.
  */
 export function scheduleFounderOversightPublishEmail(
   params: FounderOversightPublishParams,
@@ -142,6 +142,14 @@ export async function executeFounderOversightPublishEmail(
   const cwd = process.cwd();
   const complianceName = complianceOfficerDisplayName(cwd);
   const graphicName = graphicDesignerDisplayName(cwd);
+  const resolveHeroImageLabel = async (): Promise<string> => {
+    const prov = (await resolveWorkerEnv("AGENTIC_HERO_IMAGE_PROVIDER"))?.trim().toLowerCase();
+    const leo = (await resolveWorkerEnv("LEONARDO_API_KEY"))?.trim();
+    if (prov === "imagen" || (prov !== "leonardo" && !leo)) {
+      return "Google Imagen";
+    }
+    return "Leonardo AI (photoreal)";
+  };
 
   const briefing = buildFounderOversightBriefing(p);
 
@@ -295,18 +303,21 @@ ${chiefAuditMd.slice(0, 4500)}
     ?.trim()
     .toLowerCase();
   const gdOn = gdFlag === "true" || gdFlag === "1";
+  const gModelLabel = await resolveHeroImageLabel();
   if (p.precomputedHero) {
     attachments.push({
       filename: p.precomputedHero.filename,
       content: p.precomputedHero.content,
     });
-    graphicSection = `<h2>Graphic designer (Imagen 4 Ultra)</h2><p>Prompt used (flash-lite draft):</p><pre>${esc(p.precomputedHero.imagePrompt)}</pre><p>Image attached: <code>${esc(p.precomputedHero.filename)}</code> (same asset as article cover when upload succeeded).</p>`;
+    graphicSection = `<h2>Graphic designer (${esc(gModelLabel)})</h2><p>Prompt used (flash-lite draft):</p><pre>${esc(p.precomputedHero.imagePrompt)}</pre><p>Image attached: <code>${esc(p.precomputedHero.filename)}</code> (same asset as article cover when upload succeeded).</p>`;
   } else if (gdOn) {
     try {
       const promptBrief = await runAgent({
         role: "Worker",
         department: "Publishing — Graphic Designer",
-        task: `You are the **Graphic Designer**. Produce **only** a single compact English image generation prompt (max 500 characters) for one hero illustration for this published article. No quotes, no markdown — raw prompt text only.
+        task: `You are the **Graphic Designer**. Produce **only** a single compact English image generation prompt (max 500 characters) for the **hero image** of this published article. No quotes, no markdown — raw prompt text only.
+
+**Visual style (mandatory):** **Photorealistic** — believable real or documentary scene, professional editorial or product photography, natural light, sharp focus. **Not** cartoon, anime, vector, illustration, or plastic CGI look unless the article is explicitly about that medium.
 
 Article title: ${p.title}
 Executive summary:
@@ -315,24 +326,24 @@ ${p.executiveSummary.slice(0, 2000)}`,
         assignedName: graphicName,
       });
       const imagePrompt = promptBrief.trim().slice(0, 500);
-      const apiKey = await resolveGeminiApiKey();
-      if (apiKey) {
-        const img = await generateImagenImage({
-          apiKey,
-          prompt: imagePrompt,
-        });
+      if (!(await resolveGeminiApiKey())) {
+        graphicSection =
+          "<h2>Graphic designer</h2><p>GEMINI_API_KEY missing (needed for art-brief; set <code>LEONARDO_API_KEY</code> for Leonardo render).</p>";
+      } else {
+        const img = await generateHeroImage({ prompt: imagePrompt });
         if (img.ok) {
+          const ext =
+            img.mimeType?.toLowerCase().includes("jpeg") || img.mimeType?.includes("jpg")
+              ? "jpg"
+              : "png";
           attachments.push({
-            filename: `hero-${p.slug}.png`,
+            filename: `hero-${p.slug}.${ext}`,
             content: img.base64,
           });
-          graphicSection = `<h2>Graphic designer (Imagen 4 Ultra)</h2><p>Prompt used (flash-lite draft):</p><pre>${esc(imagePrompt)}</pre><p>Image attached: <code>hero-${esc(p.slug)}.png</code></p>`;
+          graphicSection = `<h2>Graphic designer (${esc(gModelLabel)})</h2><p>Prompt used (flash-lite draft):</p><pre>${esc(imagePrompt)}</pre><p>Image attached: <code>hero-${esc(p.slug)}.${ext}</code></p>`;
         } else {
-          graphicSection = `<h2>Graphic designer (Imagen 4 Ultra)</h2><p><strong>Image generation failed:</strong> ${esc(img.error)}</p><pre>${esc(imagePrompt)}</pre>`;
+          graphicSection = `<h2>Graphic designer (${esc(gModelLabel)})</h2><p><strong>Image generation failed:</strong> ${esc(img.error)}</p><pre>${esc(imagePrompt)}</pre>`;
         }
-      } else {
-        graphicSection =
-          "<h2>Graphic designer</h2><p>GEMINI_API_KEY missing — skipped Imagen.</p>";
       }
     } catch (e) {
       graphicSection = `<h2>Graphic designer</h2><p>${esc(String(e))}</p>`;

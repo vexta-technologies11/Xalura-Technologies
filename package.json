@@ -32,6 +32,7 @@
     "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts",
     "agentic:smoke-pipeline-log": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-pipeline-log.ts",
     "agentic:smoke-leonardo": "tsx xalura-agentic/scripts/smoke-leonardo.ts",
+    "agentic:smoke-pipeline-and-graphics": "npm run agentic:smoke-pipeline-log && npm run agentic:smoke-leonardo",
     "db:apply-chief-email": "npx -y supabase@latest db query -f supabase/migrations/20250424000000_chief_email_threads.sql --db-url \"$SUPABASE_DB_URL\""
   },
   "dependencies": {

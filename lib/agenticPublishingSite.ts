@@ -102,7 +102,11 @@ export async function sitePublishFromApprovedPublishingRun(
     subcategory: subForHero,
   });
   if (hero.ok) {
-    const up = await uploadArticleCoverPng({ slug, pngBase64: hero.base64 });
+    const up = await uploadArticleCoverPng({
+      slug,
+      pngBase64: hero.base64,
+      mimeType: hero.mimeType,
+    });
     if (up.ok) {
       coverForRow = up.publicUrl;
     } else {

@@ -1,4 +1,4 @@
-import { generateImagenImage } from "./imagenGenerate";
+import { generateHeroImage } from "./heroImageGenerate";
 import { resolveGeminiApiKey, runAgent } from "./gemini";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 
@@ -7,7 +7,7 @@ export type PublishingHeroImageResult =
   | { ok: false; error: string; imagePrompt?: string };
 
 /**
- * Flash-lite art brief → Imagen (when `AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH` is on).
+ * Flash-lite art brief → **Leonardo** (or Imagen) when `AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH` is on.
  * Used for article cover + optional email attachment (caller dedupes).
  */
 export async function generatePublishingHeroImage(params: {
@@ -34,7 +34,9 @@ export async function generatePublishingHeroImage(params: {
     const promptBrief = await runAgent({
       role: "Worker",
       department: "Publishing — Graphic Designer",
-      task: `You are the **Graphic Designer**. Produce **only** a single compact English image generation prompt (max 500 characters) for one hero illustration for this published article. No quotes, no markdown — raw prompt text only. The image must visually support the **keyword pillar** below, not a generic tech stock scene unless it fits that pillar.
+      task: `You are the **Graphic Designer**. Produce **only** a single compact English image generation prompt (max 500 characters) for the **hero image** of this published article. No quotes, no markdown — raw prompt text only.
+
+**Visual style (mandatory):** describe a **photorealistic** scene: believable real-world or documentary-style still, professional editorial or product photography, natural light, sharp focus. **Not** cartoon, anime, vector art, illustration, or artificial 3D game/CGI look unless the article is explicitly about that medium. The scene must support the **keyword pillar** below — not generic “tech office stock” unless the pillar is office/workplace.
 
 Article title: ${params.title}
 ${anchor}Executive summary:
@@ -42,11 +44,10 @@ ${params.executiveSummary.slice(0, 2000)}`,
       context: { kind: "graphic_designer_prompt", slug: params.slug },
     });
     const imagePrompt = promptBrief.trim().slice(0, 500);
-    const apiKey = await resolveGeminiApiKey();
-    if (!apiKey) {
-      return { ok: false, error: "GEMINI_API_KEY missing", imagePrompt };
+    if (!(await resolveGeminiApiKey())) {
+      return { ok: false, error: "GEMINI_API_KEY missing (needed for art-brief; set LEONARDO_API_KEY for image render).", imagePrompt };
     }
-    const img = await generateImagenImage({ apiKey, prompt: imagePrompt });
+    const img = await generateHeroImage({ prompt: imagePrompt });
     if (!img.ok) {
       return { ok: false, error: img.error, imagePrompt };
     }

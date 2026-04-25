@@ -4,17 +4,22 @@ import { createServiceClient } from "@/lib/supabase/service";
 export const ARTICLE_COVERS_BUCKET = "article-covers";
 
 /**
- * Upload PNG bytes for an article hero. Returns public URL when the bucket is public.
+ * Upload hero image bytes (PNG or JPEG) for an article. Returns public URL when the bucket is public.
  */
 export async function uploadArticleCoverPng(params: {
   slug: string;
   pngBase64: string;
+  /** From image generator (e.g. `image/jpeg` from Leonardo). Default `image/png`. */
+  mimeType?: string;
 }): Promise<{ ok: true; publicUrl: string } | { ok: false; error: string }> {
   const supabase = createServiceClient();
   if (!supabase) {
     return { ok: false, error: "Supabase service client unavailable" };
   }
-  const path = `${params.slug.replace(/[^a-z0-9-]/gi, "-").slice(0, 96)}.png`;
+  const mime = (params.mimeType || "image/png").split(";")[0]!.trim().toLowerCase();
+  const ext = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
+  const contentType = ext === "jpg" ? "image/jpeg" : "image/png";
+  const path = `${params.slug.replace(/[^a-z0-9-]/gi, "-").slice(0, 96)}.${ext}`;
   let buffer: Buffer;
   try {
     buffer = Buffer.from(params.pngBase64, "base64");
@@ -27,7 +32,7 @@ export async function uploadArticleCoverPng(params: {
   const { error: upErr } = await supabase.storage
     .from(ARTICLE_COVERS_BUCKET)
     .upload(path, buffer, {
-      contentType: "image/png",
+      contentType,
       upsert: true,
     });
   if (upErr) {

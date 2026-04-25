@@ -282,7 +282,7 @@ export function buildPersonaActivity(
         source: "shared/event-queue.log",
         kind: "publish_event",
         label: `Publish shipped: “${title.slice(0, 100)}${title.length > 100 ? "…" : ""}”`,
-        detail: "Cover/Imagen step runs on the publishing pipeline when AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH is on.",
+        detail: "Cover image (Leonardo photoreal or Imagen) runs on the publishing pipeline when AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH is on.",
       },
       limit,
     );
