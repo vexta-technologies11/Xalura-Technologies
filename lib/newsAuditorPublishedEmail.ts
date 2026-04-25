@@ -18,6 +18,9 @@ export type NewsPublishPostEmailContext = {
   draftExcerpt: string;
   /** 30-item AI news checklist (same-day context). */
   checklistExcerpt: string;
+  /** Winning pipeline only: each manager REJECT before final APPROVE, with reason text. */
+  preprodManagerRejections: { round: number; reason: string }[];
+  writerManagerRejections: { round: number; reason: string }[];
   preprod: { passRound: number; rejectionsBeforePass: number };
   writer: { passRound: number; rejectionsBeforePass: number };
   audit: {

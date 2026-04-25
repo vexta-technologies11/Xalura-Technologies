@@ -32,6 +32,10 @@ import { readFailedQueue } from "@/xalura-agentic/lib/failedQueue";
 import { sendResendEmail } from "@/xalura-agentic/lib/phase7Clients";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 import type { ResendReceivedEmailRow } from "@/lib/resendReceiving";
+import {
+  buildNewsDepartmentActivitySnapshotForChief,
+  wantsNewsDepartmentContext,
+} from "@/lib/chiefNewsActivitySnapshot";
 
 function parseEmailAddress(fromHeader: string): string {
   const m = /<([^>]+)>/.exec(fromHeader);
@@ -316,7 +320,18 @@ export async function chiefReplyToInboundEmail(params: {
   }
 
   const forConversation = stripChiefCommandForConversation(bodyText) || bodyText;
-  const snapshot = (await buildOpsSnapshot(cwd)).slice(0, 8000);
+  let snapshot = (await buildOpsSnapshot(cwd)).slice(0, 8000);
+  if (wantsNewsDepartmentContext(subject, forConversation)) {
+    const newsAct = await buildNewsDepartmentActivitySnapshotForChief(60);
+    snapshot = [
+      snapshot,
+      "",
+      "— **News department** (pre-production → writers → audit → publish — `news_run_events`) —",
+      newsAct,
+    ]
+      .join("\n")
+      .slice(0, 12_000);
+  }
   const chiefN = chiefDisplayName();
 
   const execRaw = (await resolveWorkerEnv("CHIEF_INBOUND_EXECUTIVE_SENDERS"))?.trim();
@@ -346,6 +361,9 @@ ${historyText}
     threadIsReply ? "reply" : "opening",
   );
 
+  const newsContextMode = wantsNewsDepartmentContext(subject, forConversation);
+  const wordCap = newsContextMode ? 220 : 100;
+
   const chiefRaw = await runChiefAI({
     department: "All",
     task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech, emailing the CEO.
@@ -353,7 +371,11 @@ ${historyText}
 **Your first line of the reply (before anything else) must be exactly this line, punctuation and capitalization as written:**
 ${requiredSalutation}
 
-**Hard rule: your entire reply body must be at most 100 words (including that first line).** No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then a short hint only, still under 100 words total.
+**Hard rule: your entire reply body must be at most ${wordCap} words (including that first line).** ${
+      newsContextMode
+        ? "They asked about **News** — use the News department snapshot: cite recent stages, manager reject/approve pattern if visible in summaries, and what published; be specific, not generic."
+        : "No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then a short hint only, still under the word cap."
+    }
 
 Summarize what matters from their message + earlier thread + snapshot: answer the question, or the most important operational fact. Use the thread to stay consistent; do not contradict prior agreements. ${automationNote} ${executiveBlock}
 
@@ -364,12 +386,12 @@ ${forConversation.slice(0, 8_000)}
 **Snapshot (facts only)**
 ${snapshot}
 
-Write **only** the reply body (no signature). **≤100 words including the required first line.**`,
+Write **only** the reply body (no signature). **≤${wordCap} words including the required first line.**`,
     context: { channel: "chief_inbound_email", subject },
     assignedName: chiefN,
   });
 
-  const chiefMd = clipChiefEmailWords(chiefRaw);
+  const chiefMd = clipChiefEmailWords(chiefRaw, wordCap);
   const sent = await doSend({ main: chiefMd, sub: subject });
   if (sent.error) return { ok: false, error: sent.error };
   return { ok: true };

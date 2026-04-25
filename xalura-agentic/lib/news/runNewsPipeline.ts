@@ -9,6 +9,7 @@ import { runWorker } from "../../agents/worker";
 import { recordApproval } from "../../engine/cycleEngine";
 import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { insertNewsRunEvent } from "@/lib/newsRunEvents";
+import { sendChiefNewsActivityPublishEmailIfEnabled } from "@/lib/chiefNewsPublishedActivityEmail";
 import {
   type NewsPublishPostEmailContext,
   sendHeadOfNewsPublishedEmailIfEnabled,
@@ -139,8 +140,10 @@ export async function runNewsPipeline(
   for (let auditAttempt = 0; auditAttempt < maxAudit; auditAttempt++) {
     let preprodRejects = 0;
     let preprodPassRound = 0;
+    const preprodManagerRejections: { round: number; reason: string }[] = [];
     let writerRejects = 0;
     let writerPassRound = 0;
+    const writerManagerRejections: { round: number; reason: string }[] = [];
 
     if (auditAttempt > 0) {
       logStage("audit_retry", `Rebuilding Pre-Production (attempt ${auditAttempt + 1})`, {});
@@ -202,6 +205,10 @@ ${preWorkerOut}
         break;
       }
       preprodRejects += 1;
+      preprodManagerRejections.push({
+        round: r + 1,
+        reason: mdec.reason.replace(/\s+/g, " ").trim().slice(0, 1_500),
+      });
       preManagerFeedback = mdec.reason;
       if (r === MAX_PREPROD - 1) {
         return { status: "aborted", runId, reason: mdec.reason, stage: "preprod_manager" };
@@ -253,6 +260,10 @@ ${draft}
         break;
       }
       writerRejects += 1;
+      writerManagerRejections.push({
+        round: w + 1,
+        reason: wd.reason.replace(/\s+/g, " ").trim().slice(0, 1_500),
+      });
       writerFeedback = wd.reason;
       if (w === MAX_WRITER - 1) {
         return { status: "aborted", runId, reason: wd.reason, stage: "writer_manager" };
@@ -287,6 +298,8 @@ ${draft}
       postEmailContext = {
         draftExcerpt: draft.slice(0, 10_000),
         checklistExcerpt: checklistJson(checklist).slice(0, 8_000),
+        preprodManagerRejections: [...preprodManagerRejections],
+        writerManagerRejections: [...writerManagerRejections],
         preprod: {
           passRound: preprodPassRound,
           rejectionsBeforePass: preprodRejects,
@@ -371,30 +384,47 @@ ${draft}
     cwd,
   );
 
-  void Promise.allSettled([
-    sendHeadOfNewsPublishedEmailIfEnabled({
-      cwd,
-      runId,
-      title,
-      slug: pub.slug,
-      postEmailContext,
-    }),
-    sendNewsAuditorPublishedEmailIfEnabled({
-      cwd,
-      runId,
-      title,
-      slug: pub.slug,
-      bodyExcerpt: draft,
-      auditText: lastAuditTextForEmail,
-      postEmailContext,
-    }),
-  ]).then((results) => {
+  void (async () => {
+    const legacy =
+      (await resolveWorkerEnv("CHIEF_NEWS_LEGACY_NEWS_TEAM_EMAILS"))?.trim().toLowerCase() ===
+      "true";
+    const tasks: Promise<void>[] = [
+      sendChiefNewsActivityPublishEmailIfEnabled({
+        runId,
+        title,
+        slug: pub.slug,
+        bodyExcerpt: draft,
+        auditText: lastAuditTextForEmail,
+        postEmailContext,
+      }),
+    ];
+    if (legacy) {
+      tasks.push(
+        sendHeadOfNewsPublishedEmailIfEnabled({
+          cwd,
+          runId,
+          title,
+          slug: pub.slug,
+          postEmailContext,
+        }),
+        sendNewsAuditorPublishedEmailIfEnabled({
+          cwd,
+          runId,
+          title,
+          slug: pub.slug,
+          bodyExcerpt: draft,
+          auditText: lastAuditTextForEmail,
+          postEmailContext,
+        }),
+      );
+    }
+    const results = await Promise.allSettled(tasks);
     for (const r of results) {
       if (r.status === "rejected") {
         console.error("[news-pipeline] post-publish email threw", r.reason);
       }
     }
-  });
+  })();
 
   return { status: "published", slug: pub.slug, runId, title };
 }
