@@ -1,5 +1,69 @@
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
+/**
+ * Resend `email.received` may send `to` as a string, string[], or list of objects.
+ * Also handles `"Name" <a@b.com>` so routing env substrings can match the bare address.
+ */
+export function extractWebhookToStrings(to: unknown): string[] {
+  if (to == null) return [];
+  if (typeof to === "string" && to.trim()) return [to];
+  if (!Array.isArray(to)) return [];
+  return to
+    .map((x) => {
+      if (typeof x === "string" && x.trim()) return x;
+      if (x && typeof x === "object") {
+        const o = x as Record<string, unknown>;
+        for (const k of ["email", "address", "value", "name"] as const) {
+          const e = o[k];
+          if (typeof e === "string" && e.trim() && e.includes("@")) return e;
+        }
+        const s = JSON.stringify(x);
+        const m = s.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+        if (m?.[0]) return m[0]!;
+      }
+      return "";
+    })
+    .filter((s): s is string => Boolean(s));
+}
+
+function normalizeForRouting(s: string): string {
+  const t = s.trim();
+  const m = /<([^>\s]+@[^>]+)>/.exec(t);
+  return (m ? m[1]! : t).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Resend `data` (webhook) may carry `to` / `cc` / `bcc` — all count for routing
+ * (some clients put the only recipient in a non-to field).
+ * API `rowTo` is merged; pass `string[]` or normalize via `extractWebhookToStrings`.
+ */
+export function buildRoutingRecipientList(
+  data: Record<string, unknown> | undefined,
+  rowTo: unknown,
+): string[] {
+  const fromWh = data
+    ? [
+        ...extractWebhookToStrings(data["to"]),
+        ...extractWebhookToStrings(data["cc"]),
+        ...extractWebhookToStrings(data["bcc"]),
+      ]
+    : [];
+  const fromRow = Array.isArray(rowTo)
+    ? extractWebhookToStrings(rowTo)
+    : extractWebhookToStrings(rowTo);
+  const raw = [...fromWh, ...fromRow];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of raw) {
+    const n = normalizeForRouting(r);
+    if (n && !seen.has(n)) {
+      seen.add(n);
+      out.push(n);
+    }
+  }
+  return out;
+}
+
 export type ResendReceivedEmailRow = {
   id?: string;
   from?: string;
@@ -54,9 +118,11 @@ export function mergeResendReceivedWithWebhook(
   api: ResendReceivedEmailRow | null,
 ): ResendReceivedEmailRow {
   const wFrom = typeof data?.["from"] === "string" ? data["from"] : undefined;
-  const wTo = Array.isArray(data?.["to"])
-    ? (data!["to"] as unknown[]).filter((x): x is string => typeof x === "string")
-    : undefined;
+  const wRaw = extractWebhookToStrings(data?.["to"]);
+  const wTo = wRaw.length > 0 ? wRaw : undefined;
+  const apiTo =
+    extractWebhookToStrings((api as { to?: unknown } | null)?.to) || [];
+  const wOrApiTo = wTo?.length ? wTo : apiTo.length > 0 ? apiTo : undefined;
   const wSubject = data?.["subject"];
   const wMsg =
     typeof data?.["message_id"] === "string" ? data["message_id"] : undefined;
@@ -87,7 +153,11 @@ export function mergeResendReceivedWithWebhook(
     ...base,
     id: base.id ?? emailId,
     from: (base.from?.trim() && base.from) || wFrom,
-    to: wTo?.length ? wTo : base.to,
+    to: wOrApiTo?.length
+      ? wOrApiTo
+      : base.to
+        ? extractWebhookToStrings(base.to)
+        : undefined,
     subject:
       base.subject != null && base.subject !== ""
         ? base.subject

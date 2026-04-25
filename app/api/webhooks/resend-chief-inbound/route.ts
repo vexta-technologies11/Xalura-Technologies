@@ -8,11 +8,17 @@ import {
   chiefOfAuditNewsReplyToInboundEmail,
 } from "@/lib/newsTeamInboundReplies";
 import {
+  readHeadOfNewsInboundTo,
+  readInboundRouteEnv,
+} from "@/lib/inboundRouteEnv";
+import {
+  buildRoutingRecipientList,
   mergeResendReceivedWithWebhook,
   resendFetchReceivedEmail,
 } from "@/lib/resendReceiving";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function header(req: NextRequest, name: string): string | null {
   return req.headers.get(name) ?? req.headers.get(name.toLowerCase());
@@ -59,20 +65,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const toFilter = (await resolveWorkerEnv("CHIEF_INBOUND_TO_FILTER"))?.trim().toLowerCase();
-  const toHon = (await resolveWorkerEnv("HEAD_OF_NEWS_INBOUND_TO"))?.trim().toLowerCase();
-  const toAud = (await resolveWorkerEnv("CHIEF_OF_AUDIT_NEWS_INBOUND_TO"))?.trim().toLowerCase();
-  const toList = Array.isArray(data?.["to"])
-    ? (data["to"] as unknown[]).filter((x): x is string => typeof x === "string")
-    : [];
-  const toLower = (a: string[]) => a.map((t) => t.toLowerCase());
+  const toFilter = (await readInboundRouteEnv("CHIEF_INBOUND_TO_FILTER")).toLowerCase();
+  const toHonH = (await readHeadOfNewsInboundTo()).toLowerCase();
+  const toAudH = (await readInboundRouteEnv("CHIEF_OF_AUDIT_NEWS_INBOUND_TO")).toLowerCase();
+  const toHonExact = (await readInboundRouteEnv("HEAD_OF_NEWS_INBOUND_EXACT")).toLowerCase();
+  const headerRecipients = buildRoutingRecipientList(
+    data as Record<string, unknown> | undefined,
+    undefined,
+  );
 
   if (
     toFilter &&
-    toList.length > 0 &&
-    !toLower(toList).some((t) => t.includes(toFilter)) &&
-    !(toHon && toLower(toList).some((t) => t.includes(toHon))) &&
-    !(toAud && toLower(toList).some((t) => t.includes(toAud)))
+    headerRecipients.length > 0 &&
+    !headerRecipients.some((t) => t.includes(toFilter)) &&
+    !(
+      toHonH && headerRecipients.some((t) => t === toHonH || t.includes(toHonH))
+    ) &&
+    !(
+      toAudH && headerRecipients.some((t) => t === toAudH || t.includes(toAudH))
+    ) &&
+    !(
+      toHonExact && headerRecipients.some((t) => t === toHonExact)
+    )
   ) {
     return NextResponse.json({ ok: true, ignored: true, reason: "to_filter" });
   }
@@ -99,10 +113,33 @@ export async function POST(req: NextRequest) {
             { emailId },
           );
         }
-        const rawTo = row.to?.length ? row.to : toList;
-        const recipients = toLower(rawTo);
-        const matchHon = Boolean(toHon && recipients.some((t) => t.includes(toHon)));
-        const matchAud = Boolean(toAud && recipients.some((t) => t.includes(toAud)));
+        const recipients = buildRoutingRecipientList(
+          data as Record<string, unknown> | undefined,
+          row.to,
+        );
+        const toHonI = (await readHeadOfNewsInboundTo()).toLowerCase();
+        const toAudI = (await readInboundRouteEnv("CHIEF_OF_AUDIT_NEWS_INBOUND_TO")).toLowerCase();
+        const toHonExI = (await readInboundRouteEnv("HEAD_OF_NEWS_INBOUND_EXACT")).toLowerCase();
+        const matchHon = Boolean(
+          (toHonI && recipients.some((t) => t === toHonI || t.includes(toHonI))) ||
+            (toHonExI && recipients.some((t) => t === toHonExI)),
+        );
+        const matchAud = Boolean(
+          toAudI && recipients.some((t) => t === toAudI || t.includes(toAudI)),
+        );
+        if (recipients.length > 0 && toHonI && !matchHon && !matchAud) {
+          console.warn(
+            "[resend-chief-inbound] no HON/auditor substring match; falling back to Chief. recipients=",
+            JSON.stringify(recipients),
+            "HEAD_OF_NEWS_INBOUND_TO/NEWS_HEAD_INBOUND_TO (nonempty)?",
+            Boolean(toHonI),
+            "set same vars on Vercel/Cloudflare as in .env.local",
+          );
+        } else if (recipients.length > 0 && !toHonI && !toAudI) {
+          console.warn(
+            "[resend-chief-inbound] HEAD_OF_NEWS_INBOUND_TO and CHIEF_OF_AUDIT_NEWS_INBOUND_TO are empty; all mail routes to Chief.",
+          );
+        }
         const out = matchHon
           ? await headOfNewsReplyToInboundEmail({ row })
           : matchAud
