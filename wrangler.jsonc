@@ -25,10 +25,7 @@
     "nodejs_compat_populate_process_env",
     "global_fetch_strictly_public"
   ],
-  // Default Worker cap is 50 (free) / 1000+ (paid). News pipeline: Serp + Firecrawl + Gemini + Resend; raise on paid to avoid "Too many subrequests".
-  "limits": {
-    "subrequests": 2000
-  },
+  // Free plan: do not set limits here (deploy fails). Paid: optional limits.subrequests in dashboard or wrangler.
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
