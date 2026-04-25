@@ -528,17 +528,58 @@
 
 .ah-pill__avatar {
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #0f172a;
   background: linear-gradient(145deg, #e2e8f0, #94a3b8);
   box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+}
+
+.ah-pill__avatar--photo {
+  padding: 0;
+  background: #0f172a;
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.ah-pill__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ah-pill__avatar-initials {
+  display: block;
+  line-height: 1.1;
+}
+
+.ah-pill__identity {
+  margin-top: 6px;
+}
+
+.ah-pill__identity > summary {
+  font-size: 0.7rem;
+  color: #64748b;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ah-pill__identity > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ah-pill__identity-hint {
+  margin: 6px 0 8px;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: #94a3b8;
 }
 
 .ah-pill--chief .ah-pill__avatar {
@@ -563,20 +604,21 @@
 }
 
 .ah-pill__name {
-  font-size: 0.95rem;
+  font-size: 1.02rem;
   font-weight: 750;
   letter-spacing: -0.02em;
   color: #f8fafc;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .ah-pill__role {
-  margin-top: 2px;
-  font-size: 0.68rem;
+  margin-top: 4px;
+  font-size: 0.74rem;
   font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   color: #94a3b8;
+  line-height: 1.35;
 }
 
 .ah-pill__subdesk {
@@ -1038,11 +1080,11 @@
   box-sizing: border-box;
 }
 
-/* Default (3 columns): balanced sizes */
+/* Default (3 columns): balanced sizes — avatars stay readable, not stamp-sized */
 .ah-pill--band .ah-pill__avatar {
-  width: 36px;
-  height: 36px;
-  font-size: 0.62rem;
+  width: 48px;
+  height: 48px;
+  font-size: 0.75rem;
 }
 
 .ah-pill--band .ah-pill__name {
@@ -1149,9 +1191,9 @@
 }
 .ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band .ah-pill__avatar,
 .ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__avatar {
-  width: 30px;
-  height: 30px;
-  font-size: 0.55rem;
+  width: 40px;
+  height: 40px;
+  font-size: 0.62rem;
 }
 .ah-tree__worker-rail-row[data-ah-cols="4"] .ah-pill--band .ah-pill__name,
 .ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__name {
@@ -1162,4 +1204,69 @@
 .ah-tree__worker-rail-row[data-ah-cols="5"] .ah-pill--band .ah-pill__last-action--band {
   font-size: 0.6rem;
   -webkit-line-clamp: 2;
+}
+
+/* —— Unified Supabase activity feed (bottom of hierarchy) —— */
+.admin-agentic-activity-feed {
+  margin: 1.5rem 0 0;
+  padding: 16px 20px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(2, 6, 23, 0.6);
+  box-sizing: border-box;
+}
+
+.admin-agentic-activity-feed__title {
+  margin: 0 0 8px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.admin-agentic-activity-feed__title code {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #7dd3fc;
+}
+
+.admin-agentic-activity-feed__sub {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.admin-agentic-activity-feed__note {
+  color: #a5b4fc;
+}
+
+.admin-agentic-activity-feed__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.admin-agentic-activity-feed__scroll {
+  max-height: min(50dvh, 28rem);
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.admin-agentic-activity-feed__list {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  list-style: decimal;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.admin-agentic-activity-feed__line {
+  margin: 0 0 0.5rem 0;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
 }

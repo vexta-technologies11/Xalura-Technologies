@@ -55,7 +55,7 @@ export async function fetchRecentAgenticPipelineLogs(
   const n = Math.min(Math.max(1, limit), 50);
   const { data, error } = await supabase
     .from("agentic_pipeline_stage_log")
-    .select("created_at, department, stage, event, summary")
+    .select("created_at, department, agent_lane_id, stage, event, summary")
     .order("created_at", { ascending: false })
     .limit(n);
   if (error) {
@@ -65,10 +65,45 @@ export async function fetchRecentAgenticPipelineLogs(
   return (data ?? []) as {
     created_at: string;
     department: string;
+    agent_lane_id: string | null;
     stage: string;
     event: string;
     summary: string;
   }[];
+}
+
+export type AgenticPipelineLogRow = {
+  id: string;
+  created_at: string;
+  release_id: string;
+  department: string;
+  agent_lane_id: string | null;
+  stage: string;
+  event: string;
+  summary: string;
+  detail: Record<string, unknown>;
+};
+
+/** Admin hierarchy feed: newest first, larger cap (same `agentic_pipeline_stage_log` table). */
+export async function fetchAgenticPipelineLogsForAdminFeed(
+  limit: number,
+): Promise<AgenticPipelineLogRow[]> {
+  if (disabled()) return [];
+  const supabase = createServiceClient();
+  if (!supabase) return [];
+  const n = Math.min(Math.max(1, limit), 500);
+  const { data, error } = await supabase
+    .from("agentic_pipeline_stage_log")
+    .select(
+      "id, created_at, release_id, department, agent_lane_id, stage, event, summary, detail",
+    )
+    .order("created_at", { ascending: false })
+    .limit(n);
+  if (error) {
+    console.warn("[agenticPipelineLogSupabase] admin feed", error.message);
+    return [];
+  }
+  return (data ?? []) as AgenticPipelineLogRow[];
 }
 
 export function formatAgenticPipelineLogsForSnapshot(

@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildHierarchyChartPayload } from "@/lib/agenticHierarchyChartData";
-import {
-  enrichLastActionSummariesWithGemini,
-  fallbackLastActionSummary,
-  hierarchyPersonaIds,
-} from "@/lib/agenticHierarchyGemini";
 import { getAgenticLiveSnapshot } from "@/lib/agenticLiveSnapshot";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
@@ -39,14 +34,7 @@ export async function GET() {
       complianceOrFounderEmailOn,
       graphicDesignerOn,
     });
-    const gem = await enrichLastActionSummariesWithGemini(chart, snapshot);
-    const ids = hierarchyPersonaIds(chart);
-    const lastActionSummaries: Record<string, string> = {};
-    for (const id of ids) {
-      const g = gem?.[id]?.trim();
-      lastActionSummaries[id] = g && g.length > 0 ? g : fallbackLastActionSummary(chart.personaActivity[id]);
-    }
-    const chartOut = { ...chart, lastActionSummaries };
+    const chartOut = { ...chart, lastActionSummaries: {} as Record<string, string> };
     return NextResponse.json({ ...snapshot, chart: chartOut });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

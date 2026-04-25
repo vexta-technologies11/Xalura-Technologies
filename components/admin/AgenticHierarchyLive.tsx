@@ -7,8 +7,8 @@ import type {
   HierarchyChartPayload,
   HierarchyPersona,
 } from "@/lib/agenticHierarchyChartData";
-import type { PersonaActivityEntry } from "@/lib/agenticPersonaActivity";
 import { readResponseJson } from "@/lib/readResponseJson";
+import { capNewestFirstLinesToWordBudget, countWords } from "@/lib/activityWordCap";
 import type { AgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
 
 type LiveApiResponse = AgenticLiveSnapshot & { chart?: HierarchyChartPayload };
@@ -28,17 +28,23 @@ function initials(name: string): string {
   return p.slice(0, 2).toUpperCase();
 }
 
-const ACTIVITY_KIND_LABEL: Record<string, string> = {
-  worker_output: "Worker output",
-  manager_decision: "Manager decision",
-  executive_audit: "Executive / audit window",
-  chief_audit: "Chief / audit",
-  publish_event: "Publish / handoff",
-  note: "Note",
+const MAX_ACTIVITY_WORDS = 1_000;
+
+type PipelineLogFeedRow = {
+  created_at: string;
+  department: string;
+  agent_lane_id: string | null;
+  stage: string;
+  event: string;
+  summary: string;
 };
 
-function activityKindLabel(kind: string): string {
-  return ACTIVITY_KIND_LABEL[kind] ?? kind.replace(/_/g, " ");
+function formatPipelineFeedLine(r: PipelineLogFeedRow): string {
+  const t = r.created_at?.slice(0, 19)?.replace("T", " ") ?? "?";
+  const lane = r.agent_lane_id?.trim()
+    ? ` / ${r.agent_lane_id.trim()}`
+    : "";
+  return `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
 }
 
 const ZOOM_KEY = "xalura-hierarchy-chart-zoom";
@@ -95,52 +101,65 @@ function readStoredLayout(): WorkerLayoutMode {
   return "auto";
 }
 
-function nameFieldFromConfig(names: AgentNamesConfig | undefined, personaId: string): string {
-  if (!names) return "";
-  if (personaId === "chief") return names.chiefAI.name ?? "";
-  if (personaId === "compliance_officer") return names.complianceOfficer?.name ?? "";
-  if (personaId === "publishing_graphic_designer") return names.graphicDesigner?.name ?? "";
+function personaFieldsFromConfig(
+  names: AgentNamesConfig | undefined,
+  personaId: string,
+): { name: string; title: string; avatar: string } {
+  if (!names) return { name: "", title: "", avatar: "" };
+  if (personaId === "chief") {
+    const c = names.chiefAI;
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
+  }
+  if (personaId === "compliance_officer") {
+    const c = names.complianceOfficer ?? { name: "" };
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
+  }
+  if (personaId === "publishing_graphic_designer") {
+    const c = names.graphicDesigner ?? { name: "" };
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
+  }
   const pillar = /^(seo|publishing)_worker_(.+)$/.exec(personaId);
   if (pillar) {
     const d = pillar[1] as "seo" | "publishing";
     const lane = pillar[2] ?? "";
-    return names.departments[d]?.workersByPillar?.[lane]?.name ?? "";
+    const c = names.departments[d]?.workersByPillar?.[lane] ?? { name: "" };
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
   }
   const m = /^(marketing|publishing|seo)_(worker|manager|executive)$/.exec(personaId);
   if (m) {
     const d = m[1] as keyof typeof names.departments;
     const r = m[2] as "worker" | "manager" | "executive";
-    return names.departments[d]![r].name ?? "";
+    const c = names.departments[d]![r];
+    return { name: c.name ?? "", title: c.title ?? "", avatar: c.avatar ?? "" };
   }
-  return "";
+  return { name: "", title: "", avatar: "" };
+}
+
+function looksLikeImageUrl(url: string): boolean {
+  if (!url.trim()) return false;
+  if (url.startsWith("/")) return true;
+  if (/^https?:\/\//i.test(url)) return true;
+  return false;
 }
 
 function PersonaPill(props: {
   persona: HierarchyPersona;
   tier: "chief" | "exec" | "mgr" | "worker" | "compliance" | "graphic";
-  lastActionSummary: string;
-  activity: PersonaActivityEntry[];
-  configName?: string;
-  configNameKey?: string;
-  onSaveDisplayName?: (name: string) => void | Promise<void>;
+  configNameKey: string;
+  initialName: string;
+  initialTitle: string;
+  initialAvatar: string;
+  onSaveIdentity: (f: { name: string; title: string; avatar: string }) => void | Promise<void>;
   nameSaving?: boolean;
   nameError?: string | null;
   /** Tighter card for pillar grid (SEO / Publishing) */
   compact?: boolean;
 }) {
-  const {
-    persona,
-    tier,
-    lastActionSummary,
-    activity,
-    configName,
-    configNameKey,
-    onSaveDisplayName,
-    nameSaving,
-    nameError,
-    compact,
-  } = props;
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { persona, tier, configNameKey, initialName, initialTitle, initialAvatar, onSaveIdentity, nameSaving, nameError, compact } = props;
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [imgError, setImgError] = useState(false);
   const tierClass =
     tier === "chief"
       ? "ah-pill--chief"
@@ -155,29 +174,85 @@ function PersonaPill(props: {
               : "ah-pill--worker";
   const demo = persona.source === "example" ? " ah-pill--demo" : "";
   const comp = compact && tier === "worker" ? " ah-pill--band" : "";
-  const bandTight = Boolean(compact && tier === "worker");
+  const resolvedAvatar = (persona.avatarUrl?.trim() || initialAvatar?.trim() || "") as string;
+  const useImg = !imgError && resolvedAvatar && looksLikeImageUrl(resolvedAvatar);
+  useEffect(() => {
+    setImgError(false);
+  }, [configNameKey, resolvedAvatar]);
   return (
     <div className={`ah-pill ${tierClass}${demo}${comp}`}>
-      <div className="ah-pill__avatar" aria-hidden>
-        {initials(persona.displayName)}
+      <div className={`ah-pill__avatar${useImg ? " ah-pill__avatar--photo" : ""}`} aria-hidden>
+        {useImg ? (
+          // User-supplied URL from config; Next/Image not suitable for all domains without config
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={configNameKey}
+            className="ah-pill__avatar-img"
+            src={resolvedAvatar}
+            alt=""
+            onError={() => {
+              setImgError(true);
+            }}
+          />
+        ) : (
+          <span className="ah-pill__avatar-initials">{initials(persona.displayName)}</span>
+        )}
       </div>
       <div className="ah-pill__body">
         <div className="ah-pill__name">{persona.displayName}</div>
-        {onSaveDisplayName != null && configNameKey != null ? (
-          <div className={bandTight ? "ah-pill__nameform ah-pill__nameform--band" : "ah-pill__nameform"}>
+        <div className="ah-pill__role" title={persona.position}>
+          {persona.position}
+        </div>
+        <details className="ah-pill__identity">
+          <summary>Identity (name, title, image URL)</summary>
+          <p className="ah-pill__identity-hint">
+            JPG/PNG via URL — use a path like <code>/agentic-avatars/role.jpg</code> in <code>public/</code> or a full
+            <code>https://</code> link.
+          </p>
+          <div className="ah-pill__nameform">
             <label className="ah-pill__nameform-label" htmlFor={`ah-name-${persona.id}`}>
-              {bandTight ? "Name" : "Name in config"}
+              Display name
             </label>
             <div className="ah-pill__nameform-row">
               <input
                 id={`ah-name-${persona.id}`}
-                ref={inputRef}
+                ref={nameInputRef}
                 className="ah-pill__nameform-input"
-                name={`name-${persona.id}`}
                 type="text"
-                placeholder="(optional) display name for prompts"
-                key={configNameKey}
-                defaultValue={configName ?? ""}
+                key={`n-${configNameKey}`}
+                defaultValue={initialName}
+                autoComplete="off"
+                disabled={nameSaving}
+              />
+            </div>
+            <label className="ah-pill__nameform-label" htmlFor={`ah-title-${persona.id}`}>
+              Title
+            </label>
+            <div className="ah-pill__nameform-row">
+              <input
+                id={`ah-title-${persona.id}`}
+                ref={titleInputRef}
+                className="ah-pill__nameform-input"
+                type="text"
+                key={`t-${configNameKey}`}
+                defaultValue={initialTitle}
+                autoComplete="off"
+                disabled={nameSaving}
+              />
+            </div>
+            <label className="ah-pill__nameform-label" htmlFor={`ah-avatar-${persona.id}`}>
+              Avatar URL
+            </label>
+            <div className="ah-pill__nameform-row">
+              <input
+                id={`ah-avatar-${persona.id}`}
+                ref={avatarInputRef}
+                className="ah-pill__nameform-input"
+                type="url"
+                inputMode="url"
+                key={`a-${configNameKey}`}
+                defaultValue={initialAvatar}
+                placeholder="https://… or /agentic-avatars/….jpg"
                 autoComplete="off"
                 disabled={nameSaving}
               />
@@ -185,7 +260,14 @@ function PersonaPill(props: {
                 type="button"
                 className="ah-pill__nameform-btn"
                 disabled={nameSaving}
-                onClick={() => void onSaveDisplayName?.(inputRef.current?.value ?? "")}
+                onClick={() => {
+                  setImgError(false);
+                  void onSaveIdentity({
+                    name: nameInputRef.current?.value ?? "",
+                    title: titleInputRef.current?.value ?? "",
+                    avatar: avatarInputRef.current?.value ?? "",
+                  });
+                }}
               >
                 {nameSaving ? "…" : "Save"}
               </button>
@@ -196,56 +278,7 @@ function PersonaPill(props: {
               </p>
             ) : null}
           </div>
-        ) : null}
-        <div className="ah-pill__role">{persona.position}</div>
-        {bandTight ? null : <div className="ah-pill__subdesk">{persona.subtitle}</div>}
-        {bandTight ? null : (
-          <span
-            className={
-              persona.source === "live"
-                ? "ah-pill__pilltag ah-pill__pilltag--live"
-                : "ah-pill__pilltag ah-pill__pilltag--demo"
-            }
-          >
-            {persona.source === "live" ? "Live data" : "Example motion"}
-          </span>
-        )}
-        {lastActionSummary.trim() ? (
-          <p
-            className={bandTight ? "ah-pill__last-action ah-pill__last-action--band" : "ah-pill__last-action"}
-          >
-            {lastActionSummary.trim()}
-          </p>
-        ) : null}
-        {bandTight ? null : (
-          <details className="ah-pill__activity">
-            <summary>Activity log (last {activity.length} · newest first)</summary>
-            {activity.length === 0 ? (
-              <p className="ah-pill__activity-empty">
-                No log lines yet. After cycles run, excerpts appear from <code>logs/…/cycle-*.md</code>, audit files, and
-                the event queue.
-              </p>
-            ) : (
-              <ol className="ah-pill__activity-list">
-                {activity.map((a, i) => (
-                  <li key={`${a.source}-${a.at}-${i}`}>
-                    <div className="ah-pill__activity-meta">
-                      <time dateTime={a.at}>{new Date(a.at).toLocaleString()}</time>
-                      <span className="ah-pill__activity-kind">{activityKindLabel(a.kind)}</span>
-                      <code className="ah-pill__activity-src" title={a.source}>
-                        {a.source}
-                      </code>
-                    </div>
-                    <div className="ah-pill__activity-label">{a.label}</div>
-                    {a.detail?.trim() ? (
-                      <p className="ah-pill__activity-detail">{a.detail}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </details>
-        )}
+        </details>
       </div>
     </div>
   );
@@ -460,7 +493,10 @@ export function AgenticHierarchyLive() {
     setSnap(j as unknown as LiveApiResponse);
   }
 
-  async function saveDisplayName(personaId: string, name: string) {
+  async function savePersonaIdentity(
+    personaId: string,
+    f: { name: string; title: string; avatar: string },
+  ) {
     setNameErr(null);
     setNameSaveId(personaId);
     try {
@@ -468,7 +504,7 @@ export function AgenticHierarchyLive() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ personaId, name }),
+        body: JSON.stringify({ personaId, name: f.name, title: f.title, avatar: f.avatar }),
       });
       const parsed = await readResponseJson<{ error?: string; agentNames?: AgentNamesConfig }>(res);
       if (!parsed.ok) {
@@ -510,19 +546,59 @@ export function AgenticHierarchyLive() {
       ? Math.min(100, Math.round((1 - msLeft / snap.publishCycleMs) * 100))
       : 0;
 
-  const act = chart?.personaActivity;
-  const lastSum = chart?.lastActionSummaries;
   const agentNames = chart?.agentNames;
 
+  const [activityLines, setActivityLines] = useState<string[]>([]);
+  const [activityErr, setActivityErr] = useState<string | null>(null);
+  const [activityWordNote, setActivityWordNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFeed() {
+      try {
+        const res = await fetch("/api/admin/agentic-activity-feed?limit=400", { credentials: "include" });
+        const j = (await res.json()) as { ok?: boolean; rows?: PipelineLogFeedRow[]; error?: string };
+        if (cancelled) return;
+        if (!res.ok || j.ok !== true || !j.rows) {
+          setActivityErr(j.error ?? res.statusText);
+          return;
+        }
+        setActivityErr(null);
+        const lines = j.rows.map(formatPipelineFeedLine);
+        const capped = capNewestFirstLinesToWordBudget(lines, MAX_ACTIVITY_WORDS);
+        const before = countWords(lines.join(" "));
+        const after = countWords(capped.join(" "));
+        if (before > after) {
+          setActivityWordNote(`Showing newest first; trimmed to ${MAX_ACTIVITY_WORDS} words (full history stays in Supabase).`);
+        } else {
+          setActivityWordNote(null);
+        }
+        setActivityLines(capped);
+      } catch (e) {
+        if (!cancelled) {
+          setActivityErr(e instanceof Error ? e.message : String(e));
+        }
+      }
+    }
+    void loadFeed();
+    const id = setInterval(() => void loadFeed(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   function pillNameProps(personaId: string) {
-    const raw = nameFieldFromConfig(agentNames, personaId);
+    const f = personaFieldsFromConfig(agentNames, personaId);
     return {
-      configName: raw,
-      configNameKey: `${nameTick}-${raw}`,
-      onSaveDisplayName: (n: string) => void saveDisplayName(personaId, n),
+      configNameKey: `${nameTick}-${f.name}-${f.title}-${f.avatar}`,
+      initialName: f.name,
+      initialTitle: f.title,
+      initialAvatar: f.avatar,
+      onSaveIdentity: (n: { name: string; title: string; avatar: string }) =>
+        void savePersonaIdentity(personaId, n),
       nameSaving: nameSaveId === personaId,
-      nameError:
-        nameErr != null && nameErr.personaId === personaId ? nameErr.message : null,
+      nameError: nameErr != null && nameErr.personaId === personaId ? nameErr.message : null,
     };
   }
 
@@ -532,17 +608,13 @@ export function AgenticHierarchyLive() {
         <div>
           <h2 className="admin-agentic-live__title">Live hierarchy · command tree</h2>
           <p className="admin-agentic-live__sub">
-            Top line on each card: <strong>last action</strong> in plain English (Gemini when{" "}
-            <code>GEMINI_API_KEY</code> is set; otherwise a short line from the latest log). Below: up to 20 log rows
-            (newest first). Names save to <code>xalura-agentic/config/agents.json</code>. Use the chart zoom bar and{" "}
-            <strong>⌘/Ctrl + scroll</strong> over the tree to scale. The four report lines (SEO, Publishing, Marketing, Head of
-            Compliance) stay <strong>one row</strong> — at <strong>100% chart zoom</strong> the full row scales to fit the
-            panel; pan if you zoom in, or the window is very small.{" "}
-            <strong>Zoom out</strong> to see the full chart; cards keep full text (no cut-off boxes). Under SEO / Publishing,{" "}
-            <strong>Auto</strong> / <strong>Band</strong> use a <strong>responsive grid</strong>: <strong>1 column</strong> at
-            100% zoom (wide cards), widening to <strong>2 → 5 columns</strong> as you <strong>zoom out</strong> (35% = two
-            rows of five for 10 workers). Cards always fill the pillar width. Manager checklists are off; worker cards stay
-            compact.
+            Each card shows <strong>name</strong>, <strong>title</strong>, and an optional <strong>avatar</strong> (JPG/PNG
+            via URL in <code>config/agents.json</code> — use <code>public/agentic-avatars/…</code> or an https link). Open
+            <strong> Identity</strong> to edit. Activity for every role (Worker → Chief) comes from the same Supabase table as
+            the pipeline: <code>agentic_pipeline_stage_log</code> in the <strong>feed below</strong> (newest first, display
+            capped at 1,000 words). Use the chart zoom bar and <strong>⌘/Ctrl + scroll</strong> on the tree. The four report
+            lines stay <strong>one row</strong>; at 100% zoom the row can scale to fit. Under SEO / Publishing,{" "}
+            <strong>Auto</strong> / <strong>Band</strong> reflows pillar workers in a grid as you zoom out.
           </p>
         </div>
         <div className="admin-agentic-live__cadence">
@@ -680,8 +752,6 @@ export function AgenticHierarchyLive() {
               <PersonaPill
                 persona={chart.chief}
                 tier="chief"
-                lastActionSummary={lastSum?.[chart.chief.id] ?? ""}
-                activity={act?.[chart.chief.id] ?? []}
                 {...pillNameProps(chart.chief.id)}
               />
               <div className="ah-tree__l1-block" ref={l1BlockRef}>
@@ -708,16 +778,12 @@ export function AgenticHierarchyLive() {
                       <PersonaPill
                         persona={lane.executive}
                         tier="exec"
-                        lastActionSummary={lastSum?.[lane.executive.id] ?? ""}
-                        activity={act?.[lane.executive.id] ?? []}
                         {...pillNameProps(lane.executive.id)}
                       />
                       <div className="ah-tree__vline" aria-hidden />
                       <PersonaPill
                         persona={lane.manager}
                         tier="mgr"
-                        lastActionSummary={lastSum?.[lane.manager.id] ?? ""}
-                        activity={act?.[lane.manager.id] ?? []}
                         {...pillNameProps(lane.manager.id)}
                       />
                       {lane.deptId === "publishing" ? (
@@ -727,8 +793,6 @@ export function AgenticHierarchyLive() {
                           <PersonaPill
                             persona={chart.publishingGraphicDesigner}
                             tier="graphic"
-                            lastActionSummary={lastSum?.[chart.publishingGraphicDesigner.id] ?? ""}
-                            activity={act?.[chart.publishingGraphicDesigner.id] ?? []}
                             {...pillNameProps(chart.publishingGraphicDesigner.id)}
                           />
                         </>
@@ -763,8 +827,6 @@ export function AgenticHierarchyLive() {
                                   persona={w}
                                   tier="worker"
                                   compact
-                                  lastActionSummary={lastSum?.[w.id] ?? ""}
-                                  activity={act?.[w.id] ?? []}
                                   {...pillNameProps(w.id)}
                                 />
                               </div>
@@ -778,8 +840,6 @@ export function AgenticHierarchyLive() {
                             <PersonaPill
                               persona={w}
                               tier="worker"
-                              lastActionSummary={lastSum?.[w.id] ?? ""}
-                              activity={act?.[w.id] ?? []}
                               {...pillNameProps(w.id)}
                             />
                           </div>
@@ -793,8 +853,6 @@ export function AgenticHierarchyLive() {
                   <PersonaPill
                     persona={chart.complianceOfficer}
                     tier="compliance"
-                    lastActionSummary={lastSum?.[chart.complianceOfficer.id] ?? ""}
-                    activity={act?.[chart.complianceOfficer.id] ?? []}
                     {...pillNameProps(chart.complianceOfficer.id)}
                   />
                 </div>
@@ -812,21 +870,32 @@ export function AgenticHierarchyLive() {
         <p className="admin-agentic-live__warn">Last failure: {snap.failed_hint}</p>
       ) : null}
 
-      {snap && snap.tail.length > 0 ? (
-        <details className="admin-agentic-live__tail">
-          <summary>Recent agentic events ({snap.tail.length})</summary>
-          <ul>
-            {snap.tail.map((t, i) => (
-              <li key={`${t.ts}-${i}`}>
-                <span className="admin-agentic-live__tail-type">{t.type}</span>{" "}
-                <time dateTime={t.ts}>{new Date(t.ts).toLocaleString()}</time>
-                <br />
-                <span className="admin-agentic-live__tail-sum">{t.summary}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+      <div className="admin-agentic-activity-feed" aria-label="Supabase agent activity from pipeline log">
+        <h3 className="admin-agentic-activity-feed__title">Activity · all agents (Supabase <code>agentic_pipeline_stage_log</code>)</h3>
+        <p className="admin-agentic-activity-feed__sub">
+          Newest first. Display is limited to <strong>{MAX_ACTIVITY_WORDS} words</strong> so the dashboard stays light; data is
+          not deleted in the database.
+          {activityWordNote != null && activityWordNote ? (
+            <span className="admin-agentic-activity-feed__note"> {activityWordNote}</span>
+          ) : null}
+        </p>
+        {activityErr != null && activityErr.trim() ? (
+          <p className="admin-agentic-live__err">{activityErr}</p>
+        ) : null}
+        <div className="admin-agentic-activity-feed__scroll" tabIndex={0}>
+          {activityLines.length === 0 && !activityErr ? (
+            <p className="admin-agentic-activity-feed__empty">No log rows yet — run a pipeline (or set <code>SUPABASE_SERVICE_ROLE_KEY</code>).</p>
+          ) : (
+            <ol className="admin-agentic-activity-feed__list">
+              {activityLines.map((line, i) => (
+                <li key={i} className="admin-agentic-activity-feed__line">
+                  {line}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

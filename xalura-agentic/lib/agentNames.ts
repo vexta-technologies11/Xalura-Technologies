@@ -7,55 +7,90 @@ import {
 } from "./agenticDisk";
 import { getAgenticRoot } from "./paths";
 
+/** Display name, optional org title, optional avatar URL (`.jpg` / `/public/…` path / https). */
+export type NameTitleAvatar = {
+  name: string;
+  title?: string;
+  avatar?: string;
+};
+
 export type DepartmentNameEntry = {
-  worker: { name: string };
-  manager: { name: string };
-  executive: { name: string };
+  worker: NameTitleAvatar;
+  manager: NameTitleAvatar;
+  executive: NameTitleAvatar;
   /**
    * Ten fixed content-pillar lanes (`sc-…` ids) — one SEO Worker and one Publishing Worker
    * per public library column; used by the live hierarchy and `assignedName` overrides.
    */
-  workersByPillar?: Record<string, { name: string }>;
+  workersByPillar?: Record<string, NameTitleAvatar>;
 };
 
 export type AgentNamesConfig = {
   note?: string;
   departments: Record<DepartmentId, DepartmentNameEntry>;
-  chiefAI: { name: string };
+  chiefAI: NameTitleAvatar;
   /** Post-publish compliance advisory; optional — empty keeps generic UI label. */
-  complianceOfficer?: { name: string };
+  complianceOfficer?: NameTitleAvatar;
   /** Publishing hero (Imagen) step; optional — empty keeps generic UI label. */
-  graphicDesigner?: { name: string };
+  graphicDesigner?: NameTitleAvatar;
 };
+
+const defaultName = (): NameTitleAvatar => ({ name: "" });
 
 const DEFAULT: AgentNamesConfig = {
   departments: {
-    marketing: { worker: { name: "" }, manager: { name: "" }, executive: { name: "" } },
-    publishing: { worker: { name: "" }, manager: { name: "" }, executive: { name: "" } },
-    seo: { worker: { name: "" }, manager: { name: "" }, executive: { name: "" } },
+    marketing: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
+    publishing: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
+    seo: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
   },
-  chiefAI: { name: "" },
-  complianceOfficer: { name: "" },
-  graphicDesigner: { name: "" },
+  chiefAI: defaultName(),
+  complianceOfficer: defaultName(),
+  graphicDesigner: defaultName(),
 };
 
+function mergeNtaFromPartial(
+  base: NameTitleAvatar,
+  p: Partial<NameTitleAvatar> | undefined,
+): NameTitleAvatar {
+  if (!p) return base;
+  return {
+    name: p.name !== undefined ? p.name.trim().slice(0, 120) : base.name,
+    title: p.title !== undefined ? p.title.trim().slice(0, 200) : base.title,
+    avatar: p.avatar !== undefined ? p.avatar.trim().slice(0, 500) : base.avatar,
+  };
+}
+
 function mergeWorkersByPillar(
-  a: Record<string, { name: string }> | undefined,
-  b: Record<string, { name: string }> | undefined,
-): Record<string, { name: string }> | undefined {
+  a: Record<string, NameTitleAvatar> | undefined,
+  b: Record<string, NameTitleAvatar> | undefined,
+): Record<string, NameTitleAvatar> | undefined {
   const hasA = a && Object.keys(a).length > 0;
   const hasB = b && Object.keys(b).length > 0;
   if (!hasA && !hasB) return undefined;
-  return { ...a, ...b };
+  const union = { ...a, ...b };
+  const out: Record<string, NameTitleAvatar> = {};
+  for (const k of Object.keys(union)) {
+    out[k] = mergeNtaFromPartial(a?.[k] ?? { name: "" }, b?.[k]);
+  }
+  return out;
 }
 
 function mergeConfig(parsed: Partial<AgentNamesConfig>): AgentNamesConfig {
   const d = (id: DepartmentId) => ({
     ...DEFAULT.departments[id],
     ...parsed.departments?.[id],
-    worker: { ...DEFAULT.departments[id].worker, ...parsed.departments?.[id]?.worker },
-    manager: { ...DEFAULT.departments[id].manager, ...parsed.departments?.[id]?.manager },
-    executive: { ...DEFAULT.departments[id].executive, ...parsed.departments?.[id]?.executive },
+    worker: mergeNtaFromPartial(
+      DEFAULT.departments[id].worker,
+      parsed.departments?.[id]?.worker,
+    ),
+    manager: mergeNtaFromPartial(
+      DEFAULT.departments[id].manager,
+      parsed.departments?.[id]?.manager,
+    ),
+    executive: mergeNtaFromPartial(
+      DEFAULT.departments[id].executive,
+      parsed.departments?.[id]?.executive,
+    ),
     workersByPillar: mergeWorkersByPillar(
       DEFAULT.departments[id].workersByPillar,
       parsed.departments?.[id]?.workersByPillar,
@@ -65,13 +100,15 @@ function mergeConfig(parsed: Partial<AgentNamesConfig>): AgentNamesConfig {
     ...DEFAULT,
     ...parsed,
     note: typeof parsed.note === "string" ? parsed.note : DEFAULT.note,
-    chiefAI: { ...DEFAULT.chiefAI, ...parsed.chiefAI },
-    complianceOfficer: {
-      name: parsed.complianceOfficer?.name?.trim() ?? DEFAULT.complianceOfficer?.name ?? "",
-    },
-    graphicDesigner: {
-      name: parsed.graphicDesigner?.name?.trim() ?? DEFAULT.graphicDesigner?.name ?? "",
-    },
+    chiefAI: mergeNtaFromPartial(DEFAULT.chiefAI, parsed.chiefAI),
+    complianceOfficer: mergeNtaFromPartial(
+      DEFAULT.complianceOfficer!,
+      parsed.complianceOfficer,
+    ),
+    graphicDesigner: mergeNtaFromPartial(
+      DEFAULT.graphicDesigner!,
+      parsed.graphicDesigner,
+    ),
     departments: {
       marketing: d("marketing"),
       publishing: d("publishing"),
@@ -181,23 +218,42 @@ export function executiveDisplayName(
 const PERSONA_ID_RE = /^(marketing|publishing|seo)_(worker|manager|executive)$/;
 const PILLAR_WORKER_RE = /^(seo|publishing)_worker_(.+)$/;
 
-/** Update a single `HierarchyPersona.id` entry in a mutable `AgentNamesConfig` (for dashboard saves). */
-export function setPersonaNameInConfig(
+export type PersonaFieldUpdate = { name?: string; title?: string; avatar?: string };
+
+function mergeNta(
+  prev: NameTitleAvatar | undefined,
+  fields: PersonaFieldUpdate,
+): NameTitleAvatar {
+  const p = prev ?? { name: "" };
+  return {
+    name: fields.name !== undefined ? fields.name.trim().slice(0, 120) : p.name,
+    title: fields.title !== undefined ? fields.title.trim().slice(0, 200) : p.title,
+    avatar: fields.avatar !== undefined ? fields.avatar.trim().slice(0, 500) : p.avatar,
+  };
+}
+
+/**
+ * Update name / title / avatar for one hierarchy persona in a mutable `AgentNamesConfig`.
+ * At least one field must be present.
+ */
+export function setPersonaFieldsInConfig(
   config: AgentNamesConfig,
   personaId: string,
-  name: string,
+  fields: PersonaFieldUpdate,
 ): void {
-  const t = name.trim().slice(0, 120);
+  if (!fields || (fields.name === undefined && fields.title === undefined && fields.avatar === undefined)) {
+    throw new Error("At least one of name, title, avatar is required");
+  }
   if (personaId === "chief") {
-    config.chiefAI = { name: t };
+    config.chiefAI = mergeNta(config.chiefAI, fields);
     return;
   }
   if (personaId === "compliance_officer") {
-    config.complianceOfficer = { name: t };
+    config.complianceOfficer = mergeNta(config.complianceOfficer, fields);
     return;
   }
   if (personaId === "publishing_graphic_designer") {
-    config.graphicDesigner = { name: t };
+    config.graphicDesigner = mergeNta(config.graphicDesigner, fields);
     return;
   }
   const pw = PILLAR_WORKER_RE.exec(personaId);
@@ -207,15 +263,26 @@ export function setPersonaNameInConfig(
     if (!config.departments[dept].workersByPillar) {
       config.departments[dept].workersByPillar = {};
     }
-    config.departments[dept].workersByPillar![lane] = { name: t };
+    const prev = config.departments[dept].workersByPillar![lane];
+    config.departments[dept].workersByPillar![lane] = mergeNta(prev, fields);
     return;
   }
   const m = PERSONA_ID_RE.exec(personaId);
   if (m) {
     const dept = m[1]! as DepartmentId;
     const role = m[2]! as "worker" | "manager" | "executive";
-    config.departments[dept][role] = { name: t };
+    const prev = config.departments[dept][role];
+    config.departments[dept][role] = mergeNta(prev, fields);
     return;
   }
   throw new Error(`Unknown persona id: ${personaId}`);
+}
+
+/** @deprecated use setPersonaFieldsInConfig with `{ name }` */
+export function setPersonaNameInConfig(
+  config: AgentNamesConfig,
+  personaId: string,
+  name: string,
+): void {
+  setPersonaFieldsInConfig(config, personaId, { name });
 }
