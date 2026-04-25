@@ -1,14 +1,39 @@
 /**
  * One real Leonardo generation (small prompt) — same API path as article hero.
  *
- *   npx tsx --env-file=.env.local xalura-agentic/scripts/smoke-leonardo.ts
- *   # or: LEONARDO_API_KEY=... npx tsx xalura-agentic/scripts/smoke-leonardo.ts
+ *   npx tsx xalura-agentic/scripts/smoke-leonardo.ts
+ *   # (loads `.env.local` from the repo root automatically; still overrides with `LEONARDO_API_KEY=...` in shell)
  *
- * Cloudflare: copy `LEONARDO_API_KEY` into `.env.local` for local smoke, or export for one run.
+ * Cloudflare: for local smoke, put `LEONARDO_API_KEY` in project `.env.local` (same as Cloudflare secret name).
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { generateHeroImage } from "../lib/heroImageGenerate";
 import { generateLeonardoImage } from "../lib/leonardoGenerate";
 import { readEnvSync } from "../../lib/supabase/service";
+
+/** `tsx --env-file=` does not always bind vars; Next.js loads `.env.local` for you — mirror that here. */
+function applyEnvFile(file: string) {
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const eq = t.indexOf("=");
+    if (eq < 1) continue;
+    const k = t.slice(0, eq).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) continue;
+    let v = t.slice(eq + 1).trim();
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
+      v = v.slice(1, -1);
+    }
+    if (k) process.env[k] = v;
+  }
+}
+
+applyEnvFile(join(process.cwd(), ".env.local"));
 
 const TEST_PROMPT =
   "Single professional product photo, modern glass of water on marble surface, soft natural window light, shallow depth of field, photorealistic editorial still, no text";
@@ -16,7 +41,11 @@ const TEST_PROMPT =
 void (async () => {
   const key = readEnvSync("LEONARDO_API_KEY")?.trim();
   if (!key) {
-    console.error("FAIL: LEONARDO_API_KEY not in env (add to .env.local or export for this command).");
+    const path = join(process.cwd(), ".env.local");
+    console.error(
+      "FAIL: LEONARDO_API_KEY not in env. Add a line in project root %s:\n  LEONARDO_API_KEY=your_key\n(exact name; no spaces around =) Or: export LEONARDO_API_KEY=... for one run.",
+      path,
+    );
     process.exit(1);
   }
   console.log("LEONARDO_API_KEY: present (len=%d)", key.length);
