@@ -257,7 +257,8 @@ export async function gatherPreprodNewsPool(params: {
   const q4 =
     (await resolveWorkerEnv("NEWS_SERP_QUERY_EXTRA2"))?.trim() || "technology news today";
 
-  const perQuery = Math.max(minCount * 3, 50);
+  // Cap per-query size to cut Serp HTTP subrequests (Cloudflare Workers per-invocation limit).
+  const perQuery = Math.min(40, Math.max(minCount * 2, 28));
   const [ai, tech, e1, e2] = await Promise.all([
     serpGoogleNewsCollect(qAi, perQuery),
     serpGoogleNewsCollect(qTech, perQuery),
@@ -311,7 +312,7 @@ export async function gatherPreprodNewsPool(params: {
   return { ok: true, items: trimmed };
 }
 
-const MAX_FC = 8;
+const MAX_FC = 4;
 
 /**
  * Add Firecrawl markdown excerpts to the first `max` links (not Google URLs).
@@ -347,7 +348,7 @@ export async function fetchAiNewsChecklist30(): Promise<
     (await resolveWorkerEnv("NEWS_CHECKLIST_SERP_QUERY"))?.trim() || "AI news";
   const all: GoogleNewsItem[] = [];
   const seen = new Set<string>();
-  for (let off = 0; all.length < 30 && off < 120; off += CHUNK) {
+  for (let off = 0; all.length < 30 && off < 60; off += CHUNK) {
     const r = await serpGoogleNewsSearch(q, { num: CHUNK, start: off });
     if (r.error && !r.items?.length) {
       return { ok: false, error: r.error || "Serp failed" };

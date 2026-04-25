@@ -34,7 +34,9 @@ import {
 
 const MAX_PREPROD = 3;
 const MAX_WRITER = 3;
-const MAX_AUDIT_RETRIES = 2;
+/** 1–3. Lower = fewer full replays (fewer Serp/FC) if audit fails. Default 2. */
+const maxAuditRounds = () =>
+  Math.min(3, Math.max(1, intEnv("NEWS_MAX_AUDIT_RETRIES", 2)));
 
 function intEnv(name: string, def: number): number {
   return Math.max(1, Math.min(50, parseInt(process.env[name] || String(def), 10) || def));
@@ -132,8 +134,9 @@ export async function runNewsPipeline(
   /** Filled on successful pass — Head of News + Chief of Audit post-publish reports. */
   let postEmailContext: NewsPublishPostEmailContext | undefined;
   const executiveRounds: NewsPublishPostEmailContext["audit"]["executiveRounds"] = [];
+  const maxAudit = maxAuditRounds();
 
-  for (let auditAttempt = 0; auditAttempt < MAX_AUDIT_RETRIES; auditAttempt++) {
+  for (let auditAttempt = 0; auditAttempt < maxAudit; auditAttempt++) {
     let preprodRejects = 0;
     let preprodPassRound = 0;
     let writerRejects = 0;
@@ -148,7 +151,7 @@ export async function runNewsPipeline(
     if (!poolRes.ok) {
       return { status: "error", runId, message: poolRes.error, stage: "preprod_gather" };
     }
-    preprodPool = await addFirecrawlExcerpts(poolRes.items, 8);
+    preprodPool = await addFirecrawlExcerpts(poolRes.items);
     digest.push(`- Gathered ${preprodPool.length} items.`, "");
 
     const ch = await fetchAiNewsChecklist30();
@@ -306,7 +309,7 @@ ${draft}
       break;
     }
     digest.push(`- Audit failed: ${aud.reason}`, "");
-    if (auditAttempt === MAX_AUDIT_RETRIES - 1) {
+    if (auditAttempt === maxAudit - 1) {
       return { status: "aborted", runId, reason: aud.reason, stage: "auditor" };
     }
   }

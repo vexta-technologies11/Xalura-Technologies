@@ -25,7 +25,7 @@ export async function runNewsPreprodSerpChecklist(): Promise<
   if (!poolRes.ok) {
     return { ok: false, error: poolRes.error, stage: "preprod_gather" };
   }
-  const pool = await addFirecrawlExcerpts(poolRes.items, 8);
+  const pool = await addFirecrawlExcerpts(poolRes.items, 4);
   const ch = await fetchAiNewsChecklist30();
   if (!ch.ok) {
     return { ok: false, error: ch.error, stage: "preprod_checklist" };
