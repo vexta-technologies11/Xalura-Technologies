@@ -1,6 +1,7 @@
 import {
   clipChiefEmailWords,
   finishChiefPlainBody,
+  pickChiefEmailOpeningSalutation,
   wrapChiefEmailHtml,
 } from "@/lib/chiefEmailBranding";
 import { runChiefAI } from "../agents/chiefAI";
@@ -80,13 +81,15 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
   ].join("\n");
 
   const chiefN = chiefDisplayName(params.cwd);
+  const openLine = pickChiefEmailOpeningSalutation();
   let body: string;
   try {
     const raw = await runChiefAI({
       department: "All",
       task: `You are **Ryzen Qi**, **CAI | Head of Operations**. Publishing just shipped an article to the site. Write one email to the CEO.
 
-**Your entire body must be at most 30 words.** One or two short sentences. Name the article/theme, one line on quality or risk if the briefing shows it, nothing else. No run codes, no sections, no signature.
+**Your first line of the body must be exactly (punctuation as given):** ${openLine}
+**Your entire body must be at most 100 words, including that first line.** Add what matters: article/theme, quality or risk if the briefing shows it. No run codes, no extra sections, no signature line.
 
 BRIEFING:
 ---

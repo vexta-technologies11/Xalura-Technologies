@@ -5,7 +5,35 @@
  */
 
 /** Hard cap for Chief email body (inbound, digest, publish note) so replies stay brief. */
-export const CHIEF_EMAIL_MAX_WORDS = 30;
+export const CHIEF_EMAIL_MAX_WORDS = 100;
+
+const OPENING_SALUTATIONS = [
+  "Good morning, Boss.",
+  "Good afternoon, Boss.",
+  "Good evening, Boss.",
+  "Boss — a quick update.",
+] as const;
+
+const REPLY_SALUTATIONS = [
+  "Hello, Boss —",
+  "Greetings, Boss —",
+  "Hi, Boss —",
+  "Good to hear from you, Boss —",
+] as const;
+
+/** One random opener for a new thread (no prior messages in our log). */
+export function pickChiefEmailOpeningSalutation(): string {
+  return OPENING_SALUTATIONS[Math.floor(Math.random() * OPENING_SALUTATIONS.length)] ?? OPENING_SALUTATIONS[0]!;
+}
+
+/** One random line for a reply in an existing thread. */
+export function pickChiefEmailReplySalutation(): string {
+  return REPLY_SALUTATIONS[Math.floor(Math.random() * REPLY_SALUTATIONS.length)] ?? REPLY_SALUTATIONS[0]!;
+}
+
+export function pickChiefEmailSalutation(variant: "opening" | "reply"): string {
+  return variant === "opening" ? pickChiefEmailOpeningSalutation() : pickChiefEmailReplySalutation();
+}
 
 export function clipChiefEmailWords(s: string, maxWords: number = CHIEF_EMAIL_MAX_WORDS): string {
   const words = s.replace(/\s+/g, " ").trim().split(/\s+/).filter(Boolean);

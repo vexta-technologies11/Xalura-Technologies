@@ -11,6 +11,7 @@ import { formatChiefStrategicForSnapshot } from "@/lib/chiefStrategicDirectives"
 import {
   clipChiefEmailWords,
   finishChiefPlainBody,
+  pickChiefEmailSalutation,
   wrapChiefEmailHtml,
 } from "@/lib/chiefEmailBranding";
 import { normalizeRfcMessageId } from "@/lib/chiefEmailIds";
@@ -266,10 +267,18 @@ export async function chiefReplyToInboundEmail(params: {
     ? actionSenders.includes(fromAddr)
     : true;
 
+  const threadIsReply = Boolean(historyText.trim());
+  const preface = (body: string) => {
+    const s = pickChiefEmailSalutation(threadIsReply ? "reply" : "opening");
+    return `${s}\n\n${body}`;
+  };
+
   const cmd = parseChiefInboundCommand(bodyText);
   if (cmd.kind === "error") {
     const s = await doSend({
-      main: `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
+      main: preface(
+        `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
+      ),
       sub: subject,
     });
     if (s.error) return { ok: false, error: s.error };
@@ -277,7 +286,9 @@ export async function chiefReplyToInboundEmail(params: {
   }
   if (cmd.kind === "need_approve") {
     const s = await doSend({
-      main: `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
+      main: preface(
+        `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
+      ),
       sub: subject,
     });
     if (s.error) return { ok: false, error: s.error };
@@ -286,19 +297,19 @@ export async function chiefReplyToInboundEmail(params: {
   if (cmd.kind === "ready") {
     if (!canRunActions) {
       const s = await doSend({
-        main: `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
+        main: preface(
+          `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
+        ),
         sub: subject,
       });
       if (s.error) return { ok: false, error: s.error };
       return { ok: true };
     }
     const ex = await executeChiefInboundCommand(cmd.action, { cwd, fromEmail: fromAddr });
-    const bodyOut = clipChiefEmailWords(
-      ex.ok
-        ? `Done. ${ex.text.replace(/\s+/g, " ").trim()}`
-        : `Failed: ${ex.error?.replace(/\s+/g, " ").trim() ?? "unknown"}`,
-    );
-    const s = await doSend({ main: bodyOut, sub: subject });
+    const bodyOut = ex.ok
+      ? `Done. ${ex.text.replace(/\s+/g, " ").trim()}`
+      : `Failed: ${ex.error?.replace(/\s+/g, " ").trim() ?? "unknown"}`;
+    const s = await doSend({ main: preface(bodyOut), sub: subject });
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
@@ -330,14 +341,20 @@ ${historyText}
 `
     : `**(No prior thread in log — new topic or logging disabled.)**
 `;
+  const requiredSalutation = pickChiefEmailSalutation(
+    threadIsReply ? "reply" : "opening",
+  );
 
   const chiefRaw = await runChiefAI({
     department: "All",
     task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech, emailing the CEO.
 
-**Hard rule: your entire reply body must be at most 30 words.** Count. No lists longer than one line. No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then use one 10-word hint max (still keep total ≤30 if possible, else 30 words max for the whole reply).
+**Your first line of the reply (before anything else) must be exactly this line, punctuation and capitalization as written:**
+${requiredSalutation}
 
-Summarize only what matters from their message + earlier thread + snapshot: answer the question, or the single most important operational fact. Use the thread to stay consistent; do not contradict prior agreements in the snippet below. ${automationNote} ${executiveBlock}
+**Hard rule: your entire reply body must be at most 100 words (including that first line).** No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then a short hint only, still under 100 words total.
+
+Summarize what matters from their message + earlier thread + snapshot: answer the question, or the most important operational fact. Use the thread to stay consistent; do not contradict prior agreements. ${automationNote} ${executiveBlock}
 
 ${historyBlock}
 **Their current email** — Subject: ${subject}
@@ -346,7 +363,7 @@ ${forConversation.slice(0, 8_000)}
 **Snapshot (facts only)**
 ${snapshot}
 
-Write **only** the reply body (no signature). **≤30 words.**`,
+Write **only** the reply body (no signature). **≤100 words including the required first line.**`,
     context: { channel: "chief_inbound_email", subject },
     assignedName: chiefN,
   });

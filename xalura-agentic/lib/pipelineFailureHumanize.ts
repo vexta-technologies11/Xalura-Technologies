@@ -1,3 +1,7 @@
+import {
+  CHIEF_EMAIL_MAX_WORDS,
+  pickChiefEmailReplySalutation,
+} from "@/lib/chiefEmailBranding";
 import type { FailedOperation } from "./failedQueue";
 
 const MAX_WORDS_BRIEF = 95;
@@ -222,9 +226,10 @@ export function humanChiefDigestEmailBody(input: {
 }): { subject: string; text: string } {
   const lane = input.agentLaneKey ? ` (${input.agentLaneKey})` : "";
   const cwd = input.cwdLabel ? ` [${input.cwdLabel}]` : "";
+  const lead = pickChiefEmailReplySalutation();
   const text = clipWords(
-    `Hello, Boss — ${input.department} audit logged in ${input.auditFileRelative}${lane}. Routine governance, not an alert.${cwd}`.replace(/\s+/g, " ").trim(),
-    30,
+    `${lead} ${input.department} audit logged in ${input.auditFileRelative}${lane}. Routine governance, not an alert.${cwd}`.replace(/\s+/g, " ").trim(),
+    CHIEF_EMAIL_MAX_WORDS,
   );
   return {
     subject: `Ops note — ${input.department} audit (CAI)`,
