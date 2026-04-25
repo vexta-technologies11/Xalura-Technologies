@@ -25,10 +25,14 @@ function header(req: NextRequest, name: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = (await resolveWorkerEnv("RESEND_WEBHOOK_SECRET"))?.trim();
-  if (!secret) {
+  const chiefSecret = (await resolveWorkerEnv("RESEND_WEBHOOK_SECRET"))?.trim();
+  const newsSecret = (await resolveWorkerEnv("RESEND_WEBHOOK_SECRET_2"))?.trim();
+  if (!chiefSecret && !newsSecret) {
     return NextResponse.json(
-      { error: "RESEND_WEBHOOK_SECRET not configured" },
+      {
+        error:
+          "Set RESEND_WEBHOOK_SECRET (Chief webhook) and/or RESEND_WEBHOOK_SECRET_2 (news team webhook)",
+      },
       { status: 503 },
     );
   }
@@ -41,16 +45,23 @@ export async function POST(req: NextRequest) {
   }
 
   const rawBody = await req.text();
+  const svixInput = {
+    "svix-id": svixId,
+    "svix-timestamp": svixTs,
+    "svix-signature": svixSig,
+  } as const;
 
-  let payload: unknown;
-  try {
-    const wh = new Webhook(secret);
-    payload = wh.verify(rawBody, {
-      "svix-id": svixId,
-      "svix-timestamp": svixTs,
-      "svix-signature": svixSig,
-    });
-  } catch {
+  let payload: unknown | undefined;
+  for (const s of [chiefSecret, newsSecret] as const) {
+    if (!s) continue;
+    try {
+      payload = new Webhook(s).verify(rawBody, svixInput);
+      break;
+    } catch {
+      /* try next signing secret */
+    }
+  }
+  if (payload === undefined) {
     return NextResponse.json({ error: "invalid signature" }, { status: 400 });
   }
 
