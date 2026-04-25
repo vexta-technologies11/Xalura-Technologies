@@ -10,6 +10,7 @@ import { recordApproval } from "../../engine/cycleEngine";
 import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { insertNewsRunEvent } from "@/lib/newsRunEvents";
 import {
+  type NewsPublishPostEmailContext,
   sendHeadOfNewsPublishedEmailIfEnabled,
   sendNewsAuditorPublishedEmailIfEnabled,
 } from "@/lib/newsAuditorPublishedEmail";
@@ -128,8 +129,16 @@ export async function runNewsPipeline(
   let title = "News update";
   /** For post-publish CEO email from Chief of Audit. */
   let lastAuditTextForEmail = "";
+  /** Filled on successful pass — Head of News + Chief of Audit post-publish reports. */
+  let postEmailContext: NewsPublishPostEmailContext | undefined;
+  const executiveRounds: NewsPublishPostEmailContext["audit"]["executiveRounds"] = [];
 
   for (let auditAttempt = 0; auditAttempt < MAX_AUDIT_RETRIES; auditAttempt++) {
+    let preprodRejects = 0;
+    let preprodPassRound = 0;
+    let writerRejects = 0;
+    let writerPassRound = 0;
+
     if (auditAttempt > 0) {
       logStage("audit_retry", `Rebuilding Pre-Production (attempt ${auditAttempt + 1})`, {});
     }
@@ -185,7 +194,11 @@ ${preWorkerOut}
       });
       const mdec = parseManagerDecision(mOut, { strict: true });
       logStage("preprod_manager", mdec.approved ? "APPROVED" : "REJECTED", { reason: mdec.reason });
-      if (mdec.approved) break;
+      if (mdec.approved) {
+        preprodPassRound = r + 1;
+        break;
+      }
+      preprodRejects += 1;
       preManagerFeedback = mdec.reason;
       if (r === MAX_PREPROD - 1) {
         return { status: "aborted", runId, reason: mdec.reason, stage: "preprod_manager" };
@@ -232,7 +245,11 @@ ${draft}
       });
       const wd = parseManagerDecision(wMgr, { strict: true });
       logStage("writer_manager", wd.approved ? "APPROVED" : "REJECTED", { reason: wd.reason });
-      if (wd.approved) break;
+      if (wd.approved) {
+        writerPassRound = w + 1;
+        break;
+      }
+      writerRejects += 1;
       writerFeedback = wd.reason;
       if (w === MAX_WRITER - 1) {
         return { status: "aborted", runId, reason: wd.reason, stage: "writer_manager" };
@@ -256,8 +273,35 @@ ${draft}
     });
     logStage("chief_of_audit", parseAuditorDecision(audit).verified ? "VERIFIED" : "UNVERIFIED", { sample: audit.slice(0, 800) });
     const aud = parseAuditorDecision(audit, { strict: true });
+    executiveRounds.push({
+      pipelineRound: auditAttempt + 1,
+      verified: aud.verified,
+      excerpt: audit.replace(/\s+/g, " ").trim().slice(0, 3_500),
+    });
     if (aud.verified) {
       lastAuditTextForEmail = audit;
+      const rejExec = executiveRounds.filter((x) => !x.verified).length;
+      postEmailContext = {
+        draftExcerpt: draft.slice(0, 10_000),
+        checklistExcerpt: checklistJson(checklist).slice(0, 8_000),
+        preprod: {
+          passRound: preprodPassRound,
+          rejectionsBeforePass: preprodRejects,
+        },
+        writer: { passRound: writerPassRound, rejectionsBeforePass: writerRejects },
+        audit: {
+          fullPipelineRounds: executiveRounds.length,
+          executiveRejectionsBeforeSuccess: rejExec,
+          executiveRounds: [...executiveRounds],
+        },
+        serpForAudit: serpForAudit,
+        newsPoolItemCount: preprodPool.length,
+        topPoolTitles: preprodPool
+          .slice(0, 12)
+          .map((p) => p.title.replace(/\s+/g, " ").trim())
+          .filter(Boolean)
+          .join(" | "),
+      };
       digest.push("## Outcome", "- Chief of Audit: VERIFIED", "");
       break;
     }
@@ -324,7 +368,13 @@ ${draft}
     cwd,
   );
 
-  void sendHeadOfNewsPublishedEmailIfEnabled({ cwd, runId, title, slug: pub.slug });
+  void sendHeadOfNewsPublishedEmailIfEnabled({
+    cwd,
+    runId,
+    title,
+    slug: pub.slug,
+    postEmailContext,
+  });
   void sendNewsAuditorPublishedEmailIfEnabled({
     cwd,
     runId,
@@ -332,6 +382,7 @@ ${draft}
     slug: pub.slug,
     bodyExcerpt: draft,
     auditText: lastAuditTextForEmail,
+    postEmailContext,
   });
 
   return { status: "published", slug: pub.slug, runId, title };
