@@ -24,6 +24,7 @@ import { getAgenticRoot } from "../paths";
 import { mkdirRecursiveAgentic, writeFileUtf8Agentic } from "../agenticDisk";
 import { parseManagerDecision } from "../managerDecision";
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
+import { waitUntilAfterResponse } from "../cloudflareWaitUntil";
 import { generateHeroImage } from "../heroImageGenerate";
 import { parseAuditorDecision } from "./auditorParse";
 import {
@@ -384,31 +385,15 @@ ${draft}
     cwd,
   );
 
-  void (async () => {
-    const legacy =
-      (await resolveWorkerEnv("CHIEF_NEWS_LEGACY_NEWS_TEAM_EMAILS"))?.trim().toLowerCase() ===
-      "true";
-    const tasks: Promise<void>[] = [
-      sendChiefNewsActivityPublishEmailIfEnabled({
-        runId,
-        title,
-        slug: pub.slug,
-        bodyExcerpt: draft,
-        auditText: lastAuditTextForEmail,
-        postEmailContext,
-      }),
-    ];
-    if (legacy) {
-      tasks.push(
-        sendHeadOfNewsPublishedEmailIfEnabled({
-          cwd,
-          runId,
-          title,
-          slug: pub.slug,
-          postEmailContext,
-        }),
-        sendNewsAuditorPublishedEmailIfEnabled({
-          cwd,
+  // Use waitUntil (same as `chiefPublishDigest` for /articles) so Cloudflare does not
+  // end the isolate before Resend+Gemini finish; bare `void async` can drop the email.
+  waitUntilAfterResponse(
+    (async () => {
+      const legacy =
+        (await resolveWorkerEnv("CHIEF_NEWS_LEGACY_NEWS_TEAM_EMAILS"))?.trim().toLowerCase() ===
+        "true";
+      const tasks: Promise<void>[] = [
+        sendChiefNewsActivityPublishEmailIfEnabled({
           runId,
           title,
           slug: pub.slug,
@@ -416,15 +401,35 @@ ${draft}
           auditText: lastAuditTextForEmail,
           postEmailContext,
         }),
-      );
-    }
-    const results = await Promise.allSettled(tasks);
-    for (const r of results) {
-      if (r.status === "rejected") {
-        console.error("[news-pipeline] post-publish email threw", r.reason);
+      ];
+      if (legacy) {
+        tasks.push(
+          sendHeadOfNewsPublishedEmailIfEnabled({
+            cwd,
+            runId,
+            title,
+            slug: pub.slug,
+            postEmailContext,
+          }),
+          sendNewsAuditorPublishedEmailIfEnabled({
+            cwd,
+            runId,
+            title,
+            slug: pub.slug,
+            bodyExcerpt: draft,
+            auditText: lastAuditTextForEmail,
+            postEmailContext,
+          }),
+        );
       }
-    }
-  })();
+      const results = await Promise.allSettled(tasks);
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.error("[news-pipeline] post-publish email threw", r.reason);
+        }
+      }
+    })(),
+  );
 
   return { status: "published", slug: pub.slug, runId, title };
 }
