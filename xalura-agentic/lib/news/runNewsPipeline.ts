@@ -9,7 +9,8 @@ import { runWorker } from "../../agents/worker";
 import { recordApproval } from "../../engine/cycleEngine";
 import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { insertNewsRunEvent } from "@/lib/newsRunEvents";
-import { sendChiefNewsActivityPublishEmailIfEnabled } from "@/lib/chiefNewsPublishedActivityEmail";
+import { buildNewsPublishActivityExtendedBriefing } from "@/lib/chiefNewsPublishedActivityEmail";
+import { scheduleChiefPublishCycleEmail } from "../chiefPublishDigest";
 import {
   type NewsPublishPostEmailContext,
   sendHeadOfNewsPublishedEmailIfEnabled,
@@ -24,7 +25,6 @@ import { getAgenticRoot } from "../paths";
 import { mkdirRecursiveAgentic, writeFileUtf8Agentic } from "../agenticDisk";
 import { parseManagerDecision } from "../managerDecision";
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
-import { waitUntilAfterResponse } from "../cloudflareWaitUntil";
 import { generateHeroImage } from "../heroImageGenerate";
 import { parseAuditorDecision } from "./auditorParse";
 import {
@@ -385,51 +385,66 @@ ${draft}
     cwd,
   );
 
-  // Use waitUntil (same as `chiefPublishDigest` for /articles) so Cloudflare does not
-  // end the isolate before Resend+Gemini finish; bare `void async` can drop the email.
-  waitUntilAfterResponse(
-    (async () => {
-      const legacy =
-        (await resolveWorkerEnv("CHIEF_NEWS_LEGACY_NEWS_TEAM_EMAILS"))?.trim().toLowerCase() ===
-        "true";
-      const tasks: Promise<void>[] = [
-        sendChiefNewsActivityPublishEmailIfEnabled({
-          runId,
-          title,
-          slug: pub.slug,
-          bodyExcerpt: draft,
-          auditText: lastAuditTextForEmail,
-          postEmailContext,
-        }),
-      ];
-      if (legacy) {
-        tasks.push(
-          sendHeadOfNewsPublishedEmailIfEnabled({
-            cwd,
-            runId,
-            title,
-            slug: pub.slug,
-            postEmailContext,
-          }),
-          sendNewsAuditorPublishedEmailIfEnabled({
-            cwd,
-            runId,
-            title,
-            slug: pub.slug,
-            bodyExcerpt: draft,
-            auditText: lastAuditTextForEmail,
-            postEmailContext,
-          }),
-        );
+  /* Same path as /articles: `scheduleChiefPublishCycleEmail` + `AGENTIC_CHIEF_EMAIL_ON_PUBLISH` + `waitUntil`. */
+  const newsBriefing = buildNewsPublishActivityExtendedBriefing({
+    runId,
+    title,
+    slug: pub.slug,
+    bodyExcerpt: draft,
+    auditText: lastAuditTextForEmail,
+    postEmailContext,
+  });
+  const ctxE = postEmailContext;
+  scheduleChiefPublishCycleEmail({
+    cwd,
+    task: `News pipeline run ${runId}`,
+    title,
+    slug: pub.slug,
+    articlePath: `/news/${pub.slug}`,
+    executiveSummary: lastAuditTextForEmail.slice(0, 2_500),
+    workerOutputExcerpt: draft.slice(0, 3_500),
+    managerAttempts:
+      (ctxE?.preprod.rejectionsBeforePass ?? 0) + (ctxE?.writer.rejectionsBeforePass ?? 0),
+    cycleIndex: ctxE?.audit.fullPipelineRounds ?? 1,
+    auditTriggered: (ctxE?.audit.executiveRejectionsBeforeSuccess ?? 0) > 0,
+    cycleFileRelative: `news/${runId}`,
+    zernioLine: "N/A (news pipeline; not Zernio)",
+    publishKind: "news",
+    newsActivityBriefing: newsBriefing,
+    newsRunId: runId,
+  });
+
+  void (async () => {
+    const legacy =
+      (await resolveWorkerEnv("CHIEF_NEWS_LEGACY_NEWS_TEAM_EMAILS"))?.trim().toLowerCase() ===
+      "true";
+    if (!legacy) {
+      return;
+    }
+    const results = await Promise.allSettled([
+      sendHeadOfNewsPublishedEmailIfEnabled({
+        cwd,
+        runId,
+        title,
+        slug: pub.slug,
+        postEmailContext,
+      }),
+      sendNewsAuditorPublishedEmailIfEnabled({
+        cwd,
+        runId,
+        title,
+        slug: pub.slug,
+        bodyExcerpt: draft,
+        auditText: lastAuditTextForEmail,
+        postEmailContext,
+      }),
+    ]);
+    for (const r of results) {
+      if (r.status === "rejected") {
+        console.error("[news-pipeline] legacy post-publish email threw", r.reason);
       }
-      const results = await Promise.allSettled(tasks);
-      for (const r of results) {
-        if (r.status === "rejected") {
-          console.error("[news-pipeline] post-publish email threw", r.reason);
-        }
-      }
-    })(),
-  );
+    }
+  })();
 
   return { status: "published", slug: pub.slug, runId, title };
 }
