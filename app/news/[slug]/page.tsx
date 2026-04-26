@@ -28,7 +28,10 @@ export default async function NewsDetailPage({ params }: Props) {
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
           {n.title}
         </h1>
-        <p style={{ fontSize: 14, color: "var(--gray)", marginBottom: 32 }}>
+        <p
+          className="public-detail-meta"
+          style={{ fontSize: 14, color: "var(--gray)", marginBottom: 32 }}
+        >
           {n.author ? `${n.author} · ` : null}
           {n.published_at ? new Date(n.published_at).toLocaleDateString() : null}
         </p>

@@ -126,18 +126,56 @@ export const DEFAULT_PARTNERS: PartnerRow[] = [
 
 export const DEFAULT_PAGE_CONTENT: PageContentMap = {
   hero: {
-    label: "Xalura Technologies",
-    headline: "AI that actually\nhelps you get\nthings done.",
+    label: "Xalura",
+    headline: "The world is changing.\nBe the one who leads it.",
     subhead:
-      "Running a business is already a lot. You should not have to hire a full team just to keep up with content, research, and daily operations. Xalura builds AI systems that handle the repetitive, time-consuming work so you can focus on what actually moves the needle.",
-    primaryCta: "Our Mission",
-    secondaryCta: "Meet the Team",
+      "News, articles, and courses for professionals who want to understand what is coming and build the knowledge to stay ahead of it.",
+    primaryCta: "Why we exist",
+    secondaryCta: "What we offer",
+    bentoHint:
+      "Track what matters across AI and industry—news, deep dives, and courses in one place.",
   },
   mission: {
-    label: "Why We Exist",
-    headline: "There is too much to do\nand not enough hours.",
-    body:
-      "Most people running a business or a side project wear too many hats. Writing content, researching keywords, publishing articles, keeping up with SEO — it never ends. Hiring help costs money you may not have yet. Doing it yourself costs time you definitely do not have. Xalura exists because that frustration is real, and it has a real solution. We build AI systems that take those tasks off your plate and handle them properly, every single day.",
+    label: "Why we exist",
+    headline: "This is ours.",
+    body: [
+      "Every generation faces a moment when the rules of work and industry shift beneath their feet. This is ours.",
+      "The tools reshaping how business gets done, how decisions get made, and how industries are organized are no longer on the horizon. They are already here. And the gap between those who understand them and those who do not is widening every year.",
+      "Xalura was founded on a straightforward belief: that gap is not inevitable.",
+      "We are a technology company that sits at the front edge of this shift. We build tools and platforms that make modern technology useful and accessible. And through our content, we give professionals, learners, and leaders the knowledge they need to move with confidence through a world that will not wait for anyone to catch up.",
+    ].join("\n\n"),
+  },
+  brand: {
+    offerLabel: "What we offer",
+    offerBlockHeadline: "From daily signal to long-term skills—news, articles, and courses in one place.",
+    offerNews:
+      "We track what is changing across technology and industry and explain what it means in plain terms. The goal is not to inform you of events. It is to help you understand consequences.",
+    offerArticles:
+      "Honest, well-researched writing on the tools, strategies, and ideas defining the next era of work. Practical enough to use. Deep enough to matter.",
+    offerCourses:
+      "Structured learning built around real outcomes. Whether you are building a foundation or advancing an existing career, our courses are designed with one measure of success: are you more capable when you finish than when you started?",
+    howLabel: "How it works",
+    howBody: [
+      "Xalura is built on systems that allow us to move quickly, stay current, and keep our content organized and accessible.",
+      "But our value is not the technology behind the platform. It is the clarity we create for the people using it.",
+    ].join("\n\n"),
+    whoLabel: "Who this is for",
+    whoBody: [
+      "Professionals who want to lead their industry rather than react to it.",
+      "Learners who take their development seriously and want their time to count.",
+      "Anyone who recognizes that the shift already underway requires new knowledge and is ready to build it.",
+    ].join("\n\n"),
+    apartLabel: "What sets Xalura apart",
+    apartBody: [
+      "Most platforms give you information. We give you the context to do something with it.",
+      "Xalura connects what is happening today to what it means for your work, your career, and your industry tomorrow. We were built by people who believe this kind of knowledge should not be the exclusive property of those already inside the room.",
+      "Our standard is simple: everything we publish or teach should make you measurably more capable of leading in the world as it actually is, not as it was five years ago.",
+    ].join("\n\n"),
+    approachLabel: "How we work",
+    approachBody: [
+      "Xalura is a technology company building at the intersection of modern automation and human capability. Our platform and content exist to close the knowledge gap between where industries are heading and where most professionals currently stand. We do not chase trends. We track what is consequential, explain it clearly, and build the courses that turn understanding into competence.",
+      "The message is never about technology for its own sake. It is always about what a person can do with the right knowledge: grounded, relevant, and fit for the world as it is now.",
+    ].join("\n\n"),
   },
   gearmedic: {
     label: "Featured Product",
@@ -179,6 +217,6 @@ export const DEFAULT_PAGE_CONTENT: PageContentMap = {
     cta: "Start a Conversation",
   },
   footer: {
-    tagline: "Practical AI systems for\nreal-world operations.",
+    tagline: "The context to do something with it—news, articles, and courses for people who want to lead.",
   },
 };

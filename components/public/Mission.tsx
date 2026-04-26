@@ -1,5 +1,21 @@
 import type { PageContentMap } from "@/types/content";
 
+function BodyParas({ text }: { text: string }) {
+  const parts = text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return (
+    <div style={{ marginTop: 16 }}>
+      {parts.map((p, i) => (
+        <p key={i} className="body-text" style={i > 0 ? { marginTop: 18 } : { marginTop: 0 }}>
+          {p}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function MissionHeadline({ text }: { text: string }) {
   const [first, second] = text.split("\n");
   if (!second) {
@@ -16,39 +32,19 @@ function MissionHeadline({ text }: { text: string }) {
   );
 }
 
-export function Mission({ content }: { content: PageContentMap["mission"] }) {
+export function Mission({
+  content,
+  className,
+}: {
+  content: PageContentMap["mission"];
+  className?: string;
+}) {
   return (
-    <section className="mission wrap" id="mission">
+    <section className={["mission wrap", className].filter(Boolean).join(" ")} id="mission">
       <div className="r">
         <p className="label">{content.label}</p>
         <MissionHeadline text={content.headline ?? ""} />
-        <p className="body-text">{content.body}</p>
-      </div>
-      <div className="stats r" style={{ marginTop: 40, transitionDelay: "0.15s" }}>
-        <div className="stat">
-          <div className="stat-n">
-            4<sup>+</sup>
-          </div>
-          <div className="stat-l">AI Team Members</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n">
-            24<sup>/7</sup>
-          </div>
-          <div className="stat-l">Always Working</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n">
-            1<sup>st</sup>
-          </div>
-          <div className="stat-l">Product in Market</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n">
-            0<sup>x</sup>
-          </div>
-          <div className="stat-l">Manual Content Work</div>
-        </div>
+        <BodyParas text={content.body ?? ""} />
       </div>
     </section>
   );

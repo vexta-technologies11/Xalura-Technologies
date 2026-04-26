@@ -1,47 +1,113 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import clsx from "clsx";
+import { Menu, X } from "lucide-react";
 import { LogoMark } from "./LogoMark";
 
-export function Nav() {
+const LINKS: { href: string; label: string }[] = [
+  { href: "/#mission", label: "Mission" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/news", label: "News" },
+  { href: "/articles", label: "Articles" },
+  { href: "/courses", label: "Courses" },
+];
+
+export function Nav({ variant = "default" }: { variant?: "default" | "palantir" }) {
+  const ph = variant === "palantir";
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [open]);
+
+  const close = () => setOpen(false);
+
   return (
-    <nav>
-      <div className="nav-brand">
-        <a className="logo logo--with-mark" href="/">
-          <LogoMark />
-          <span className="logo-wordmark">Xalura Tech</span>
-        </a>
-        <a
-          className="nav-login"
-          href="/login"
-          target="_blank"
-          rel="noopener noreferrer"
+    <nav className={clsx("nav--rwd", ph && "nav--ph")}>
+      <div className="nav-bar">
+        <div className="nav-brand">
+          <a className="logo logo--with-mark" href="/" onClick={close}>
+            <LogoMark />
+            <span className="logo-wordmark">Xalura Tech</span>
+          </a>
+          <a
+            className="nav-login nav-login--hide-mobile"
+            href="/login"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Login
+          </a>
+        </div>
+
+        <div className="nav-right nav-right--desktop">
+          <ul className="nav-links" role="list">
+            {LINKS.map((l) => (
+              <li key={l.href + l.label}>
+                <a href={l.href}>{l.label}</a>
+              </li>
+            ))}
+          </ul>
+          <a className="nav-pill" href="/#contact">
+            Contact
+          </a>
+        </div>
+
+        <button
+          type="button"
+          className="nav-burger"
+          aria-expanded={open}
+          aria-controls="nav-mobile-menu"
+          aria-label={open ? "Close menu" : "Open menu"}
+          onClick={() => setOpen((o) => !o)}
         >
-          Login
-        </a>
+          {open ? <X size={22} strokeWidth={1.5} /> : <Menu size={22} strokeWidth={1.5} />}
+        </button>
       </div>
-      <div className="nav-right">
-        <ul className="nav-links">
-          <li>
-            <a href="/#mission">Mission</a>
-          </li>
-          <li>
-            <a href="/#ai-employees">AI Employees</a>
-          </li>
-          <li>
-            <a href="/dashboard">Dashboard</a>
-          </li>
-          <li>
-            <a href="/news">News</a>
-          </li>
-          <li>
-            <a href="/articles">Articles</a>
-          </li>
-          <li>
-            <a href="/courses">Courses</a>
-          </li>
-        </ul>
-        <a className="nav-pill" href="/#contact">
-          Contact
-        </a>
-      </div>
+
+      {open ? (
+        <>
+          <div
+            className="nav-scrim"
+            onClick={close}
+            onKeyDown={(e) => e.key === "Escape" && close()}
+            aria-hidden
+          />
+          <div className="nav-mobile-panel" id="nav-mobile-menu" role="dialog" aria-modal="true">
+            <ul className="nav-mobile-list" role="list">
+              {LINKS.map((l) => (
+                <li key={l.href + l.label}>
+                  <a href={l.href} onClick={close}>
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+              <li>
+                <a href="/#contact" onClick={close}>
+                  Contact
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={close}
+                >
+                  Login
+                </a>
+              </li>
+            </ul>
+          </div>
+        </>
+      ) : null}
     </nav>
   );
 }

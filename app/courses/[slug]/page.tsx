@@ -27,7 +27,7 @@ export default async function CourseDetailPage({ params }: Props) {
 
   return (
     <PublicPageShell footerContent={pageContent.footer}>
-      <section className="wrap" style={{ maxWidth: 720 }}>
+      <section className="wrap public-course-detail" style={{ maxWidth: 720 }}>
         <p className="label r">Course</p>
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
           {course.title}
@@ -42,6 +42,7 @@ export default async function CourseDetailPage({ params }: Props) {
         ) : null}
 
         <h2
+          className="public-course-h2"
           style={{
             fontFamily: "var(--font-cormorant), ui-serif, serif",
             fontSize: "clamp(22px, 3vw, 28px)",
@@ -60,11 +61,12 @@ export default async function CourseDetailPage({ params }: Props) {
                 lineHeight: 1.65,
               }}
             >
-              <strong style={{ color: "var(--black)" }}>
+              <strong className="public-course-lesson-title" style={{ color: "var(--black)" }}>
                 {i + 1}. {lesson.title}
               </strong>
               {lesson.body ? (
                 <div
+                  className="public-lesson-body"
                   style={{
                     marginTop: 10,
                     whiteSpace: "pre-wrap",

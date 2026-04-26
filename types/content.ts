@@ -5,11 +5,29 @@ export type PageContentMap = {
     subhead: string;
     primaryCta: string;
     secondaryCta: string;
+    /** Bento area hint (optional; below nav / above fold). */
+    bentoHint?: string;
   };
   mission: {
     label: string;
     headline: string;
     body: string;
+  };
+  /** Brand v4+ positioning blocks (What we offer, how it works, etc.). */
+  brand: {
+    offerLabel: string;
+    offerBlockHeadline: string;
+    offerNews: string;
+    offerArticles: string;
+    offerCourses: string;
+    howLabel: string;
+    howBody: string;
+    whoLabel: string;
+    whoBody: string;
+    apartLabel: string;
+    apartBody: string;
+    approachLabel: string;
+    approachBody: string;
   };
   gearmedic: {
     label: string;

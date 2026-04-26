@@ -2,41 +2,37 @@ import { Nav } from "@/components/public/Nav";
 import { Hero } from "@/components/public/Hero";
 import { Ticker } from "@/components/public/Ticker";
 import { Mission } from "@/components/public/Mission";
-import { AIEmployees } from "@/components/public/AIEmployees";
+import { BrandPositioning } from "@/components/public/BrandPositioning";
+import { HomeNewsArticles } from "@/components/public/HomeNewsArticles";
 import { GearMedic } from "@/components/public/GearMedic";
-import { Dashboard } from "@/components/public/Dashboard";
-import { TechStack } from "@/components/public/TechStack";
-import { Founder } from "@/components/public/Founder";
-import { Partners } from "@/components/public/Partners";
-import { Closing } from "@/components/public/Closing";
 import { Footer } from "@/components/public/Footer";
-import { getEmployees, getPageContent, getPartners } from "@/lib/data";
-import { getLatestNews } from "@/lib/data-learning";
-import { LatestNewsStrip } from "@/components/public/LatestNewsStrip";
+import { StarfieldBackground } from "@/components/public/StarfieldBackground";
+import { getPageContent } from "@/lib/data";
+import { getLatestArticles, getLatestNews } from "@/lib/data-learning";
+import "./public-palantir.css";
+import "./home-news-articles.css";
+import "./home-starfield.css";
 
 export default async function Home() {
-  const [employees, partners, pageContent, latestNews] = await Promise.all([
-    getEmployees(),
-    getPartners(),
+  const [pageContent, latestNews, latestArticles] = await Promise.all([
     getPageContent(),
-    getLatestNews(3),
+    getLatestNews(8),
+    getLatestArticles(6),
   ]);
 
   return (
-    <>
-      <Nav />
-      <Hero content={pageContent.hero} />
-      <LatestNewsStrip items={latestNews} />
-      <Ticker />
-      <Mission content={pageContent.mission} />
-      <AIEmployees employees={employees} />
-      <GearMedic content={pageContent.gearmedic} />
-      <Dashboard />
-      <TechStack />
-      <Founder content={pageContent.founder} />
-      <Partners partners={partners} />
-      <Closing content={pageContent.closing} />
-      <Footer content={pageContent.footer} />
-    </>
+    <main className="public-home public-home--palantir public-home--starfield">
+      <StarfieldBackground />
+      <div className="public-home__layers">
+        <Nav variant="palantir" />
+        <Hero content={pageContent.hero} template="palantir" />
+        <HomeNewsArticles news={latestNews} articles={latestArticles} template="palantir" />
+        <Ticker className="ticker--ph" />
+        <Mission content={pageContent.mission} className="mission--ph mission--bg-glass" />
+        <BrandPositioning content={pageContent.brand} template="palantir" />
+        <GearMedic content={pageContent.gearmedic} className="product--ph product--bg-glass" />
+        <Footer content={pageContent.footer} className="footer--ph" />
+      </div>
+    </main>
   );
 }

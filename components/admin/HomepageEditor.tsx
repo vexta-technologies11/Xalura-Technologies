@@ -6,14 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_PAGE_CONTENT } from "@/lib/constants";
 import type { PageContentMap } from "@/types/content";
 
-type TabId = keyof PageContentMap;
+/** Sections editable on the live home page (Founder + Where we are going removed from layout). */
+type EditableTabId = Exclude<keyof PageContentMap, "founder" | "closing">;
 
-const TABS: { id: TabId; label: string }[] = [
+const TABS: { id: EditableTabId; label: string }[] = [
   { id: "hero", label: "Hero" },
   { id: "mission", label: "Mission" },
+  { id: "brand", label: "Brand" },
   { id: "gearmedic", label: "GearMedic" },
-  { id: "founder", label: "Founder" },
-  { id: "closing", label: "Closing" },
   { id: "footer", label: "Footer" },
 ];
 
@@ -28,7 +28,7 @@ function stableStringify(m: PageContentMap): string {
 export function HomepageEditor() {
   const [content, setContent] = useState<PageContentMap>(() => cloneContent(DEFAULT_PAGE_CONTENT));
   const [baseline, setBaseline] = useState<PageContentMap>(() => cloneContent(DEFAULT_PAGE_CONTENT));
-  const [tab, setTab] = useState<TabId>("hero");
+  const [tab, setTab] = useState<EditableTabId>("hero");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -58,6 +58,9 @@ export function HomepageEditor() {
           break;
         case "mission":
           next.mission = { ...next.mission, ...partial } as PageContentMap["mission"];
+          break;
+        case "brand":
+          next.brand = { ...next.brand, ...partial } as PageContentMap["brand"];
           break;
         case "gearmedic":
           next.gearmedic = { ...next.gearmedic, ...partial } as PageContentMap["gearmedic"];
@@ -234,6 +237,16 @@ export function HomepageEditor() {
                   />
                 </label>
               </div>
+              <label className="admin-label">
+                Bento hint (small line above the fold; optional)
+                <input
+                  className="admin-input"
+                  value={content.hero.bentoHint ?? ""}
+                  onChange={(e) =>
+                    setContent({ ...content, hero: { ...content.hero, bentoHint: e.target.value } })
+                  }
+                />
+              </label>
             </div>
           ) : null}
 
@@ -260,13 +273,114 @@ export function HomepageEditor() {
                 />
               </label>
               <label className="admin-label">
-                Body
+                Body (blank line between paragraphs)
                 <textarea
                   className="admin-textarea"
                   style={{ minHeight: 140 }}
                   value={content.mission.body}
                   onChange={(e) =>
                     setContent({ ...content, mission: { ...content.mission, body: e.target.value } })
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {tab === "brand" ? (
+            <div className="admin-field-grid">
+              <p className="admin-help" style={{ margin: "0 0 12px" }}>
+                v4 brand blocks: &quot;What we offer&quot; through &quot;How we work&quot;. Use blank lines between
+                paragraphs where noted.
+              </p>
+              <label className="admin-label">
+                What we offer — block headline
+                <textarea
+                  className="admin-textarea"
+                  value={content.brand.offerBlockHeadline}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      brand: { ...content.brand, offerBlockHeadline: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  Offer: News
+                  <textarea
+                    className="admin-textarea"
+                    style={{ minHeight: 80 }}
+                    value={content.brand.offerNews}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, offerNews: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Offer: Articles
+                  <textarea
+                    className="admin-textarea"
+                    style={{ minHeight: 80 }}
+                    value={content.brand.offerArticles}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, offerArticles: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Offer: Courses
+                  <textarea
+                    className="admin-textarea"
+                    style={{ minHeight: 80 }}
+                    value={content.brand.offerCourses}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, offerCourses: e.target.value } })
+                    }
+                  />
+                </label>
+              </div>
+              <label className="admin-label">
+                How it works (body)
+                <textarea
+                  className="admin-textarea"
+                  style={{ minHeight: 100 }}
+                  value={content.brand.howBody}
+                  onChange={(e) =>
+                    setContent({ ...content, brand: { ...content.brand, howBody: e.target.value } })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                Who this is for (body)
+                <textarea
+                  className="admin-textarea"
+                  style={{ minHeight: 100 }}
+                  value={content.brand.whoBody}
+                  onChange={(e) =>
+                    setContent({ ...content, brand: { ...content.brand, whoBody: e.target.value } })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                What sets Xalura apart (body)
+                <textarea
+                  className="admin-textarea"
+                  style={{ minHeight: 120 }}
+                  value={content.brand.apartBody}
+                  onChange={(e) =>
+                    setContent({ ...content, brand: { ...content.brand, apartBody: e.target.value } })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                How we work / approach (body; internal + positioning cross-over)
+                <textarea
+                  className="admin-textarea"
+                  style={{ minHeight: 120 }}
+                  value={content.brand.approachBody}
+                  onChange={(e) =>
+                    setContent({ ...content, brand: { ...content.brand, approachBody: e.target.value } })
                   }
                 />
               </label>
@@ -401,131 +515,6 @@ export function HomepageEditor() {
                   value={content.gearmedic.cta}
                   onChange={(e) =>
                     setContent({ ...content, gearmedic: { ...content.gearmedic, cta: e.target.value } })
-                  }
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {tab === "founder" ? (
-            <div className="admin-field-grid">
-              <label className="admin-label">
-                Section label
-                <input
-                  className="admin-input"
-                  value={content.founder.label}
-                  onChange={(e) =>
-                    setContent({ ...content, founder: { ...content.founder, label: e.target.value } })
-                  }
-                />
-              </label>
-              <div className="admin-field-grid admin-field-grid--2">
-                <label className="admin-label">
-                  Name
-                  <input
-                    className="admin-input"
-                    value={content.founder.name}
-                    onChange={(e) =>
-                      setContent({ ...content, founder: { ...content.founder, name: e.target.value } })
-                    }
-                  />
-                </label>
-                <label className="admin-label">
-                  Post-nominal
-                  <input
-                    className="admin-input"
-                    value={content.founder.postnominal}
-                    onChange={(e) =>
-                      setContent({ ...content, founder: { ...content.founder, postnominal: e.target.value } })
-                    }
-                  />
-                </label>
-              </div>
-              <label className="admin-label">
-                Role
-                <input
-                  className="admin-input"
-                  value={content.founder.role}
-                  onChange={(e) =>
-                    setContent({ ...content, founder: { ...content.founder, role: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                Quote
-                <textarea
-                  className="admin-textarea"
-                  value={content.founder.quote}
-                  onChange={(e) =>
-                    setContent({ ...content, founder: { ...content.founder, quote: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                Bio
-                <textarea
-                  className="admin-textarea"
-                  style={{ minHeight: 120 }}
-                  value={content.founder.bio}
-                  onChange={(e) =>
-                    setContent({ ...content, founder: { ...content.founder, bio: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                Bio (second)
-                <textarea
-                  className="admin-textarea"
-                  style={{ minHeight: 120 }}
-                  value={content.founder.bio2}
-                  onChange={(e) =>
-                    setContent({ ...content, founder: { ...content.founder, bio2: e.target.value } })
-                  }
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {tab === "closing" ? (
-            <div className="admin-field-grid">
-              <label className="admin-label">
-                Label
-                <input
-                  className="admin-input"
-                  value={content.closing.label}
-                  onChange={(e) =>
-                    setContent({ ...content, closing: { ...content.closing, label: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                Headline
-                <textarea
-                  className="admin-textarea"
-                  value={content.closing.headline}
-                  onChange={(e) =>
-                    setContent({ ...content, closing: { ...content.closing, headline: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                Body
-                <textarea
-                  className="admin-textarea"
-                  style={{ minHeight: 120 }}
-                  value={content.closing.body}
-                  onChange={(e) =>
-                    setContent({ ...content, closing: { ...content.closing, body: e.target.value } })
-                  }
-                />
-              </label>
-              <label className="admin-label">
-                CTA
-                <input
-                  className="admin-input"
-                  value={content.closing.cta}
-                  onChange={(e) =>
-                    setContent({ ...content, closing: { ...content.closing, cta: e.target.value } })
                   }
                 />
               </label>

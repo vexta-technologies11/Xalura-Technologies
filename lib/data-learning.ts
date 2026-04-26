@@ -75,6 +75,24 @@ export async function getLatestNews(limit: number): Promise<NewsRow[]> {
   }
 }
 
+export async function getLatestArticles(limit: number): Promise<ArticleRow[]> {
+  if (!hasSupabaseEnv()) return [];
+  const n = Math.max(1, Math.min(Math.floor(limit), 20));
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("is_published", true)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(n);
+    if (error || !data) return [];
+    return data as ArticleRow[];
+  } catch {
+    return [];
+  }
+}
+
 export async function getNewsBySlug(slug: string): Promise<NewsRow | null> {
   if (!hasSupabaseEnv()) return null;
   try {

@@ -1,9 +1,9 @@
 import type { PageContentMap } from "@/types/content";
 
-export function Footer({ content }: { content: PageContentMap["footer"] }) {
+export function Footer({ content, className }: { content: PageContentMap["footer"]; className?: string }) {
   const lines = content.tagline.split("\n");
   return (
-    <footer>
+    <footer id="contact" className={className}>
       <div className="footer-top">
         <div>
           <div className="f-brand">Xalura Tech</div>
@@ -24,12 +24,6 @@ export function Footer({ content }: { content: PageContentMap["footer"] }) {
                 <a href="#mission">Mission</a>
               </li>
               <li>
-                <a href="#technology">Infrastructure</a>
-              </li>
-              <li>
-                <a href="#founder">Founder</a>
-              </li>
-              <li>
                 <a href="#">Careers</a>
               </li>
             </ul>
@@ -39,9 +33,6 @@ export function Footer({ content }: { content: PageContentMap["footer"] }) {
             <ul>
               <li>
                 <a href="#products">GearMedic</a>
-              </li>
-              <li>
-                <a href="#ai-employees">AI Employees</a>
               </li>
               <li>
                 <a href="/dashboard">Dashboard</a>

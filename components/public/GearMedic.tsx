@@ -2,12 +2,21 @@ import Image from "next/image";
 import type { PageContentMap } from "@/types/content";
 import { LiveActivityGraph } from "./LiveActivityGraph";
 
-export function GearMedic({ content }: { content: PageContentMap["gearmedic"] }) {
+export function GearMedic({
+  content,
+  className,
+}: {
+  content: PageContentMap["gearmedic"];
+  className?: string;
+}) {
   const parts = (content.headline ?? "").split("\n");
   const line1 = parts[0] ?? "";
   const line2 = parts[1] ?? "";
   return (
-    <section className="product-section wrap" id="products">
+    <section
+      className={["product-section wrap", className].filter(Boolean).join(" ")}
+      id="products"
+    >
       <p className="label r">{content.label}</p>
       <h2 className="h2 r" style={{ transitionDelay: "0.1s" }}>
         {line1}

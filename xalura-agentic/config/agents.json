@@ -105,7 +105,9 @@
         "name": "Sage Park"
       },
       "executive": {
-        "name": "Drew Okonkwo"
+        "name": "Richard Maybach",
+        "title": "",
+        "avatar": ""
       }
     },
     "news_preprod": {
@@ -126,9 +128,17 @@
     "avatar": ""
   },
   "complianceOfficer": {
-    "name": ""
+    "name": "Arthur Vultri",
+    "title": "",
+    "avatar": ""
   },
   "graphicDesigner": {
+    "name": ""
+  },
+  "headOfNews": {
+    "name": ""
+  },
+  "newsPhotographer": {
     "name": ""
   },
   "note": "Per-pillar Worker names (seo/publishing `workersByPillar`) are the 10 public library columns (`sc-…`). `news` = Writers (W/M) + Chief of Audit (executive). `news_preprod` = Pre-Production. Head of News: pipeline logs to `news_run_events` + `logs/news/`."

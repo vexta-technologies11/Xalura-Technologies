@@ -31,7 +31,10 @@ export default async function ArticleDetailPage({ params }: Props) {
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
           {article.title}
         </h1>
-        <p style={{ fontSize: 14, color: "var(--gray)", marginBottom: 32 }}>
+        <p
+          className="public-detail-meta"
+          style={{ fontSize: 14, color: "var(--gray)", marginBottom: 32 }}
+        >
           {article.author ? `${article.author} · ` : null}
           {article.published_at
             ? new Date(article.published_at).toLocaleDateString()

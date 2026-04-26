@@ -25,7 +25,10 @@ export default async function CoursesPage() {
           Structured lessons you can follow end to end — same workflows the team
           uses on GearMedic.
         </p>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, maxWidth: 720 }}>
+        <ul
+          className="courses-index-list"
+          style={{ listStyle: "none", padding: 0, margin: 0, maxWidth: 720 }}
+        >
           {courses.length === 0 ? (
             <li style={{ color: "var(--mid)" }}>No courses yet.</li>
           ) : (
@@ -34,7 +37,7 @@ export default async function CoursesPage() {
                 key={c.id}
                 style={{
                   padding: "24px 0",
-                  borderBottom: "1px solid var(--line)",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               >
                 <Link

@@ -19,6 +19,7 @@ import {
 import { publishAgenticNews } from "@/lib/agenticNewsPublish";
 import { uploadNewsCoverPng } from "@/lib/newsCoverStorage";
 import { extractMarkdownTitle } from "@/lib/agenticArticlePublish";
+import { buildNewsWriterProtocolBlock } from "../contentWorkflow/xaluraContentProtocol";
 import { serpApiSearch } from "../contentWorkflow/serpApiSearch";
 import { loadAgentNamesConfig, getExecutiveAssignedName } from "../agentNames";
 import { getAgenticRoot } from "../paths";
@@ -271,6 +272,8 @@ ${preWorkerOut}
     for (let w = 0; w < MAX_WRITER; w++) {
       const t = `You are a **News Writer** (Xalura News). Draft a **factual, neutral** news post in Markdown. Start with \`# Title\`. 400–800 words. **Do not** invent events; ground in the **sources** below. Not marketing. Cite real URLs. Primary: **${pickUrl}**
 **Do not mention internal roles or pipeline labels** (Worker, Manager, Executive, Pre-Production, audit gate) in the public article unless they are part of an actual quote from a source.
+
+${buildNewsWriterProtocolBlock()}
 
 ## Source pack
 ${packContext}

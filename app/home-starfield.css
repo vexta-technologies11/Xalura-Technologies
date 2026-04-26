@@ -1,0 +1,341 @@
+/**
+ * Full-page starfield (behind content) + black glass — Mission & GearMedic only.
+ */
+
+.starfield-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+}
+
+/* Content sits above the canvas */
+.public-home--starfield {
+  position: relative;
+  background: transparent !important;
+}
+
+.public-home--starfield > .public-home__layers {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero: don’t paint opaque black over the starfield (palantir ::before was full #0a0a0a) */
+.public-home--starfield.public-home--palantir .hero--ph {
+  background: transparent !important;
+}
+
+.public-home--starfield.public-home--palantir .hero--ph::before {
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, rgba(36, 36, 40, 0.55) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(2, 2, 3, 0.25) 0%, rgba(1, 1, 2, 0.72) 100%) !important;
+  opacity: 1 !important;
+}
+
+.public-home--starfield.public-home--palantir .hero--ph::after {
+  opacity: 0.32 !important;
+}
+
+/* Standalone public routes: starfield + transparent main column */
+.public-home--starfield > .public-home__layers > .public-page.public-page--starfield {
+  background: transparent !important;
+  color: #fafaf9;
+  min-height: 100vh;
+  padding: 4.5rem 0 3rem;
+}
+
+.public-home--starfield .public-page--starfield .h2,
+.public-home--starfield .public-page--starfield .h1,
+.public-home--starfield .public-page--starfield .label {
+  color: #fafaf9 !important;
+}
+
+.public-home--starfield .public-page--starfield .label {
+  color: #a3a3a3 !important;
+}
+
+.public-home--starfield .public-page--starfield .body-text,
+.public-home--starfield .public-page--starfield .ph-muted,
+.public-home--starfield .public-page--starfield p.body-text {
+  color: #a3a3a3 !important;
+}
+
+/* —— Black glass: Why we exist (mission) —— */
+.public-home--starfield .mission--ph.mission--bg-glass {
+  color: #e5e5e5 !important;
+  padding-top: 4rem !important;
+  padding-bottom: 4rem !important;
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 20px;
+  background: linear-gradient(
+        135deg,
+        rgba(6, 6, 6, 0.62) 0%,
+        rgba(2, 2, 2, 0.72) 100%
+      ),
+    rgba(0, 0, 0, 0.35) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  backdrop-filter: blur(20px) saturate(1.15);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-left: var(--p) !important;
+  padding-right: var(--p) !important;
+}
+
+.public-home--starfield .mission--ph.mission--bg-glass .label,
+.public-home--starfield .mission--ph.mission--bg-glass .body-text,
+.public-home--starfield .mission--ph.mission--bg-glass .body-text p {
+  color: rgba(220, 220, 215, 0.9) !important;
+}
+
+.public-home--starfield .mission--ph.mission--bg-glass .h2,
+.public-home--starfield .mission--ph.mission--bg-glass .h2 em {
+  color: #fafaf9 !important;
+}
+
+/* —— Black glass: GearMedic (product) —— */
+.public-home--starfield .product--ph.product--bg-glass {
+  color: #e5e5e5 !important;
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 20px;
+  padding-top: 3.5rem !important;
+  padding-bottom: 3.5rem !important;
+  padding-left: var(--p) !important;
+  padding-right: var(--p) !important;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(
+      160deg,
+      rgba(4, 4, 4, 0.65) 0%,
+      rgba(0, 0, 0, 0.78) 100%
+    ),
+    rgba(0, 0, 0, 0.4) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.12);
+  backdrop-filter: blur(22px) saturate(1.12);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.public-home--starfield .product--ph.product--bg-glass .label,
+.public-home--starfield .product--ph.product--bg-glass .h2,
+.public-home--starfield .product--ph.product--bg-glass .h2 em,
+.public-home--starfield .product--ph.product--bg-glass .body-text,
+.public-home--starfield .product--ph.product--bg-glass p {
+  color: rgba(235, 235, 230, 0.95) !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .h2 {
+  color: #fafaf9 !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .product-metric-label {
+  color: rgba(200, 200, 198, 0.85) !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .product-metric-value {
+  color: #f5f5f4 !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .product-name,
+.public-home--starfield .product--ph.product--bg-glass .product-body {
+  color: rgba(220, 220, 215, 0.95) !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .feat-list li {
+  color: rgba(205, 205, 200, 0.92) !important;
+}
+
+.public-home--starfield .product--ph.product--bg-glass .product-metric {
+  background: rgba(0, 0, 0, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Inner product card: slightly lift from glass for readability */
+.public-home--starfield .product--ph.product--bg-glass .product-card {
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* —— Home: news / articles block — see-through + glass cards —— */
+.public-home--starfield .home-na {
+  background: transparent !important;
+  color: #fafaf9;
+}
+
+.public-home--starfield .home-na__section {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.public-home--starfield .home-na__featured {
+  background: rgba(0, 0, 0, 0.22) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(18px) saturate(1.1);
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.public-home--starfield .home-na__featured-body {
+  background: rgba(0, 0, 0, 0.2) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.public-home--starfield .home-na__article-card {
+  background: rgba(0, 0, 0, 0.4) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  backdrop-filter: blur(16px) saturate(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.public-home--starfield .home-na__article-card:hover {
+  background: rgba(12, 12, 14, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* News carousel: glass cards (Palantir) */
+.public-home--starfield .home-news-carousel[data-palantir] .home-news-carousel__card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.32) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  overflow: hidden;
+}
+
+.public-home--starfield .home-news-carousel[data-palantir] .home-news-carousel__card-text {
+  padding: 1rem 0.9rem 1.1rem !important;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* —— Articles list + news list (public routes) —— */
+.public-home--starfield .article-card {
+  background: rgba(0, 0, 0, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  backdrop-filter: blur(16px) saturate(1.08);
+  color: #fafaf9 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.public-home--starfield .article-card:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+.public-home--starfield .article-card__body {
+  background: transparent;
+}
+
+.public-home--starfield .article-card__title,
+.public-home--starfield .article-card__excerpt,
+.public-home--starfield .article-card__excerpt.body-text,
+.public-home--starfield .article-card__tag.label {
+  color: #e5e5e5 !important;
+}
+
+.public-home--starfield .article-card__meta,
+.public-home--starfield .article-card__excerpt {
+  color: #a3a3a3 !important;
+}
+
+.public-home--starfield .articles-browser__label {
+  color: #a3a3a3;
+}
+
+.public-home--starfield .articles-browser__select {
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fafaf9;
+}
+
+.public-home--starfield .public-news-row__title {
+  color: #fafaf9 !important;
+}
+
+.public-home--starfield .public-news-row__meta {
+  color: #a3a3a3 !important;
+}
+
+.public-home--starfield .courses-index-list a {
+  color: #f5f5f4 !important;
+}
+
+.public-home--starfield .courses-index-list p {
+  color: #a3a3a3 !important;
+}
+
+.public-home--starfield .courses-index-list li {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.public-home--starfield .public-detail-meta {
+  color: #a3a3a3 !important;
+}
+
+.public-home--starfield .public-page--starfield .public-course-lesson-title {
+  color: #fafaf9 !important;
+}
+
+.public-home--starfield .public-page--starfield .public-lesson-body {
+  color: #b8b8b3 !important;
+}
+
+.public-home--starfield .public-page--starfield .public-course-h2 {
+  color: #fafaf9 !important;
+}
+
+/* Article & news detail: readable prose on dark */
+.public-home--starfield .article-markdown,
+.public-home--starfield .article-markdown p,
+.public-home--starfield .article-markdown li {
+  color: #d4d4d0 !important;
+}
+
+.public-home--starfield .article-markdown h1,
+.public-home--starfield .article-markdown h2,
+.public-home--starfield .article-markdown h3,
+.public-home--starfield .article-markdown h4,
+.public-home--starfield .article-markdown strong {
+  color: #fafaf9 !important;
+}
+
+.public-home--starfield .article-markdown a {
+  color: #a8c4ff;
+}
+
+.public-home--starfield .article-markdown blockquote {
+  color: #9ca3af;
+  border-left-color: rgba(255, 255, 255, 0.2);
+}
+
+.public-home--starfield .article-markdown code {
+  background: rgba(0, 0, 0, 0.45);
+  color: #e5e5e3;
+}
+
+.public-home--starfield .article-markdown pre {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Nav already palantir inside starfield layout */
+
+@media (max-width: 640px) {
+  .public-home--starfield .mission--ph.mission--bg-glass,
+  .public-home--starfield .product--ph.product--bg-glass {
+    border-radius: 12px;
+    margin-left: max(12px, env(safe-area-inset-left));
+    margin-right: max(12px, env(safe-area-inset-right));
+  }
+}

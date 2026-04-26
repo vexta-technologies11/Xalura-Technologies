@@ -38,6 +38,7 @@ import {
   buildSeoTopicResearchContext,
   mergePhase7Extras,
 } from "./seoTopicResearchContext";
+import { buildPublishingHandoffProtocolBlock } from "./contentWorkflow/xaluraContentProtocol";
 
 const MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
@@ -81,6 +82,10 @@ function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
     "- Do **not** substitute a generic theme (e.g. a broad audience essay) unless it is a direct framing of that exact keyword.",
     "- The published body starts at `# Title` — no meta preamble (no \"As a Worker\", no department self-introduction).",
   );
+  const protocolBlock = buildPublishingHandoffProtocolBlock(p.content_type);
+  if (protocolBlock) {
+    lines.push("", protocolBlock);
+  }
   return `${lines.join("\n")}\n\n`;
 }
 

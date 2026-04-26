@@ -49,7 +49,7 @@ export default async function PublicDashboardPage() {
   }
 
   return (
-    <PublicPageShell footerContent={pageContent.footer}>
+    <PublicPageShell starfield={false} footerContent={pageContent.footer}>
       <section className="wrap">
         <p className="label r">Live overview</p>
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
