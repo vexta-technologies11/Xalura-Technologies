@@ -4,6 +4,7 @@ import { Ticker } from "@/components/public/Ticker";
 import { Mission } from "@/components/public/Mission";
 import { BrandPositioning } from "@/components/public/BrandPositioning";
 import { HomeNewsArticles } from "@/components/public/HomeNewsArticles";
+import { HomeAiToolsTeaser } from "@/components/ai-tools/HomeAiToolsTeaser";
 import { GearMedic } from "@/components/public/GearMedic";
 import { Footer } from "@/components/public/Footer";
 import { StarfieldBackground } from "@/components/public/StarfieldBackground";
@@ -26,6 +27,7 @@ export default async function Home() {
       <div className="public-home__layers">
         <Nav variant="palantir" />
         <Hero content={pageContent.hero} template="palantir" />
+        <HomeAiToolsTeaser />
         <HomeNewsArticles news={latestNews} articles={latestArticles} template="palantir" />
         <Ticker className="ticker--ph" />
         <Mission content={pageContent.mission} className="mission--ph mission--bg-glass" />

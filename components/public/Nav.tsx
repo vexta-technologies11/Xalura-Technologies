@@ -8,6 +8,7 @@ import { LogoMark } from "./LogoMark";
 const LINKS: { href: string; label: string }[] = [
   { href: "/#mission", label: "Mission" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/ai-tools", label: "AI tools" },
   { href: "/news", label: "News" },
   { href: "/articles", label: "Articles" },
   { href: "/courses", label: "Courses" },

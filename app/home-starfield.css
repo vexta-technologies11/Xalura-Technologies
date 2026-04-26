@@ -202,6 +202,84 @@
   border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
+/* —— Home: AI tools teaser —— */
+.public-home--starfield .home-ai {
+  color: #fafaf9;
+}
+
+.public-home--starfield .home-ai__all {
+  color: #b8e0ff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(100, 180, 255, 0.45);
+}
+
+.public-home--starfield .home-ai__all:hover {
+  text-decoration-color: rgba(150, 210, 255, 0.75);
+}
+
+.public-home--starfield .home-ai__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 800px) {
+  .public-home--starfield .home-ai__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.public-home--starfield .home-ai__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 100%;
+  margin: 0;
+  padding: 18px 20px 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  backdrop-filter: blur(16px) saturate(1.08);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.public-home--starfield .home-ai__card:hover {
+  background: rgba(10, 12, 16, 0.52) !important;
+  border-color: rgba(120, 200, 255, 0.22) !important;
+  transform: translateY(-1px);
+}
+
+.public-home--starfield .home-ai__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 8px;
+  background: rgba(40, 90, 150, 0.35);
+  color: #dbeafe;
+}
+
+.public-home--starfield .home-ai__card-title {
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.public-home--starfield .home-ai__card-blurb {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  opacity: 0.9;
+  margin: 0;
+}
+
 /* News carousel: glass cards (Palantir) */
 .public-home--starfield .home-news-carousel[data-palantir] .home-news-carousel__card {
   border-radius: 12px;

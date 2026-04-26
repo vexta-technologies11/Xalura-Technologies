@@ -45,7 +45,7 @@ export function complianceMemoMarkdownToEmailHtml(md: string): string {
     );
   };
 
-  let paraBuf: string[] = [];
+  const paraBuf: string[] = [];
 
   const tableFromRows = (rows: string[]) => {
     if (rows.length < 2) {
