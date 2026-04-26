@@ -4,7 +4,8 @@ import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBrandi
 import { runAgent } from "@/xalura-agentic/lib/gemini";
 import { sendResendEmail } from "@/xalura-agentic/lib/phase7Clients";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
-import { getExecutiveAssignedName, loadAgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
+import { getExecutiveAssignedName } from "@/xalura-agentic/lib/agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 
 function publicSiteNewsUrl(slug: string): string {
   const base =
@@ -94,7 +95,8 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
     return;
   }
   const cwd = params.cwd;
-  const n = getExecutiveAssignedName("news", cwd) || "Chief of Audit (News)";
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const n = getExecutiveAssignedName("news", cwd, undefined, nameCfg) || "Chief of Audit (News)";
 
   const from =
     (await resolveWorkerEnv("CHIEF_OF_AUDIT_NEWS_RESEND_FROM"))?.trim() ||
@@ -109,7 +111,7 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
     return;
   }
 
-  const configName = loadAgentNamesConfig(cwd).departments.news?.executive?.name?.trim();
+  const configName = nameCfg.departments.news?.executive?.name?.trim();
   const assigned = configName || n;
 
   const url = publicSiteNewsUrl(params.slug);
@@ -218,7 +220,8 @@ export async function sendHeadOfNewsPublishedEmailIfEnabled(params: {
     );
     return;
   }
-  const hon = loadAgentNamesConfig(params.cwd).headOfNews?.name?.trim() || "Head of News";
+  const nameCfg = await loadAgentNamesResolved(params.cwd);
+  const hon = nameCfg.headOfNews?.name?.trim() || "Head of News";
   const url = publicSiteNewsUrl(params.slug);
   const ctx = params.postEmailContext;
   const dataBlock = `

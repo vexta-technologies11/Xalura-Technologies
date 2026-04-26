@@ -6,9 +6,10 @@ import { Menu, X } from "lucide-react";
 import { LogoMark } from "./LogoMark";
 
 const LINKS: { href: string; label: string }[] = [
+  { href: "/team", label: "Team" },
   { href: "/#mission", label: "Mission" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/ai-tools", label: "AI tools" },
+  { href: "/ai-tools", label: "Everyday tools" },
   { href: "/news", label: "News" },
   { href: "/articles", label: "Articles" },
   { href: "/courses", label: "Courses" },

@@ -10,8 +10,9 @@ function extractBearer(request: Request): string | null {
 }
 
 /**
- * Full News team pipeline: Pre-Prod → Writers → Chief of Audit → Head of News log → Leonardo → `news_items`.
- * Auth: `Authorization: Bearer <AGENTIC_CRON_SECRET>`.
+ * Full News team pipeline: Pre-Prod → Writers → Chief of Audit → Head of News log → Leonardo → `news_items`
+ * in **one** run (not staggered). Cloudflare: every 3h on the hour UTC (see `wrangler.jsonc` + `cloudflare/custom-worker.ts`).
+ * Auth: `Authorization: Bearer <AGENTIC_CRON_SECRET>` (same as `POST /api/cron/agentic-publish`).
  */
 export async function POST(request: Request) {
   const expected = process.env["AGENTIC_CRON_SECRET"]?.trim();

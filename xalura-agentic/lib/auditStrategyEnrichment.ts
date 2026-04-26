@@ -9,6 +9,7 @@ import {
   saveStrategyOverlay,
 } from "./auditStrategyOverlayStore";
 import { getExecutiveAssignedName } from "./agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 
 export type AuditStrategyContext = {
   keyword?: string;
@@ -93,7 +94,8 @@ export async function runStrategicAuditEnrichment(params: {
     }
   }
 
-  const execName = getExecutiveAssignedName(params.department, cwd);
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const execName = getExecutiveAssignedName(params.department, cwd, undefined, nameCfg);
   const deLabel = departmentLabelForExec(params.department);
   const execTask = `You are the **Executive** for the **${deLabel}** department at Xalura Tech.
 Chief AI just completed a 10-cycle audit. Your job is to output **one JSON object only** (no markdown, no commentary) that sets how Workers and Managers should **reposition** work in the *next* window.

@@ -11,8 +11,8 @@ import { resolveWorkerEnv } from "./resolveWorkerEnv";
 import {
   complianceOfficerDisplayName,
   graphicDesignerDisplayName,
-  loadAgentNamesConfig,
 } from "./agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import {
   complianceOfficerEmailSignatureHtmlSync,
   complianceOfficerEmailSignaturePlainSync,
@@ -159,13 +159,14 @@ export async function executeFounderOversightPublishEmail(
   }
 
   const cwd = p.cwd;
-  const complianceName = complianceOfficerDisplayName(cwd);
-  const coNta = loadAgentNamesConfig(cwd).complianceOfficer;
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const complianceName = complianceOfficerDisplayName(cwd, nameCfg);
+  const coNta = nameCfg.complianceOfficer;
   const signatureOverrides = {
     name: coNta?.name?.trim() || "Martin Cruz",
     title: (coNta?.title?.trim() || "Head of Compliance") as string,
   };
-  const graphicName = graphicDesignerDisplayName(cwd);
+  const graphicName = graphicDesignerDisplayName(cwd, nameCfg);
   const resolveHeroImageLabel = async (): Promise<string> => {
     const prov = (await resolveWorkerEnv("AGENTIC_HERO_IMAGE_PROVIDER"))?.trim().toLowerCase();
     const leo = (await resolveWorkerEnv("LEONARDO_API_KEY"))?.trim();

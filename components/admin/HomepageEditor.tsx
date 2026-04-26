@@ -11,6 +11,8 @@ type EditableTabId = Exclude<keyof PageContentMap, "founder" | "closing">;
 
 const TABS: { id: EditableTabId; label: string }[] = [
   { id: "hero", label: "Hero" },
+  { id: "homePage", label: "Home: feed & tools" },
+  { id: "teamPage", label: "Team page" },
   { id: "mission", label: "Mission" },
   { id: "brand", label: "Brand" },
   { id: "gearmedic", label: "GearMedic" },
@@ -65,6 +67,20 @@ export function HomepageEditor() {
         case "gearmedic":
           next.gearmedic = { ...next.gearmedic, ...partial } as PageContentMap["gearmedic"];
           break;
+        case "homePage":
+          next.homePage = { ...next.homePage, ...partial } as PageContentMap["homePage"];
+          break;
+        case "teamPage": {
+          const p = partial as Record<string, unknown>;
+          next.teamPage = {
+            meetHeadline: (p.meetHeadline as string) ?? next.teamPage.meetHeadline,
+            meetHeadlineEmphasis: (p.meetHeadlineEmphasis as string) ?? next.teamPage.meetHeadlineEmphasis,
+            footerStripTitle: (p.footerStripTitle as string) ?? next.teamPage.footerStripTitle,
+            footerStripCta: (p.footerStripCta as string) ?? next.teamPage.footerStripCta,
+            footerStripHref: (p.footerStripHref as string) ?? next.teamPage.footerStripHref,
+          };
+          break;
+        }
         case "founder":
           next.founder = { ...next.founder, ...partial } as PageContentMap["founder"];
           break;
@@ -250,6 +266,328 @@ export function HomepageEditor() {
             </div>
           ) : null}
 
+          {tab === "homePage" ? (
+            <div className="admin-field-grid">
+              <p className="admin-help" style={{ margin: "0 0 12px" }}>
+                Everyday tools block, running ticker, and the News + Articles section headings on the public home
+                page.
+              </p>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  Tools block — small label (above headline)
+                  <input
+                    className="admin-input"
+                    value={content.homePage.everydayLabel}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, everydayLabel: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Tools block — CTA to all tools (link text)
+                  <input
+                    className="admin-input"
+                    value={content.homePage.allToolsCta}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, allToolsCta: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <label className="admin-label">
+                Tools block — main headline
+                <input
+                  className="admin-input"
+                  value={content.homePage.everydayHeadline}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      homePage: { ...content.homePage, everydayHeadline: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                Tools block — subhead (paragraph under headline)
+                <textarea
+                  className="admin-textarea"
+                  value={content.homePage.everydaySubhead}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      homePage: { ...content.homePage, everydaySubhead: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  CTA link (path)
+                  <input
+                    className="admin-input"
+                    value={content.homePage.allToolsHref}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, allToolsHref: e.target.value },
+                      })
+                    }
+                    placeholder="/ai-tools"
+                  />
+                </label>
+              </div>
+              <h3 className="admin-h3" style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 600 }}>
+                Tool cards
+              </h3>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  Email — title
+                  <input
+                    className="admin-input"
+                    value={content.homePage.toolEmailTitle}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolEmailTitle: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Content — title
+                  <input
+                    className="admin-input"
+                    value={content.homePage.toolContentTitle}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolContentTitle: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Report — title
+                  <input
+                    className="admin-input"
+                    value={content.homePage.toolReportTitle}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolReportTitle: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Email — blurb
+                  <textarea
+                    className="admin-textarea"
+                    value={content.homePage.toolEmailBlurb}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolEmailBlurb: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Content — blurb
+                  <textarea
+                    className="admin-textarea"
+                    value={content.homePage.toolContentBlurb}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolContentBlurb: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Report — blurb
+                  <textarea
+                    className="admin-textarea"
+                    value={content.homePage.toolReportBlurb}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, toolReportBlurb: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <h3 className="admin-h3" style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 600 }}>
+                News + Articles
+              </h3>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  News — section title
+                  <input
+                    className="admin-input"
+                    value={content.homePage.newsLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, homePage: { ...content.homePage, newsLabel: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Articles — section title
+                  <input
+                    className="admin-input"
+                    value={content.homePage.articlesLabel}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, articlesLabel: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  News — intro line
+                  <textarea
+                    className="admin-textarea"
+                    value={content.homePage.newsLede}
+                    onChange={(e) =>
+                      setContent({ ...content, homePage: { ...content.homePage, newsLede: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  Articles — intro line
+                  <textarea
+                    className="admin-textarea"
+                    value={content.homePage.articlesLede}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, articlesLede: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  News — &quot;view all&quot; link text
+                  <input
+                    className="admin-input"
+                    value={content.homePage.newsViewAll}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, newsViewAll: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Articles — &quot;view all&quot; link text
+                  <input
+                    className="admin-input"
+                    value={content.homePage.articlesViewAll}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        homePage: { ...content.homePage, articlesViewAll: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <label className="admin-label">
+                Ticker (one phrase per line)
+                <textarea
+                  className="admin-textarea"
+                  style={{ minHeight: 100 }}
+                  value={content.homePage.tickerItems}
+                  onChange={(e) =>
+                    setContent({ ...content, homePage: { ...content.homePage, tickerItems: e.target.value } })
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {tab === "teamPage" ? (
+            <div className="admin-field-grid">
+              <p className="admin-help" style={{ margin: "0 0 12px" }}>
+                Public <Link href="/team">/team</Link> headline and the home page footer team strip. Add or remove
+                people and photos under <Link href="/admin/team-members">Public team</Link> (no category filters on
+                the site).
+              </p>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  Headline (first part)
+                  <input
+                    className="admin-input"
+                    value={content.teamPage.meetHeadline}
+                    onChange={(e) =>
+                      setContent({ ...content, teamPage: { ...content.teamPage, meetHeadline: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Headline (emphasized part)
+                  <input
+                    className="admin-input"
+                    value={content.teamPage.meetHeadlineEmphasis}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        teamPage: { ...content.teamPage, meetHeadlineEmphasis: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <h3 className="admin-h3" style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 600 }}>
+                Footer (home) — team strip
+              </h3>
+              <label className="admin-label">
+                Section title
+                <input
+                  className="admin-input"
+                  value={content.teamPage.footerStripTitle}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      teamPage: { ...content.teamPage, footerStripTitle: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                Link text
+                <input
+                  className="admin-input"
+                  value={content.teamPage.footerStripCta}
+                  onChange={(e) =>
+                    setContent({ ...content, teamPage: { ...content.teamPage, footerStripCta: e.target.value } })
+                  }
+                />
+              </label>
+              <label className="admin-label">
+                Link path
+                <input
+                  className="admin-input"
+                  value={content.teamPage.footerStripHref}
+                  onChange={(e) =>
+                    setContent({ ...content, teamPage: { ...content.teamPage, footerStripHref: e.target.value } })
+                  }
+                  placeholder="/team"
+                />
+              </label>
+            </div>
+          ) : null}
+
           {tab === "mission" ? (
             <div className="admin-field-grid">
               <label className="admin-label">
@@ -292,6 +630,61 @@ export function HomepageEditor() {
                 v4 brand blocks: &quot;What we offer&quot; through &quot;How we work&quot;. Use blank lines between
                 paragraphs where noted.
               </p>
+              <p className="admin-help" style={{ margin: "0 0 12px" }}>
+                Small labels and section titles (shown in caps on the public site for each block):
+              </p>
+              <div className="admin-field-grid admin-field-grid--2">
+                <label className="admin-label">
+                  Offer block — label
+                  <input
+                    className="admin-input"
+                    value={content.brand.offerLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, offerLabel: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  How it works — label
+                  <input
+                    className="admin-input"
+                    value={content.brand.howLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, howLabel: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  Who this is for — label
+                  <input
+                    className="admin-input"
+                    value={content.brand.whoLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, whoLabel: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label">
+                  What sets us apart — label
+                  <input
+                    className="admin-input"
+                    value={content.brand.apartLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, apartLabel: e.target.value } })
+                    }
+                  />
+                </label>
+                <label className="admin-label" style={{ gridColumn: "1 / -1" }}>
+                  How we work — label
+                  <input
+                    className="admin-input"
+                    value={content.brand.approachLabel}
+                    onChange={(e) =>
+                      setContent({ ...content, brand: { ...content.brand, approachLabel: e.target.value } })
+                    }
+                  />
+                </label>
+              </div>
               <label className="admin-label">
                 What we offer — block headline
                 <textarea

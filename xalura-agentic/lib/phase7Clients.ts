@@ -153,6 +153,12 @@ export async function firecrawlScrape(
 
 const ZERNIO_DEFAULT = "https://zernio.com/api";
 
+function zernioApiBaseFromEnv(raw: string | undefined): string {
+  const t = raw?.replace(/\/$/, "").trim();
+  if (t && /^https?:\/\//i.test(t)) return t;
+  return ZERNIO_DEFAULT;
+}
+
 /** List Zernio profiles (validates API key; use before creating posts). */
 export async function zernioListProfiles(): Promise<{
   profiles?: unknown[];
@@ -160,9 +166,7 @@ export async function zernioListProfiles(): Promise<{
 }> {
   const key = await resolveWorkerEnv("ZERNIO_API_KEY");
   if (!key) return { error: "ZERNIO_API_KEY not set" };
-  const base =
-    (await resolveWorkerEnv("ZERNIO_API_BASE"))?.replace(/\/$/, "") ||
-    ZERNIO_DEFAULT;
+  const base = zernioApiBaseFromEnv(await resolveWorkerEnv("ZERNIO_API_BASE"));
   const res = await fetch(`${base}/v1/profiles`, {
     method: "GET",
     headers: { Authorization: `Bearer ${key}` },
@@ -186,6 +190,61 @@ export type ZernioPlatformTarget = {
   accountId: string;
 };
 
+/** Image attachment for create post — see Zernio `mediaItems` (public `https` URL, fetchable by their servers). */
+export type ZernioMediaItem = { type: "image"; url: string };
+
+type ZernioAccountListRow = {
+  _id?: string;
+  platform?: string;
+  isActive?: boolean;
+};
+
+/**
+ * Fetches all **active** connected social accounts (GET /v1/accounts) and maps them to
+ * `platforms` payloads for `createPost` with `publishNow: true` (one post, all accounts).
+ * @see https://docs.zernio.com/accounts/list-accounts
+ */
+export async function zernioListActiveAccountTargets(input?: {
+  /** When set, adds `?profileId=` so only accounts for that Zernio profile are included. */
+  profileId?: string;
+}): Promise<{ platforms: ZernioPlatformTarget[]; error?: string }> {
+  const key = await resolveWorkerEnv("ZERNIO_API_KEY");
+  if (!key) return { platforms: [], error: "ZERNIO_API_KEY not set" };
+  const base = zernioApiBaseFromEnv(await resolveWorkerEnv("ZERNIO_API_BASE"));
+  const u = new URL(`${base}/v1/accounts`);
+  const pid = input?.profileId?.trim();
+  if (pid) u.searchParams.set("profileId", pid);
+  const res = await fetch(u.toString(), {
+    method: "GET",
+    headers: { Authorization: `Bearer ${key}` },
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const err =
+      typeof json["error"] === "string"
+        ? json["error"]
+        : `Zernio list accounts HTTP ${res.status}`;
+    return { platforms: [], error: err };
+  }
+  const raw = json["accounts"];
+  if (!Array.isArray(raw)) {
+    return { platforms: [], error: "Zernio GET /v1/accounts: missing accounts array" };
+  }
+  const seen = new Set<string>();
+  const platforms: ZernioPlatformTarget[] = [];
+  for (const a of raw) {
+    if (!a || typeof a !== "object") continue;
+    const row = a as ZernioAccountListRow;
+    if (row.isActive === false) continue;
+    const id = typeof row._id === "string" && row._id.trim() ? row._id.trim() : "";
+    const plat = typeof row.platform === "string" && row.platform.trim() ? row.platform.trim() : "";
+    if (!id || !plat || seen.has(id)) continue;
+    seen.add(id);
+    platforms.push({ platform: plat, accountId: id });
+  }
+  return { platforms: platforms.length ? platforms : [], error: undefined };
+}
+
 /**
  * Create a Zernio post — see https://docs.zernio.com/posts/create-post
  * Use `queuedFromProfile` **or** `platforms` + `publishNow` per your account setup.
@@ -193,6 +252,8 @@ export type ZernioPlatformTarget = {
 export async function zernioCreatePost(input: {
   title?: string;
   content: string;
+  /** When set, platforms that support images attach this as post media (same caption in `content`). */
+  mediaItems?: ZernioMediaItem[];
   publishNow?: boolean;
   isDraft?: boolean;
   queuedFromProfile?: string;
@@ -200,13 +261,12 @@ export async function zernioCreatePost(input: {
 }): Promise<{ ok: true; status: number; body: unknown } | { ok: false; error: string }> {
   const key = await resolveWorkerEnv("ZERNIO_API_KEY");
   if (!key) return { ok: false, error: "ZERNIO_API_KEY not set" };
-  const base =
-    (await resolveWorkerEnv("ZERNIO_API_BASE"))?.replace(/\/$/, "") ||
-    ZERNIO_DEFAULT;
+  const base = zernioApiBaseFromEnv(await resolveWorkerEnv("ZERNIO_API_BASE"));
   const payload: Record<string, unknown> = {
     content: input.content,
   };
   if (input.title !== undefined) payload["title"] = input.title;
+  if (input.mediaItems?.length) payload["mediaItems"] = input.mediaItems;
   if (input.publishNow !== undefined) payload["publishNow"] = input.publishNow;
   if (input.isDraft !== undefined) payload["isDraft"] = input.isDraft;
   if (input.queuedFromProfile) payload["queuedFromProfile"] = input.queuedFromProfile;

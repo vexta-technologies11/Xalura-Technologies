@@ -9,6 +9,7 @@ const links = [
   { href: "/admin/ai-dashboard", label: "AI Dashboard" },
   { href: "/admin/ai-news-dashboard", label: "News team" },
   { href: "/admin/employees", label: "AI Employees" },
+  { href: "/admin/team-members", label: "Public team" },
   { href: "/admin/articles", label: "Articles" },
   { href: "/admin/courses", label: "Courses" },
   { href: "/admin/content", label: "Page Content" },

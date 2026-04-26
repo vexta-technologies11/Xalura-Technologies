@@ -7,7 +7,8 @@ import {
   sendNewsTeamHtmlReply,
 } from "@/lib/newsTeamEmailSend";
 import { runAgent } from "@/xalura-agentic/lib/gemini";
-import { getExecutiveAssignedName, loadAgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
+import { getExecutiveAssignedName, type AgentNamesConfig } from "@/xalura-agentic/lib/agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 import type { ResendReceivedEmailRow } from "@/lib/resendReceiving";
 
@@ -36,14 +37,14 @@ async function newsTeamAllowedSenders(): Promise<string[]> {
   return chief ? chief.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) : [];
 }
 
-async function resolveFromHeadOfNews(cwd: string): Promise<string> {
-  const n = loadAgentNamesConfig(cwd).headOfNews?.name?.trim();
+function resolveFromHeadOfNews(cfg: AgentNamesConfig): string {
+  const n = cfg.headOfNews?.name?.trim();
   if (n) return n;
   return "Head of News";
 }
 
-async function resolveFromAuditor(cwd: string): Promise<string> {
-  const n = getExecutiveAssignedName("news", cwd);
+function resolveFromAuditor(cwd: string, cfg: AgentNamesConfig): string {
+  const n = getExecutiveAssignedName("news", cwd, undefined, cfg);
   if (n) return n;
   return "Chief of Audit (News)";
 }
@@ -82,7 +83,8 @@ export async function headOfNewsReplyToInboundEmail(params: {
     return { ok: true };
   }
 
-  const honName = await resolveFromHeadOfNews(cwd);
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const honName = resolveFromHeadOfNews(nameCfg);
   const fromHead =
     (await resolveWorkerEnv("HEAD_OF_NEWS_RESEND_FROM"))?.trim() ||
     (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
@@ -175,7 +177,8 @@ export async function chiefOfAuditNewsReplyToInboundEmail(params: {
     return { ok: true };
   }
 
-  const auditorName = await resolveFromAuditor(cwd);
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const auditorName = resolveFromAuditor(cwd, nameCfg);
   const fromAuditor =
     (await resolveWorkerEnv("CHIEF_OF_AUDIT_NEWS_RESEND_FROM"))?.trim() ||
     (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||

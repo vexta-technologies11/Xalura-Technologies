@@ -1,5 +1,6 @@
 import { AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK } from "@/lib/agenticDefaultPublishTask";
 import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
+import { scheduleArticlePipelineNotPublishedReport } from "./chiefPublishOutcomeReport";
 import { appendFailedOperation } from "./failedQueue";
 import {
   buildKeywordReadyPayloadFromApprovedSeo,
@@ -184,6 +185,14 @@ async function runIncrementalBatch(
       );
       if (pub.status === "waiting" || pub.status !== "approved") {
         await revertTopicsToUnused(cwd, [topic.id]);
+        if (pub.status !== "waiting") {
+          scheduleArticlePipelineNotPublishedReport({
+            cwd,
+            task: `${incrementalPublishTask()} (batch topic_id=${topic.id})`,
+            result: pub,
+            source: "incremental:batch_publishing",
+          });
+        }
         return {
           ok: false,
           reason: pub.status === "waiting" ? pub.reason : "Publishing did not approve",
@@ -202,7 +211,7 @@ async function runIncrementalBatch(
             articleTitle: null,
             result: pub,
           },
-          { awaitFounderOversight: options?.awaitFounderOversight === true },
+          { awaitFounderOversight: options?.awaitFounderOversight },
         );
         if (!siteR.ok) {
           await revertTopicsToUnused(cwd, [topic.id]);
@@ -368,6 +377,12 @@ async function runIncrementalSingleTopic(
       },
       cwd,
     );
+    scheduleArticlePipelineNotPublishedReport({
+      cwd,
+      task: `${incrementalPublishTask()} (vertical: ${vertical_label} tick=${tick})`,
+      result: pub,
+      source: "incremental:hourly_publishing",
+    });
     return {
       ok: false,
       vertical_id,
@@ -400,7 +415,7 @@ async function runIncrementalSingleTopic(
       articleTitle: null,
       result: pub,
     },
-    { awaitFounderOversight: options?.awaitFounderOversight === true },
+    { awaitFounderOversight: options?.awaitFounderOversight },
   );
 
   if (!site.ok) {

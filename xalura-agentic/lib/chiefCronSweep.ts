@@ -1,5 +1,6 @@
 import { runChiefAI } from "../agents/chiefAI";
 import { chiefDisplayName } from "./agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { appendFileUtf8Agentic, mkdirRecursiveAgentic } from "./agenticDisk";
 import { getCycleSnapshot } from "../engine/cycleEngine";
 import { readEvents } from "./eventQueue";
@@ -54,7 +55,8 @@ export async function runChiefSweepCron(
     evSummary || "(no events)",
   ].join("\n");
 
-  const chiefN = chiefDisplayName(cwd);
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const chiefN = chiefDisplayName(cwd, nameCfg);
   try {
     const chiefMd = await runChiefAI({
       department: "All",

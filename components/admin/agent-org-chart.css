@@ -139,6 +139,64 @@
   color: #fca5a5;
 }
 
+/* Marketing Zernio row — under publish bar */
+.admin-marketing-zernio-bar {
+  position: relative;
+  z-index: 2;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 16px 20px 16px;
+  background: rgba(0, 0, 0, 0.18);
+  border: none;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.16);
+  box-sizing: border-box;
+}
+
+.admin-marketing-zernio-bar__title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e0f2fe;
+}
+
+.admin-marketing-zernio-bar__hint {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.admin-marketing-zernio-bar__hint code {
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #e2e8f0;
+}
+
+.admin-marketing-zernio-bar__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-marketing-zernio-bar__ok,
+.admin-marketing-zernio-bar__err {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.admin-marketing-zernio-bar__ok {
+  color: #86efac;
+}
+
+.admin-marketing-zernio-bar__err {
+  color: #fca5a5;
+}
+
 /* (Legacy drag-and-drop org chart styles removed.) */
 
 /* Live agentic hierarchy — full-bleed color rail */

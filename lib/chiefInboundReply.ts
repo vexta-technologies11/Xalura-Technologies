@@ -7,6 +7,9 @@ import {
   fetchRecentAgenticPipelineLogs,
   formatAgenticPipelineLogsForSnapshot,
 } from "@/lib/agenticPipelineLogSupabase";
+import { getMarketingZernioScheduleForChief } from "@/lib/marketingZernioChiefContext";
+import { getCloudflareWorkerCronMatrixForChief } from "@/lib/cronSchedulesChiefContext";
+import { getNewsPipelineScheduleForChief } from "@/lib/newsCronChiefContext";
 import { formatChiefStrategicForSnapshot } from "@/lib/chiefStrategicDirectives";
 import {
   clipChiefEmailWords,
@@ -26,6 +29,7 @@ import {
 import { runChiefAI } from "@/xalura-agentic/agents/chiefAI";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
 import { chiefDisplayName } from "@/xalura-agentic/lib/agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { loadCycleState } from "@/xalura-agentic/engine/cycleStateStore";
 import { readEvents } from "@/xalura-agentic/lib/eventQueue";
 import { readFailedQueue } from "@/xalura-agentic/lib/failedQueue";
@@ -202,15 +206,28 @@ async function buildOpsSnapshot(cwd: string): Promise<string> {
   } catch {
     strategic = "(strategic brief unavailable)";
   }
-  const supaRows = await fetchRecentAgenticPipelineLogs(18);
+  const [supaRows, marketingZernioBlock, newsScheduleBlock] = await Promise.all([
+    fetchRecentAgenticPipelineLogs(18),
+    getMarketingZernioScheduleForChief(),
+    getNewsPipelineScheduleForChief(),
+  ]);
   const supaBlock = formatAgenticPipelineLogsForSnapshot(supaRows, 18);
   return [
     `release_id: ${AGENTIC_RELEASE_ID}`,
     "Strategic direction (set via email set_strategic + approve, or ignore):",
     strategic,
     "",
+    "Cloudflare Worker crons (UTC) — `wrangler.jsonc` + `custom-worker` — incremental vs full-article 2h vs news 3h, lcm(2,3):",
+    getCloudflareWorkerCronMatrixForChief(),
+    "",
     "Recent pipeline stages (Supabase `agentic_pipeline_stage_log` — worker/manager/executive awareness):",
     supaBlock,
+    "",
+    "Marketing / Zernio social (schedule; times use America/Chicago = US Central, CST/CDT):",
+    marketingZernioBlock,
+    "",
+    "News department (last `news_run` start; Chicago = local display only):",
+    newsScheduleBlock,
     "",
     "Cycle counters (approvals-in-window / audits):",
     `- marketing: ${st.departments.marketing.approvalsInWindow}/10, audits ${st.departments.marketing.auditsCompleted}`,
@@ -369,7 +386,8 @@ export async function chiefReplyToInboundEmail(params: {
       .join("\n")
       .slice(0, 12_000);
   }
-  const chiefN = chiefDisplayName();
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const chiefN = chiefDisplayName(cwd, nameCfg);
 
   const execRaw = (await resolveWorkerEnv("CHIEF_INBOUND_EXECUTIVE_SENDERS"))?.trim();
   const executiveList = execRaw

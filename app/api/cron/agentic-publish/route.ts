@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AGENTIC_ADMIN_DEFAULT_PUBLISH_TASK } from "@/lib/agenticDefaultPublishTask";
 import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
+import { scheduleArticlePipelineNotPublishedReport } from "@/xalura-agentic/lib/chiefPublishOutcomeReport";
 import type { DepartmentPipelineInput } from "@/xalura-agentic/lib/runDepartmentPipeline";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,12 @@ export async function POST(request: Request) {
   const result = await runPublishingPipeline(input);
 
   if (result.status === "rejected") {
+    scheduleArticlePipelineNotPublishedReport({
+      cwd,
+      task,
+      result,
+      source: "cron:agentic-publish",
+    });
     return NextResponse.json(
       { ok: false, source: "cron", department: "publishing", result },
       { status: 200 },
@@ -55,6 +62,12 @@ export async function POST(request: Request) {
   }
 
   if (result.status === "error") {
+    scheduleArticlePipelineNotPublishedReport({
+      cwd,
+      task,
+      result,
+      source: "cron:agentic-publish",
+    });
     return NextResponse.json(
       { ok: false, source: "cron", department: "publishing", result },
       { status: 502 },
@@ -62,6 +75,12 @@ export async function POST(request: Request) {
   }
 
   if (result.status !== "approved") {
+    scheduleArticlePipelineNotPublishedReport({
+      cwd,
+      task,
+      result,
+      source: "cron:agentic-publish",
+    });
     return NextResponse.json(
       { ok: false, source: "cron", department: "publishing", result },
       { status: 200 },

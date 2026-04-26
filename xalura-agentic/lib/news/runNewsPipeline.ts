@@ -12,6 +12,10 @@ import { insertNewsRunEvent } from "@/lib/newsRunEvents";
 import { buildNewsPublishActivityExtendedBriefing } from "@/lib/chiefNewsPublishedActivityEmail";
 import { scheduleChiefPublishCycleEmail } from "../chiefPublishDigest";
 import {
+  scheduleChiefPublishOutcomeReport,
+  type ChiefPublishOutcomeCategory,
+} from "../chiefPublishOutcomeReport";
+import {
   type NewsPublishPostEmailContext,
   sendHeadOfNewsPublishedEmailIfEnabled,
   sendNewsAuditorPublishedEmailIfEnabled,
@@ -21,7 +25,8 @@ import { uploadNewsCoverPng } from "@/lib/newsCoverStorage";
 import { extractMarkdownTitle } from "@/lib/agenticArticlePublish";
 import { buildNewsWriterProtocolBlock } from "../contentWorkflow/xaluraContentProtocol";
 import { serpApiSearch } from "../contentWorkflow/serpApiSearch";
-import { loadAgentNamesConfig, getExecutiveAssignedName } from "../agentNames";
+import { getExecutiveAssignedName, type AgentNamesConfig } from "../agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { getAgenticRoot } from "../paths";
 import { mkdirRecursiveAgentic, writeFileUtf8Agentic } from "../agenticDisk";
 import { parseManagerDecision } from "../managerDecision";
@@ -46,8 +51,8 @@ function intEnv(name: string, def: number): number {
   return Math.max(1, Math.min(50, parseInt(process.env[name] || String(def), 10) || def));
 }
 
-function newsWriterByline(cwd: string): string {
-  const w = loadAgentNamesConfig(cwd).departments.news?.worker.name?.trim();
+function newsWriterByline(names: AgentNamesConfig): string {
+  const w = names.departments.news?.worker.name?.trim();
   return w || "Xalura News";
 }
 
@@ -140,11 +145,11 @@ export async function runNewsPipeline(
   const publishToSite = input.publishToSite !== false;
   const tz = (await resolveWorkerEnv("NEWS_SERP_TIMEZONE"))?.trim() || "UTC";
   const minPreprod = intEnv("NEWS_PREPROD_MIN", 20);
-  const names = loadAgentNamesConfig(cwd);
+  const names = await loadAgentNamesResolved(cwd);
   const ppn = names.departments.news_preprod;
   const nw = names.departments.news;
   const execIn =
-    getExecutiveAssignedName("news", cwd) || "Chief of Audit";
+    getExecutiveAssignedName("news", cwd, undefined, names) || "Chief of Audit";
 
   const logStage = (stage: string, summary: string, detail?: unknown) => {
     void insertNewsRunEvent(runId, stage, summary, detail);
@@ -166,6 +171,60 @@ export async function runNewsPipeline(
 
   const digest: string[] = [`# Head of News run ${runId}`, ""];
   logStage("start", "Pipeline started", { timeZone: tz, minPreprod });
+
+  const endNews = (r: RunNewsPipelineResult): RunNewsPipelineResult => {
+    if (!publishToSite) return r;
+    if (r.status === "published" && r.slug === "(dry-run)") return r;
+    const titleLine =
+      r.status === "published" ? (r as { title: string }).title.substring(0, 120) : r.runId;
+    let resultField: "ok" | "error" | "aborted";
+    let category: ChiefPublishOutcomeCategory;
+    let bodyFacts: string;
+    if (r.status === "published") {
+      resultField = "ok";
+      category = "success";
+      const slug = (r as { slug: string }).slug;
+      bodyFacts = [
+        `**Status:** **published** to the site (news pipeline + Supabase + events).`,
+        `**Run id:** ${r.runId}`,
+        `**Title:** ${(r as { title: string }).title}`,
+        `**Path:** /news/${slug}`,
+        "**Logged to:** this run’s `head-*.md` in agentic logs, news run events, and the agentic pipeline log. Post-publish team emails and Chief activity digest (if enabled) are separate; this is the **outcome + log** line only.",
+      ].join("\n");
+    } else if (r.status === "error") {
+      resultField = "error";
+      category = "technical";
+      const e = r as { message: string; stage: string };
+      if (e.stage === "publish") {
+        bodyFacts = `**Status:** **not published** — *technical* (site upsert / news row).\n**Run id:** ${r.runId}\n**Stage:** \`${e.stage}\`\n**Error:** ${e.message.replace(/\s+/g, " ").trim()}\n**Note:** story may have been approved by the Chief of Audit; failure happened when saving the page.`;
+      } else {
+        bodyFacts = `**Status:** **not published** — *technical* or data/API in **${e.stage}** (Pre-Prod gather, checklist, or similar).\n**Run id:** ${r.runId}\n**Error:** ${e.message.replace(/\s+/g, " ").trim()}`;
+      }
+    } else {
+      resultField = "aborted";
+      const a = r as { reason: string; stage: string };
+      if (a.stage === "preprod_manager") {
+        category = "manager";
+        bodyFacts = `**Status:** **not published** — **Pre-Production manager** did not approve a **lead story** in time (max manager rounds). **This is a manager/role rejection path**, not a live article.\n**Run id:** ${r.runId}\n**Last reason (logged):** ${a.reason.replace(/\s+/g, " ").trim()}\n**Stage (logged):** \`preprod_manager\``;
+      } else if (a.stage === "writer_manager") {
+        category = "manager";
+        bodyFacts = `**Status:** **not published** — **Writer Manager** did not sign off the draft. **Rejection in news desk (manager)**, not Chief of Audit final line.\n**Run id:** ${r.runId}\n**Last reason (logged):** ${a.reason.replace(/\s+/g, " ").trim()}\n**Stage:** \`writer_manager\``;
+      } else {
+        category = a.stage === "auditor" ? "executive" : "executive";
+        bodyFacts = `**Status:** **not published** — **Chief of Audit (Executive)** did not return **VERIFIED** within allowed audit retries (or final round failed). This is the **executive/audit** gate, not a technical error by default.\n**Run id:** ${r.runId}\n**Stage:** \`${a.stage}\` — **last executive context (excerpt, logged):** ${a.reason.replace(/\s+/g, " ").trim().slice(0, 2_000)}`;
+      }
+    }
+    scheduleChiefPublishOutcomeReport({
+      cwd,
+      source: "news_pipeline",
+      kind: "news",
+      result: resultField,
+      titleLine,
+      category,
+      bodyFacts: `${bodyFacts}\n\n**Digest / head file:** \`xalura-agentic/logs/news/head-${runId}.md\` (on success) — same run id. News run events in DB align with the pipeline stages in this run.`,
+    });
+    return r;
+  };
 
   let preprodPool: (GoogleNewsItem & { firecrawl_excerpt?: string })[] = [];
   let checklist: GoogleNewsItem[] = [];
@@ -195,14 +254,14 @@ export async function runNewsPipeline(
     // ── Pre-Production: gather + W/M ──
     const poolRes = await gatherPreprodNewsPool({ minCount: minPreprod, timeZone: tz });
     if (!poolRes.ok) {
-      return { status: "error", runId, message: poolRes.error, stage: "preprod_gather" };
+      return endNews({ status: "error", runId, message: poolRes.error, stage: "preprod_gather" });
     }
     preprodPool = await addFirecrawlExcerpts(poolRes.items);
     digest.push(`- Gathered ${preprodPool.length} items.`, "");
 
     const ch = await fetchAiNewsChecklist30();
     if (!ch.ok) {
-      return { status: "error", runId, message: ch.error, stage: "preprod_checklist" };
+      return endNews({ status: "error", runId, message: ch.error, stage: "preprod_checklist" });
     }
     checklist = ch.items;
     digest.push(`- 30-item checklist loaded.`, "");
@@ -254,7 +313,12 @@ ${preWorkerOut}
       });
       preManagerFeedback = mdec.reason;
       if (r === MAX_PREPROD - 1) {
-        return { status: "aborted", runId, reason: mdec.reason, stage: "preprod_manager" };
+        return endNews({
+          status: "aborted",
+          runId,
+          reason: mdec.reason,
+          stage: "preprod_manager",
+        });
       }
     }
 
@@ -312,7 +376,12 @@ ${draft}
       });
       writerFeedback = wd.reason;
       if (w === MAX_WRITER - 1) {
-        return { status: "aborted", runId, reason: wd.reason, stage: "writer_manager" };
+        return endNews({
+          status: "aborted",
+          runId,
+          reason: wd.reason,
+          stage: "writer_manager",
+        });
       }
     }
 
@@ -370,7 +439,7 @@ ${draft}
     }
     digest.push(`- Audit failed: ${aud.reason}`, "");
     if (auditAttempt === maxAudit - 1) {
-      return { status: "aborted", runId, reason: aud.reason, stage: "auditor" };
+      return endNews({ status: "aborted", runId, reason: aud.reason, stage: "auditor" });
     }
   }
 
@@ -400,14 +469,14 @@ ${draft}
   }
 
   if (!publishToSite) {
-    return { status: "published", slug: "(dry-run)", runId, title };
+    return endNews({ status: "published", slug: "(dry-run)", runId, title });
   }
 
   const pub = await publishAgenticNews({
     title,
     body: draft,
     excerpt: primaryExcerpt,
-    author: newsWriterByline(cwd),
+    author: newsWriterByline(names),
     coverImageUrl: cover,
     track: "both",
     primarySourceUrl: pickUrl,
@@ -418,7 +487,7 @@ ${draft}
     },
   });
   if (!pub.ok) {
-    return { status: "error", runId, message: pub.error, stage: "publish" };
+    return endNews({ status: "error", runId, message: pub.error, stage: "publish" });
   }
 
   await recordApproval(
@@ -495,5 +564,5 @@ ${draft}
     }
   })();
 
-  return { status: "published", slug: pub.slug, runId, title };
+  return endNews({ status: "published", slug: pub.slug, runId, title });
 }

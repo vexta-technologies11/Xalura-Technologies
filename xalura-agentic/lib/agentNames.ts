@@ -83,6 +83,11 @@ function mergeWorkersByPillar(
   return out;
 }
 
+export function materializeAgentNames(partial: Partial<AgentNamesConfig>): AgentNamesConfig {
+  if (!partial?.departments || !partial.chiefAI) return { ...mergeConfig({}) };
+  return mergeConfig(partial);
+}
+
 function mergeConfig(parsed: Partial<AgentNamesConfig>): AgentNamesConfig {
   const d = (id: DepartmentId) => ({
     ...DEFAULT.departments[id],
@@ -165,18 +170,27 @@ export function saveAgentNamesConfig(
   }
 }
 
-export function chiefDisplayName(cwd: string = process.cwd()): string | undefined {
-  const n = loadAgentNamesConfig(cwd).chiefAI.name?.trim();
+export function chiefDisplayName(
+  cwd: string = process.cwd(),
+  preloaded?: AgentNamesConfig,
+): string | undefined {
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).chiefAI.name?.trim();
   return n || undefined;
 }
 
-export function complianceOfficerDisplayName(cwd: string = process.cwd()): string {
-  const n = loadAgentNamesConfig(cwd).complianceOfficer?.name?.trim();
+export function complianceOfficerDisplayName(
+  cwd: string = process.cwd(),
+  preloaded?: AgentNamesConfig,
+): string {
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).complianceOfficer?.name?.trim();
   return n || "Martin Cruz";
 }
 
-export function graphicDesignerDisplayName(cwd: string = process.cwd()): string | undefined {
-  const n = loadAgentNamesConfig(cwd).graphicDesigner?.name?.trim();
+export function graphicDesignerDisplayName(
+  cwd: string = process.cwd(),
+  preloaded?: AgentNamesConfig,
+): string | undefined {
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).graphicDesigner?.name?.trim();
   return n || undefined;
 }
 
@@ -187,10 +201,11 @@ export function getExecutiveAssignedName(
   dept: DepartmentId,
   cwd: string = process.cwd(),
   override?: string,
+  preloaded?: AgentNamesConfig,
 ): string | undefined {
   const o = override?.trim();
   if (o) return o;
-  const n = loadAgentNamesConfig(cwd).departments[dept]?.executive?.name?.trim();
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).departments[dept]?.executive?.name?.trim();
   return n || undefined;
 }
 
@@ -216,8 +231,11 @@ export function getWorkerAssignedNameForLane(
  * `articles.author` for agentic site publish (Publishing Worker output).
  * When the dashboard name is empty, matches previous behavior: "Xalura Agentic".
  */
-export function publishingWorkerArticleByline(cwd: string = process.cwd()): string {
-  const n = loadAgentNamesConfig(cwd).departments.publishing.worker.name?.trim();
+export function publishingWorkerArticleByline(
+  cwd: string = process.cwd(),
+  preloaded?: AgentNamesConfig,
+): string {
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).departments.publishing.worker.name?.trim();
   return n || "Xalura Agentic";
 }
 
@@ -225,8 +243,9 @@ export function publishingWorkerArticleByline(cwd: string = process.cwd()): stri
 export function executiveDisplayName(
   dept: DepartmentId,
   cwd: string = process.cwd(),
+  preloaded?: AgentNamesConfig,
 ): string {
-  const n = loadAgentNamesConfig(cwd).departments[dept]?.executive?.name?.trim();
+  const n = (preloaded ?? loadAgentNamesConfig(cwd)).departments[dept]?.executive?.name?.trim();
   return n || "(unnamed)";
 }
 

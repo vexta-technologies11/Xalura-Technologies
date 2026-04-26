@@ -10,15 +10,17 @@ import { Footer } from "@/components/public/Footer";
 import { StarfieldBackground } from "@/components/public/StarfieldBackground";
 import { getPageContent } from "@/lib/data";
 import { getLatestArticles, getLatestNews } from "@/lib/data-learning";
+import { getTeamMembers } from "@/lib/teamData";
 import "./public-palantir.css";
 import "./home-news-articles.css";
 import "./home-starfield.css";
 
 export default async function Home() {
-  const [pageContent, latestNews, latestArticles] = await Promise.all([
+  const [pageContent, latestNews, latestArticles, teamStripMembers] = await Promise.all([
     getPageContent(),
     getLatestNews(8),
     getLatestArticles(6),
+    getTeamMembers(6),
   ]);
 
   return (
@@ -27,13 +29,26 @@ export default async function Home() {
       <div className="public-home__layers">
         <Nav variant="palantir" />
         <Hero content={pageContent.hero} template="palantir" />
-        <HomeAiToolsTeaser />
-        <HomeNewsArticles news={latestNews} articles={latestArticles} template="palantir" />
-        <Ticker className="ticker--ph" />
+        <HomeAiToolsTeaser home={pageContent.homePage} />
+        <HomeNewsArticles
+          home={pageContent.homePage}
+          news={latestNews}
+          articles={latestArticles}
+          template="palantir"
+        />
+        <Ticker className="ticker--ph" tickerItems={pageContent.homePage.tickerItems} />
         <Mission content={pageContent.mission} className="mission--ph mission--bg-glass" />
         <BrandPositioning content={pageContent.brand} template="palantir" />
         <GearMedic content={pageContent.gearmedic} className="product--ph product--bg-glass" />
-        <Footer content={pageContent.footer} className="footer--ph" />
+        <Footer
+          content={pageContent.footer}
+          className="footer--ph"
+          teamStrip={
+            teamStripMembers.length
+              ? { teamPage: pageContent.teamPage, members: teamStripMembers }
+              : null
+          }
+        />
       </div>
     </main>
   );

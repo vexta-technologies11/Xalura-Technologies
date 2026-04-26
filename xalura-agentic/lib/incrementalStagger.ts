@@ -1,4 +1,5 @@
 import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
+import { scheduleArticlePipelineNotPublishedReport } from "./chiefPublishOutcomeReport";
 import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { appendFailedOperation } from "./failedQueue";
 import {
@@ -167,6 +168,12 @@ export async function runIncrementalStaggerStep(
     if (pub.status !== "approved") {
       const reason =
         "reason" in pub && typeof pub.reason === "string" ? pub.reason : pub.status;
+      scheduleArticlePipelineNotPublishedReport({
+        cwd,
+        task: `${incrementPublishTask()} (incremental_stagger)`,
+        result: pub,
+        source: "incremental:stagger_publishing",
+      });
       logStagger("publishing", "incremental_stagger", String(pub.status), String(reason).slice(0, 500), {
         tick: st.cadence_tick,
       });
@@ -225,7 +232,7 @@ export async function runIncrementalStaggerStep(
         articleTitle: null,
         result: result as Extract<DepartmentPipelineResult, { status: "approved" }>,
       },
-      { awaitFounderOversight: options?.awaitFounderOversight === true },
+      { awaitFounderOversight: options?.awaitFounderOversight },
     );
     if (!site.ok) {
       logStagger("publishing", "incremental_stagger", "site_error", site.error, { tick: st.cadence_tick });

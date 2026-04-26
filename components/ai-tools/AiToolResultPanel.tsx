@@ -5,6 +5,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { readResponseJson } from "@/lib/readResponseJson";
+import type { PdfDocument, PdfTemplateId } from "@/lib/pdfGenerator/types";
+
+export type ReportBuilderApiSuccess = {
+  ok: true;
+  document: PdfDocument;
+  templateId: PdfTemplateId;
+  templateLabel: string;
+  documentTitle: string;
+};
 
 type ApiShape = { ok: true; text: string } | { ok: false; error: string };
 
@@ -14,6 +23,8 @@ type Props = {
   onText: (text: string) => void;
   onReset: () => void;
   onSubmitLabel?: string;
+  /** When the API returns structured report JSON (report builder v2), receive it here. */
+  onReport?: (r: ReportBuilderApiSuccess) => void;
 };
 
 export function AiToolSubmitBar({
@@ -22,6 +33,7 @@ export function AiToolSubmitBar({
   onText,
   onReset,
   onSubmitLabel = "Generate",
+  onReport,
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,22 +41,39 @@ export function AiToolSubmitBar({
   async function submit() {
     setError(null);
     setSubmitting(true);
-    const res = await fetch(apiPath, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const read = await readResponseJson<ApiShape>(res);
-    setSubmitting(false);
-    if (!read.ok) {
-      setError(read.error);
-      return;
-    }
-    const data = read.data;
-    if (data?.ok) {
-      onText(data.text);
-    } else {
-      setError((data as { error?: string } | undefined)?.error ?? "Request failed");
+    try {
+      const res = await fetch(apiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const read = await readResponseJson<ApiShape>(res);
+      if (!read.ok) {
+        setError(read.error);
+        return;
+      }
+      const data = read.data as
+        | ReportBuilderApiSuccess
+        | { ok: true; text: string }
+        | { ok: false; error?: string }
+        | undefined;
+      if (data && "ok" in data && !data.ok) {
+        setError(typeof (data as { error?: string }).error === "string" ? (data as { error: string }).error : "Request failed");
+        return;
+      }
+      if (data && "ok" in data && data.ok && "document" in data && data.document && onReport) {
+        onReport(data as ReportBuilderApiSuccess);
+        return;
+      }
+      if (data?.ok && "text" in data && typeof (data as { text?: string }).text === "string") {
+        onText((data as { text: string }).text);
+        return;
+      }
+      setError("Request failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error. Try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 

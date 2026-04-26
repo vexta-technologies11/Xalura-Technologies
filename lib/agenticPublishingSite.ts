@@ -6,6 +6,7 @@ import {
 import { uploadArticleCoverPng } from "@/lib/articleCoverStorage";
 import { sharePublishedArticleToZernio } from "@/lib/agenticZernioPost";
 import { scheduleChiefPublishCycleEmail } from "@/xalura-agentic/lib/chiefPublishDigest";
+import { scheduleChiefPublishOutcomeReport } from "@/xalura-agentic/lib/chiefPublishOutcomeReport";
 import {
   executeFounderOversightPublishEmail,
   scheduleFounderOversightPublishEmail,
@@ -17,6 +18,7 @@ import { appendEvent } from "@/xalura-agentic/lib/eventQueue";
 import { appendFailedOperation } from "@/xalura-agentic/lib/failedQueue";
 import type { DepartmentPipelineResult } from "@/xalura-agentic/lib/runDepartmentPipeline";
 import { publishingWorkerArticleByline } from "@/xalura-agentic/lib/agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
 type ApprovedPublishing = Extract<DepartmentPipelineResult, { status: "approved" }>;
@@ -35,8 +37,10 @@ export type SitePublishSuccess = {
 
 export type SitePublishOptions = {
   /**
-   * When true, runs the compliance / founder Resend pipeline inline (more reliable than
-   * background-only scheduling on some hosts). Adds latency to the HTTP caller.
+   * Compliance + founder / graphic pipeline after publish.
+   * - **Default (omit or `true`):** `await executeFounderOversightPublishEmail` so Resend actually sends (cron / serverless
+   *   will not always finish `waitUntil` background work).
+   * - **`false`:** `scheduleFounderOversightPublishEmail` (faster response; can drop on hosts without a reliable `waitUntil`).
    */
   awaitFounderOversight?: boolean;
 };
@@ -73,11 +77,18 @@ export async function sitePublishFromApprovedPublishingRun(
     graphicDesignerRaw.trim().toLowerCase() === "true" || graphicDesignerRaw.trim() === "1";
 
   if (requireCover && !graphicDesignerOn) {
-    return {
-      ok: false,
-      error:
-        "AGENTIC_REQUIRE_COVER_ON_PUBLISH is set but AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH is not enabled — enable both (and Storage bucket article-covers) or unset require.",
-    };
+    const err =
+      "AGENTIC_REQUIRE_COVER_ON_PUBLISH is set but AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH is not enabled — enable both (and Storage bucket article-covers) or unset require.";
+    scheduleChiefPublishOutcomeReport({
+      cwd: params.cwd,
+      source: "site_publish_gating",
+      kind: "article",
+      result: "error",
+      titleLine: (params.articleTitle || params.task).replace(/\s+/g, " ").trim().slice(0, 120) || "Article",
+      category: "configuration",
+      bodyFacts: `**What happened:** site publish was not run.\n**Logged:** this failure is from pre-publish gating; fix env so cover generation can run, or turn off require cover.\n**Error:** ${err}`,
+    });
+    return { ok: false, error: err };
   }
 
   let coverForRow: string | undefined;
@@ -136,10 +147,19 @@ export async function sitePublishFromApprovedPublishingRun(
   }
 
   if (requireCover && !coverForRow) {
-    return {
-      ok: false,
-      error: `AGENTIC_REQUIRE_COVER_ON_PUBLISH: article not published — no cover image URL (graphic step: ${hero.ok ? "generated but upload failed — check article-covers bucket and failed queue" : hero.error}).`,
-    };
+    const err = `AGENTIC_REQUIRE_COVER_ON_PUBLISH: article not published — no cover image URL (graphic step: ${
+      hero.ok ? "generated but upload failed — check article-covers bucket and failed queue" : hero.error
+    }).`;
+    scheduleChiefPublishOutcomeReport({
+      cwd: params.cwd,
+      source: "site_publish_cover",
+      kind: "article",
+      result: "error",
+      titleLine: (params.articleTitle || params.task).replace(/\s+/g, " ").trim().slice(0, 120) || "Article",
+      category: "technical",
+      bodyFacts: `**What happened:** no cover **public URL**; article not upserted to avoid publishing without a hero.\n**Logged:** failed queue may have cover or Storage errors from this run.\n**Error:** ${err}`,
+    });
+    return { ok: false, error: err };
   }
 
   const subForArticle =
@@ -149,17 +169,28 @@ export async function sitePublishFromApprovedPublishingRun(
       : undefined) ||
     undefined;
 
+  const nameCfg = await loadAgentNamesResolved(params.cwd);
   const pub = await publishAgenticArticle({
     title,
     body: params.result.workerOutput,
     slug: params.articleSlug?.trim() || undefined,
-    author: publishingWorkerArticleByline(params.cwd),
+    author: publishingWorkerArticleByline(params.cwd, nameCfg),
     ...(coverForRow !== undefined ? { coverImageUrl: coverForRow } : {}),
     ...(subForArticle ? { subcategory: subForArticle } : {}),
   });
 
   if (!pub.ok) {
-    return { ok: false, error: pub.error };
+    const err = pub.error;
+    scheduleChiefPublishOutcomeReport({
+      cwd: params.cwd,
+      source: "site_upsert_article",
+      kind: "article",
+      result: "error",
+      titleLine: title,
+      category: "technical",
+      bodyFacts: `**What happened:** article body did not store in Supabase / public publish path.\n**Manager/Executive had approved** — failure is in site upsert or validation.\n**Error:** ${err.replace(/\s+/g, " ").trim()}\n**Slug (computed):** ${slug}`,
+    });
+    return { ok: false, error: err };
   }
 
   appendEvent(
@@ -196,6 +227,7 @@ export async function sitePublishFromApprovedPublishingRun(
   const zernio = await sharePublishedArticleToZernio({
     title,
     articlePath: `/articles/${pub.slug}`,
+    coverImageUrl: coverForRow ?? null,
   });
 
   const zernioLine =
@@ -221,6 +253,35 @@ export async function sitePublishFromApprovedPublishingRun(
     auditTriggered: params.result.cycle.auditTriggered,
     cycleFileRelative: params.result.cycle.cycleFileRelative,
     zernioLine,
+  });
+
+  const preApprove = (params.result.managerRejectionHistory ?? []).filter(Boolean);
+  const rejSummary =
+    preApprove.length > 0
+      ? preApprove.map((r, i) => `  ${i + 1}. ${r.replace(/\s+/g, " ").trim().slice(0, 800)}`).join("\n")
+      : "(none in this run — may have been approved on first try.)";
+  scheduleChiefPublishOutcomeReport({
+    cwd: params.cwd,
+    source: "site_publish_approved",
+    kind: "article",
+    result: "ok",
+    titleLine: title,
+    category: "success",
+    bodyFacts: [
+      "**Published to site (approved pipeline + upsert).**",
+      `**Title:** ${title}`,
+      `**Path:** /articles/${pub.slug}`,
+      `**Zernio:** ${zernioLine}`,
+      `**Cycle log file:** ${params.result.cycle.cycleFileRelative} · 10-cycle audit context: ${
+        params.result.cycle.auditTriggered
+      }`,
+      `**Manager review rounds (total, all phases):** ${params.result.managerAttempts} · **Executive rewrite phases before commit:** ${
+        params.result.escalationPhaseIndex ?? 0
+      }`,
+      "**Manager rejection rounds in winning phase (before final APPROVE) — for context:**",
+      rejSummary,
+      `**Event queue / topic ledger updates** ran after upsert; **failed queue** (tail in email) lists recent integration noise unrelated to the approval decision if any.`,
+    ].join("\n\n"),
   });
 
   const founderParams: FounderOversightPublishParams = {
@@ -249,10 +310,10 @@ export async function sitePublishFromApprovedPublishingRun(
     ...(precomputedHero ? { precomputedHero } : {}),
   };
 
-  if (options?.awaitFounderOversight) {
-    await executeFounderOversightPublishEmail(founderParams);
-  } else {
+  if (options?.awaitFounderOversight === false) {
     scheduleFounderOversightPublishEmail(founderParams);
+  } else {
+    await executeFounderOversightPublishEmail(founderParams);
   }
 
   const zernioOut: SitePublishZernio =

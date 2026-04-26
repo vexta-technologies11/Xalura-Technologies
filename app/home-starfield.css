@@ -207,6 +207,11 @@
   color: #fafaf9;
 }
 
+.public-home--starfield .home-ai--tight {
+  padding-top: 8px;
+  padding-bottom: 4px;
+}
+
 .public-home--starfield .home-ai__all {
   color: #b8e0ff;
   text-decoration: underline;
@@ -225,6 +230,96 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
+}
+
+/* —— 21st.dev / tom_ui tilt card — HomeToolsTiltGrid (rAF lerp + layers) —— */
+.public-home--starfield .home-ai-tilt__wrap {
+  height: 100%;
+  min-height: 0;
+  border-radius: 12px;
+  /* perspective applied in JS for consistent units */
+  transform: translateZ(0);
+}
+
+.public-home--starfield .home-ai-tilt__inner {
+  height: 100%;
+  min-height: 0;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.public-home--starfield .home-ai__card--tilt {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-height: 8.5rem;
+  border-radius: 12px;
+  /* slight forward offset for icon/text vs card face */
+  transform: translateZ(0.1px);
+}
+
+/* Moving specular (tied to pointer via --tilt-*) */
+.public-home--starfield .home-ai__tilt-sheen--gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    100% 90% at var(--tilt-gx, 50%) var(--tilt-gy, 40%),
+    rgba(200, 230, 255, 0.22) 0%,
+    rgba(100, 160, 255, 0.06) 32%,
+    transparent 60%
+  );
+  opacity: calc(0.05 + var(--tilt-s, 0) * 0.85);
+  mix-blend-mode: soft-light;
+  transition: opacity 0.35s ease;
+}
+
+/* Second specular lobe (softer, wider) */
+.public-home--starfield .home-ai__tilt-sheen--edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    85% 70% at var(--tilt-gx, 50%) var(--tilt-gy, 45%),
+    rgba(59, 130, 246, 0.12) 0%,
+    transparent 55%
+  );
+  opacity: calc(0.1 + var(--tilt-s, 0) * 0.45);
+  mix-blend-mode: overlay;
+}
+
+/* Inner border ring for depth (like tom_ui cards) */
+.public-home--starfield .home-ai__tilt-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.5) inset;
+  opacity: calc(0.55 + var(--tilt-s, 0) * 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-home--starfield .home-ai__tilt-sheen--gloss,
+  .public-home--starfield .home-ai__tilt-sheen--edge {
+    opacity: 0.15;
+  }
+}
+
+.public-home--starfield .home-ai__card--tilt .home-ai__icon,
+.public-home--starfield .home-ai__card--tilt .home-ai__card-title,
+.public-home--starfield .home-ai__card--tilt .home-ai__card-blurb {
+  position: relative;
+  z-index: 1;
+  transform: translateZ(20px);
+  transform-style: preserve-3d;
 }
 
 @media (min-width: 800px) {
@@ -255,6 +350,11 @@
   background: rgba(10, 12, 16, 0.52) !important;
   border-color: rgba(120, 200, 255, 0.22) !important;
   transform: translateY(-1px);
+}
+
+/* Tilt stack handles lift/depth; avoid double “jump” on hover */
+.public-home--starfield .home-ai__card--tilt:hover {
+  transform: none;
 }
 
 .public-home--starfield .home-ai__icon {

@@ -2,85 +2,49 @@
 
 import { useState } from "react";
 import { AiToolSubmitBar, AiToolMarkdownResult } from "./AiToolResultPanel";
+import { AiToolSelect, AiToolMainRequest } from "./aiToolFields";
+import {
+  TONE_OPTIONS,
+  EMAIL_RECIPIENT_OPTIONS,
+  EMAIL_LENGTH_OPTIONS,
+} from "@/lib/aiToolFormConfig";
 
-const initial = {
-  purpose: "",
-  tone: "Professional, concise",
-  length: "Medium (roughly 200–400 words)",
-  recipient: "Business decision-maker",
-  keyPoints: "",
-};
+const toneVals = TONE_OPTIONS.map((t) => ({ value: t, label: t }));
+const recVals = EMAIL_RECIPIENT_OPTIONS.map((t) => ({ value: t, label: t }));
 
 export function EmailToolClient() {
-  const [f, setF] = useState(initial);
+  const [request, setRequest] = useState("");
+  const [tone, setTone] = useState<string>(TONE_OPTIONS[0]);
+  const [length, setLength] = useState<string>(EMAIL_LENGTH_OPTIONS[1].value);
+  const [recipient, setRecipient] = useState<string>(EMAIL_RECIPIENT_OPTIONS[0]);
   const [out, setOut] = useState("");
+
+  const body = { request, tone, length, recipient };
 
   return (
     <div className="ai-tools__grid">
       <div className="ai-tools__col">
-      <form
-        className="ai-tools__form"
-        onSubmit={(e) => e.preventDefault()}
-        autoComplete="off"
-      >
-        <label className="ai-tools__field">
-          <span className="ai-tools__label">Purpose</span>
-          <textarea
-            className="ai-tools__input"
-            rows={3}
-            value={f.purpose}
-            onChange={(e) => setF((p) => ({ ...p, purpose: e.target.value }))}
-            placeholder="E.g. follow up after a demo, request a decision, or confirm next steps"
-            required
+        <form className="ai-tools__form" onSubmit={(e) => e.preventDefault()} autoComplete="off">
+          <AiToolMainRequest
+            label="What you need"
+            value={request}
+            onChange={setRequest}
+            placeholder="E.g. thank a client after a call, follow up on a contract, or ask for a quick decision with context."
+            minRows={5}
           />
-        </label>
-        <label className="ai-tools__field">
-          <span className="ai-tools__label">Tone</span>
-          <input
-            className="ai-tools__input"
-            type="text"
-            value={f.tone}
-            onChange={(e) => setF((p) => ({ ...p, tone: e.target.value }))}
+          <div className="ai-tools__field-row ai-tools__field-row--3">
+            <AiToolSelect label="Tone" value={tone} onChange={setTone} options={toneVals} />
+            <AiToolSelect label="Length" value={length} onChange={setLength} options={EMAIL_LENGTH_OPTIONS} />
+            <AiToolSelect label="Recipient" value={recipient} onChange={setRecipient} options={recVals} />
+          </div>
+          <AiToolSubmitBar
+            apiPath="/api/ai-tools/email"
+            body={body}
+            onText={setOut}
+            onReset={() => setOut("")}
+            onSubmitLabel="Generate email"
           />
-        </label>
-        <div className="ai-tools__field-row">
-          <label className="ai-tools__field">
-            <span className="ai-tools__label">Length</span>
-            <input
-              className="ai-tools__input"
-              type="text"
-              value={f.length}
-              onChange={(e) => setF((p) => ({ ...p, length: e.target.value }))}
-            />
-          </label>
-          <label className="ai-tools__field">
-            <span className="ai-tools__label">Recipient type</span>
-            <input
-              className="ai-tools__input"
-              type="text"
-              value={f.recipient}
-              onChange={(e) => setF((p) => ({ ...p, recipient: e.target.value }))}
-            />
-          </label>
-        </div>
-        <label className="ai-tools__field">
-          <span className="ai-tools__label">Key points (bullets or short list)</span>
-          <textarea
-            className="ai-tools__input"
-            rows={4}
-            value={f.keyPoints}
-            onChange={(e) => setF((p) => ({ ...p, keyPoints: e.target.value }))}
-            placeholder="Callouts, constraints, or facts the email must include"
-          />
-        </label>
-        <AiToolSubmitBar
-          apiPath="/api/ai-tools/email"
-          body={f}
-          onText={setOut}
-          onReset={() => setOut("")}
-          onSubmitLabel="Generate email"
-        />
-      </form>
+        </form>
       </div>
       <AiToolMarkdownResult text={out} />
     </div>

@@ -31,7 +31,9 @@ export async function POST(request: Request) {
   const cwd = process.cwd();
   const out = await runIncrementalStaggerStep(cwd, {
     forceSitePublish: process.env["AGENTIC_INCREMENTAL_STAGGER_FORCE_SITE"]?.trim() === "true",
-    awaitFounderOversight: process.env["AGENTIC_INCREMENTAL_STAGGER_AWAIT_OVERSIGHT"]?.trim() === "true",
+    /** Default: await compliance email (inline). Set `AGENTIC_INCREMENTAL_STAGGER_DEFER_OVERSIGHT=true` to return faster and use background `waitUntil` (may not deliver). */
+    awaitFounderOversight:
+      process.env["AGENTIC_INCREMENTAL_STAGGER_DEFER_OVERSIGHT"]?.trim() === "true" ? false : undefined,
     forceTopicBankIfMissing: process.env["AGENTIC_INCREMENTAL_STAGGER_FORCE_BANK"]?.trim() === "true",
   });
 

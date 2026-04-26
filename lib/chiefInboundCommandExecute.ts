@@ -1,4 +1,5 @@
 import { sitePublishFromApprovedPublishingRun } from "@/lib/agenticPublishingSite";
+import { scheduleArticlePipelineNotPublishedReport } from "@/xalura-agentic/lib/chiefPublishOutcomeReport";
 import { runMarketingPipeline } from "@/xalura-agentic/departments/marketing";
 import { runPublishingPipeline } from "@/xalura-agentic/departments/publishing";
 import { runSeoPipeline } from "@/xalura-agentic/departments/seo";
@@ -143,12 +144,36 @@ export async function executeChiefInboundCommand(
         return { ok: true, text: "Publishing: waiting (handoff/gate)." };
       }
       if (isBlocked(result)) {
+        if (action.publishToSite) {
+          scheduleArticlePipelineNotPublishedReport({
+            cwd,
+            task: withStrategicPreamble(cwd, action.task),
+            result,
+            source: "chief_inbound:publish_blocked",
+          });
+        }
         return { ok: true, text: `Publishing: blocked — ${result.reason}` };
       }
       if (result.status === "rejected") {
+        if (action.publishToSite) {
+          scheduleArticlePipelineNotPublishedReport({
+            cwd,
+            task: withStrategicPreamble(cwd, action.task),
+            result,
+            source: "chief_inbound:publish_rejected",
+          });
+        }
         return { ok: true, text: `Publishing: rejected — ${result.reason}` };
       }
       if (!isApproved(result)) {
+        if (action.publishToSite) {
+          scheduleArticlePipelineNotPublishedReport({
+            cwd,
+            task: withStrategicPreamble(cwd, action.task),
+            result,
+            source: "chief_inbound:publish_unexpected",
+          });
+        }
         return { ok: true, text: "Publishing: unexpected status" };
       }
       if (!action.publishToSite) {

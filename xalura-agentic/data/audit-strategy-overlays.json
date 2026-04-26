@@ -3,7 +3,7 @@
   "overlays": {
     "seo:sc-smoke-test-lane": {
       "version": 1,
-      "updatedAt": "2026-04-25T05:03:47.063Z",
+      "updatedAt": "2026-04-26T19:03:13.166Z",
       "auditFileRelative": "logs/seo/audit-cycle-smoke.md",
       "department": "seo",
       "agentLaneKey": "seo:sc-smoke-test-lane",
@@ -19,6 +19,22 @@
           "Title B"
         ],
         "firecrawl_excerpt": "excerpt"
+      }
+    },
+    "marketing": {
+      "version": 1,
+      "updatedAt": "2026-04-26T19:00:09.814Z",
+      "auditFileRelative": "logs/marketing/audit-cycle-3.md",
+      "department": "marketing",
+      "agentLaneKey": null,
+      "directive": "CHANGE_STRATEGY",
+      "seo_positioning": "",
+      "seo_serp_query_hint": "",
+      "publishing_template": "",
+      "marketing_positioning": "",
+      "world_evidence": {
+        "serp_query": "winter tire pressure trends hot topics AI",
+        "serp_titles": []
       }
     }
   }

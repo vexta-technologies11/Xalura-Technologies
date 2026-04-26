@@ -1,70 +1,73 @@
+"use client";
+
 import Link from "next/link";
 import { Mail, FileText, FileBarChart2 } from "lucide-react";
+import type { PageContentMap } from "@/types/content";
+import { HomeToolsTiltGrid } from "@/components/public/HomeToolsTiltGrid";
 
-const cards = [
-  {
-    href: "/ai-tools/email",
-    label: "Advanced email",
-    blurb: "Subject lines, tone, and a ready-to-send draft from your key points.",
-    icon: Mail,
-  },
-  {
-    href: "/ai-tools/content",
-    label: "Content generator",
-    blurb: "SEO-oriented articles and landing copy with clear headings and structure.",
-    icon: FileText,
-  },
-  {
-    href: "/ai-tools/report",
-    label: "Report builder",
-    blurb: "Executive-style reports you can print or save as PDF from the browser.",
-    icon: FileBarChart2,
-  },
-] as const;
+type Home = PageContentMap["homePage"];
+
+function cardsFromCms(h: Home) {
+  return [
+    {
+      href: "/ai-tools/email",
+      label: h.toolEmailTitle,
+      blurb: h.toolEmailBlurb,
+      icon: Mail,
+    },
+    {
+      href: "/ai-tools/content",
+      label: h.toolContentTitle,
+      blurb: h.toolContentBlurb,
+      icon: FileText,
+    },
+    {
+      href: "/ai-tools/report",
+      label: h.toolReportTitle,
+      blurb: h.toolReportBlurb,
+      icon: FileBarChart2,
+    },
+  ] as const;
+}
 
 /**
- * Public homepage: AI tools hub teaser (see-through glass to match `home-na` / starfield).
+ * Public homepage: tools teaser (glass, starfield). Copy from Page Content → Home: feed & tools.
  */
-export function HomeAiToolsTeaser() {
+export function HomeAiToolsTeaser({ home }: { home: Home }) {
+  const cards = cardsFromCms(home);
   return (
-    <section id="ai-tools" className="home-ai wrap" style={{ scrollMarginTop: 96, paddingTop: 40, paddingBottom: 8 }}>
-      <p className="label r" style={{ marginBottom: 6 }}>
-        AI tools
+    <section
+      id="ai-tools"
+      className="home-ai home-ai--tight wrap"
+      style={{ scrollMarginTop: 88 }}
+    >
+      <p className="label r home-ai__eyebrow" style={{ marginBottom: 4 }}>
+        {home.everydayLabel}
       </p>
       <h2
-        className="h2 r"
+        className="h2 r home-ai__title"
         style={{
-          fontSize: "clamp(1.45rem, 2.1vw, 1.7rem)",
-          maxWidth: 700,
+          fontSize: "clamp(1.85rem, 3.2vw, 2.45rem)",
+          maxWidth: 760,
+          lineHeight: 1.2,
           marginTop: 0,
-          marginBottom: 8,
+          marginBottom: 10,
         }}
       >
-        Copy-paste ready drafts
+        {home.everydayHeadline}
       </h2>
-      <p className="body-text" style={{ maxWidth: 640, marginTop: 0, marginBottom: 28, opacity: 0.9 }}>
-        Email, long-form content, and printable reports — powered on our stack with clear outputs you can
-        use immediately.{" "}
-        <Link href="/ai-tools" className="home-ai__all">
-          All tools
+      <p
+        className="body-text home-ai__lede"
+        style={{ maxWidth: 700, marginTop: 0, marginBottom: 24, opacity: 0.92, lineHeight: 1.55 }}
+      >
+        {home.everydaySubhead}{" "}
+        <Link href={home.allToolsHref || "/ai-tools"} className="home-ai__all">
+          {home.allToolsCta}
         </Link>
       </p>
-      <ul className="home-ai__grid" role="list">
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <li key={c.href}>
-              <Link className="home-ai__card" href={c.href}>
-                <span className="home-ai__icon" aria-hidden>
-                  <Icon size={20} strokeWidth={1.5} />
-                </span>
-                <span className="home-ai__card-title">{c.label}</span>
-                <span className="home-ai__card-blurb">{c.blurb}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <HomeToolsTiltGrid
+        cards={cards.map((c) => ({ href: c.href, label: c.label, blurb: c.blurb, icon: c.icon }))}
+      />
     </section>
   );
 }

@@ -34,6 +34,19 @@ create table if not exists page_content (
   updated_at timestamptz not null default now()
 );
 
+-- Public “Meet the team” (separate from AI `employees` personas)
+create table if not exists team_members (
+  id uuid default gen_random_uuid() primary key,
+  name text not null default '',
+  title text not null default '',
+  department text not null default 'leadership',
+  region_badge text,
+  avatar_url text,
+  is_active boolean not null default true,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists agent_activity (
   id uuid default gen_random_uuid() primary key,
   employee_id uuid references employees (id) on delete set null,
@@ -61,7 +74,13 @@ where not exists (select 1 from partners limit 1);
 alter table employees enable row level security;
 alter table partners enable row level security;
 alter table page_content enable row level security;
+alter table team_members enable row level security;
 alter table agent_activity enable row level security;
+
+drop policy if exists "team_members_select_public" on team_members;
+drop policy if exists "team_members_write_authenticated" on team_members;
+create policy "team_members_select_public" on team_members for select to anon, authenticated using (true);
+create policy "team_members_write_authenticated" on team_members for all to authenticated using (true) with check (true);
 
 drop policy if exists "employees_select_public" on employees;
 drop policy if exists "employees_write_authenticated" on employees;
@@ -401,6 +420,17 @@ comment on table public.agentic_topic_bank is 'Agentic SEO topic vault JSON (`To
 
 alter table public.agentic_topic_bank enable row level security;
 
+-- Agent org chart / dashboard names (`xalura-agentic/config/agents.json`); required when the deploy filesystem is read-only.
+create table if not exists public.agentic_agent_names (
+  id text primary key default 'default',
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.agentic_agent_names is 'Full `AgentNamesConfig` JSON. Written by service role from admin API; see `loadAgentNamesResolved`.';
+
+alter table public.agentic_agent_names enable row level security;
+
 -- Worker / Manager / Executive stage awareness (Supabase; service role only).
 create table if not exists public.agentic_pipeline_stage_log (
   id uuid default gen_random_uuid() primary key,
@@ -423,6 +453,18 @@ comment on table public.agentic_pipeline_stage_log is 'Per-stage log from runDep
 
 alter table public.agentic_pipeline_stage_log enable row level security;
 -- RLS: no policies — anon/authenticated blocked; service role bypasses for inserts/reads from app.
+
+-- Marketing → Zernio: last post timestamp for cooldown (default 35h between posts; see `AGENTIC_MARKETING_ZERNIO_COOLDOWN_HOURS`).
+create table if not exists public.agentic_marketing_zernio_state (
+  id text primary key default 'default' check (id = 'default'),
+  last_post_at timestamptz not null,
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.agentic_marketing_zernio_state is 'One row: last time Marketing pipeline posted to Zernio; used for minimum hours between posts.';
+
+alter table public.agentic_marketing_zernio_state enable row level security;
+-- RLS: no policies — service role only.
 
 -- Chief ↔ allowlisted operator email (thread context for inbound replies; service role only).
 create table if not exists public.chief_email_threads (

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import {
-  loadAgentNamesConfig,
-  saveAgentNamesConfig,
-  setPersonaFieldsInConfig,
-} from "@/xalura-agentic/lib/agentNames";
+import { upsertAgentNamesToSupabase } from "@/lib/agenticAgentNamesSupabase";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
+import { saveAgentNamesConfig, setPersonaFieldsInConfig } from "@/xalura-agentic/lib/agentNames";
+import { isAgenticDiskWritable } from "@/xalura-agentic/lib/agenticDisk";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +15,8 @@ type Body = {
 };
 
 /**
- * Set display fields in `xalura-agentic/config/agents.json` (name, optional title, optional avatar URL).
- * Requires a logged-in admin. Send at least one of name, title, avatar.
+ * Set display fields in `xalura-agentic/config/agents.json` and/or `agentic_agent_names` in Supabase
+ * when the deploy filesystem is read-only. Requires a logged-in admin. Send at least one of name, title, avatar.
  */
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const cwd = process.cwd();
-  const config = loadAgentNamesConfig(cwd);
+  const config = await loadAgentNamesResolved(cwd);
   const fields: { name?: string; title?: string; avatar?: string } = {};
   if (hasName) fields.name = body.name;
   if (hasTitle) fields.title = body.title;
@@ -61,9 +60,25 @@ export async function POST(request: Request) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 400 });
   }
-  const saved = saveAgentNamesConfig(cwd, config);
-  if (!saved.ok) {
-    return NextResponse.json({ error: saved.error }, { status: 500 });
+
+  const diskOk = isAgenticDiskWritable();
+  if (diskOk) {
+    const saved = saveAgentNamesConfig(cwd, config);
+    if (!saved.ok) {
+      const up = await upsertAgentNamesToSupabase(config);
+      if (!up.ok) {
+        return NextResponse.json(
+          { error: saved.error + (up.error ? `; ${up.error}` : "") },
+          { status: 500 },
+        );
+      }
+    }
+  } else {
+    const up = await upsertAgentNamesToSupabase(config);
+    if (!up.ok) {
+      return NextResponse.json({ error: up.error }, { status: 500 });
+    }
   }
-  return NextResponse.json({ ok: true, agentNames: loadAgentNamesConfig(cwd) });
+
+  return NextResponse.json({ ok: true, agentNames: await loadAgentNamesResolved(cwd) });
 }

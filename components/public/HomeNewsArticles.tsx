@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { PageContentMap } from "@/types/content";
 import type { ArticleRow, NewsRow } from "@/types/learning";
 import { formatOnDate } from "@/lib/formatPublishedDate";
 import { NewsCarouselRowClient } from "./NewsCarouselRowClient";
@@ -30,13 +31,14 @@ function articleTag(a: ArticleRow): string {
 type Props = {
   news: NewsRow[];
   articles: ArticleRow[];
+  home: PageContentMap["homePage"];
   template?: "default" | "palantir";
 };
 
 /**
  * Home: News (featured + carousel) on top, Articles grid below — data from latest published rows.
  */
-export function HomeNewsArticles({ news, articles, template = "palantir" }: Props) {
+export function HomeNewsArticles({ news, articles, home, template = "palantir" }: Props) {
   const ph = template === "palantir";
   const featured = news[0];
   const carouselNews = news.slice(1);
@@ -107,7 +109,7 @@ export function HomeNewsArticles({ news, articles, template = "palantir" }: Prop
           ) : null}
 
           <p className="home-na__all-link">
-            <Link href="/news">View all news</Link>
+            <Link href="/news">{home.newsViewAll}</Link>
           </p>
         </section>
       ) : null}
@@ -116,10 +118,10 @@ export function HomeNewsArticles({ news, articles, template = "palantir" }: Prop
         <section className="wrap home-na__section home-na__articles" id="home-articles" aria-labelledby="home-articles-heading">
           <div className="home-na__section-head">
             <h2 id="home-articles-heading" className="home-na__h2">
-              Articles
+              {home.articlesLabel}
             </h2>
             <p className="home-na__lede">
-              Long-form guides and explainers on tools, strategy, and the next era of work.
+              {home.articlesLede}
             </p>
           </div>
           <div className="home-na__article-grid">
@@ -145,7 +147,7 @@ export function HomeNewsArticles({ news, articles, template = "palantir" }: Prop
             ))}
           </div>
           <p className="home-na__all-link">
-            <Link href="/articles">View all articles</Link>
+            <Link href="/articles">{home.articlesViewAll}</Link>
           </p>
         </section>
       ) : null}

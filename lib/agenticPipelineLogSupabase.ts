@@ -142,7 +142,7 @@ export function formatAgenticPipelineLogsForSnapshot(
     .slice(0, maxLines)
     .map((r) => {
       const t = r.created_at?.slice(0, 19)?.replace("T", " ") ?? "?";
-      return `- [${t}] ${r.department} / ${r.stage} / ${r.event}: ${r.summary.slice(0, 220)}`;
+      return `- [${t}] ${r.department} / ${r.stage} / ${r.event}: ${r.summary.slice(0, 320)}`;
     })
     .join("\n");
 }

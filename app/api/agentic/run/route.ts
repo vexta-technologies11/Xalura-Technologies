@@ -11,6 +11,7 @@ import {
   runSeoPipelineWithHandoff,
   type WaitingResult,
 } from "@/xalura-agentic/lib/handoff";
+import { scheduleArticlePipelineNotPublishedReport } from "@/xalura-agentic/lib/chiefPublishOutcomeReport";
 import type {
   DepartmentPipelineInput,
   DepartmentPipelineResult,
@@ -220,6 +221,14 @@ export async function POST(request: Request) {
   }
 
   if (isBlockedResult(result)) {
+    if (deptRaw === "publishing" && publishToSite) {
+      scheduleArticlePipelineNotPublishedReport({
+        cwd,
+        task,
+        result,
+        source: "api_agentic_run:publish_blocked",
+      });
+    }
     return NextResponse.json(
       { ok: false, blocked: true, department: deptRaw, reason: result.reason },
       { status: 200 },
@@ -267,6 +276,21 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
+  }
+
+  if (
+    deptRaw === "publishing" &&
+    publishToSite &&
+    result.status !== "approved" &&
+    !isWaitingResult(result) &&
+    !isBlockedResult(result)
+  ) {
+    scheduleArticlePipelineNotPublishedReport({
+      cwd,
+      task,
+      result,
+      source: "api_agentic_run:publish_to_site",
+    });
   }
 
   return NextResponse.json(base, { status: 200 });

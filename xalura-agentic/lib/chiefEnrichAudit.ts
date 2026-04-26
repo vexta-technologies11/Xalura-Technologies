@@ -4,6 +4,7 @@ import { appendFileUtf8Agentic, readFileUtf8Agentic } from "./agenticDisk";
 import { runChiefAI } from "../agents/chiefAI";
 import type { DepartmentId } from "../engine/departments";
 import { chiefDisplayName } from "./agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { appendEvent } from "./eventQueue";
 import { getAgenticRoot } from "./paths";
 import { runStrategicAuditEnrichment } from "./auditStrategyEnrichment";
@@ -44,7 +45,8 @@ export async function enrichAuditWithChief(params: {
       : params.agentLaneKey
         ? `This audit is for **one article-scoped agent lane** (\`${params.agentLaneKey}\`).\n\n`
         : "";
-  const chiefN = chiefDisplayName(cwd);
+  const nameCfg = await loadAgentNamesResolved(cwd);
+  const chiefN = chiefDisplayName(cwd, nameCfg);
   try {
     const chiefMd = await runChiefAI({
       department: "All",

@@ -1,0 +1,155 @@
+/* Xalura Team — public, starfield / Palantir */
+
+.team-page {
+  --team-accent: #f59e0b;
+  --team-accent-soft: rgba(245, 158, 11, 0.45);
+}
+
+.team-page__head {
+  text-align: center;
+  max-width: 48rem;
+  margin: 0 auto 2.25rem;
+}
+
+.team-page__head--compact {
+  margin-bottom: 1.75rem;
+}
+
+.team-page__h1 {
+  font-size: clamp(1.85rem, 3.5vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 0.75rem;
+  color: #fafaf9;
+}
+
+.team-page__h1 em {
+  font-style: normal;
+  color: #fdba4c;
+}
+
+.team-page__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.75rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 520px) {
+  .team-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .team-page__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .team-page__grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.team-page__card {
+  text-align: center;
+}
+
+.team-page__portrait {
+  position: relative;
+  width: min(160px, 80%);
+  margin: 0 auto 1rem;
+  aspect-ratio: 1;
+}
+
+/* Decorative arcs (reference: Salted Stone / award-style rings) */
+.team-page__arcs {
+  position: absolute;
+  inset: -6%;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2) inset;
+}
+
+.team-page__arcs::after {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transform: rotate(-8deg);
+}
+
+.team-page__arcs--2 {
+  inset: -2%;
+  transform: rotate(6deg);
+  border-color: rgba(255, 255, 255, 0.04);
+  opacity: 0.7;
+}
+
+.team-page__img-wrap {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(20, 20, 24, 0.9);
+  background: #111;
+  z-index: 1;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.team-page__img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.team-page__region {
+  position: absolute;
+  z-index: 2;
+  left: 2%;
+  bottom: 2%;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f59e0b, #c2410c);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid rgba(10, 10, 12, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.02em;
+}
+
+.team-page__name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 0.35rem;
+  color: #f5f5f4;
+}
+
+.team-page__title {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #fdba4c;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.team-page__empty {
+  text-align: center;
+  opacity: 0.7;
+  padding: 2rem 1rem;
+}

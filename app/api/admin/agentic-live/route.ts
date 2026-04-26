@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildHierarchyChartPayload } from "@/lib/agenticHierarchyChartData";
 import { getAgenticLiveSnapshot } from "@/lib/agenticLiveSnapshot";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { resolveWorkerEnv } from "@/xalura-agentic/lib/resolveWorkerEnv";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,11 @@ export async function GET() {
       envFlagTrue("AGENTIC_GRAPHIC_DESIGNER_ON_PUBLISH"),
     ]);
     const complianceOrFounderEmailOn = cCompliance || cFounder;
+    const names = await loadAgentNamesResolved(cwd);
     const chart = buildHierarchyChartPayload(cwd, snapshot, {
       complianceOrFounderEmailOn,
       graphicDesignerOn,
-    });
+    }, { names });
     const chartOut = { ...chart, lastActionSummaries: {} as Record<string, string> };
     return NextResponse.json({ ...snapshot, chart: chartOut });
   } catch (e) {

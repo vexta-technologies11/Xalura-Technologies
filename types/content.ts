@@ -55,6 +55,41 @@ export type PageContentMap = {
     body: string;
     cta: string;
   };
+  /** Home: tools teaser, news/articles block copy, and ticker (editable in admin). */
+  homePage: {
+    /** Small label above the headline (e.g. “Everyday tools”) */
+    everydayLabel: string;
+    /** Main heading for the tools block */
+    everydayHeadline: string;
+    /** Subhead under the tools block */
+    everydaySubhead: string;
+    toolEmailTitle: string;
+    toolEmailBlurb: string;
+    toolContentTitle: string;
+    toolContentBlurb: string;
+    toolReportTitle: string;
+    toolReportBlurb: string;
+    allToolsCta: string;
+    /** e.g. /ai-tools */
+    allToolsHref: string;
+    newsLabel: string;
+    newsLede: string;
+    newsViewAll: string;
+    articlesLabel: string;
+    articlesLede: string;
+    articlesViewAll: string;
+    /** Ticker: one item per line */
+    tickerItems: string;
+  };
+  /** Team page: headline + footer strip (people from `team_members` table). */
+  teamPage: {
+    meetHeadline: string;
+    meetHeadlineEmphasis: string;
+    footerStripTitle: string;
+    footerStripCta: string;
+    /** e.g. /team */
+    footerStripHref: string;
+  };
   footer: {
     tagline: string;
   };

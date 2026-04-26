@@ -12,6 +12,7 @@ import { runChiefAI } from "../agents/chiefAI";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
 import { chiefDisplayName, getExecutiveAssignedName } from "./agentNames";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 
@@ -218,7 +219,8 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
       ? `${baseBriefing}\n\n--- NEWS: no extended briefing string ---\n`
       : baseBriefing;
 
-  const chiefN = chiefDisplayName(params.cwd);
+  const nameCfg = await loadAgentNamesResolved(params.cwd);
+  const chiefN = chiefDisplayName(params.cwd, nameCfg);
   const openLine = pickChiefEmailOpeningSalutation();
   const newsWarmOpen = pickChiefEmailReplySalutation();
   let body: string;
@@ -277,7 +279,7 @@ ${briefing}
         memoOverrides: opsMemo,
       });
 
-      const auditDisplayName = getExecutiveAssignedName("news", params.cwd) || "Richard Maybach";
+      const auditDisplayName = getExecutiveAssignedName("news", params.cwd, undefined, nameCfg) || "Richard Maybach";
       let auditRaw = "";
       try {
         auditRaw = await runChiefAI({

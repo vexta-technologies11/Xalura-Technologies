@@ -2,6 +2,7 @@
 
 import { AgenticHierarchyLive } from "@/components/admin/AgenticHierarchyLive";
 import { AgenticPublishBar } from "@/components/admin/AgenticPublishBar";
+import { MarketingZernioBar } from "@/components/admin/MarketingZernioBar";
 import Link from "next/link";
 import "./agent-org-chart.css";
 
@@ -13,6 +14,7 @@ export function AiDashboardClient() {
       </Link>
       <div className="admin-ai-dashboard-merged">
         <AgenticPublishBar />
+        <MarketingZernioBar />
         <AgenticHierarchyLive />
       </div>
     </div>

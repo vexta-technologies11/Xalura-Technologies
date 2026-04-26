@@ -1,6 +1,22 @@
 import type { PageContentMap } from "@/types/content";
+import type { TeamMemberRow } from "@/types/team";
+import { FooterTeamStrip } from "@/components/team/FooterTeamStrip";
 
-export function Footer({ content, className }: { content: PageContentMap["footer"]; className?: string }) {
+type TeamStrip = {
+  teamPage: PageContentMap["teamPage"];
+  members: TeamMemberRow[];
+};
+
+export function Footer({
+  content,
+  className,
+  teamStrip,
+}: {
+  content: PageContentMap["footer"];
+  className?: string;
+  /** When set, shows a “Meet the team” preview row (home, etc.). */
+  teamStrip?: TeamStrip | null;
+}) {
   const lines = content.tagline.split("\n");
   return (
     <footer id="contact" className={className}>
@@ -16,12 +32,18 @@ export function Footer({ content, className }: { content: PageContentMap["footer
             ))}
           </p>
         </div>
+        {teamStrip && teamStrip.members.length > 0 ? (
+          <FooterTeamStrip teamPage={teamStrip.teamPage} members={teamStrip.members} />
+        ) : null}
         <div className="footer-cols">
           <div className="footer-col">
             <h4>Company</h4>
             <ul>
               <li>
                 <a href="#mission">Mission</a>
+              </li>
+              <li>
+                <a href="/team">The team</a>
               </li>
               <li>
                 <a href="#">Careers</a>

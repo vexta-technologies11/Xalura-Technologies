@@ -1,4 +1,5 @@
 import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
+import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import {
   agentLaneIdForArticleSubcategory,
   articleSubcategoryTitleForAgentLaneId,
@@ -15,7 +16,6 @@ import {
   executiveDisplayName,
   getExecutiveAssignedName,
   getWorkerAssignedNameForLane,
-  loadAgentNamesConfig,
 } from "./agentNames";
 import { enrichAuditWithChief } from "./chiefEnrichAudit";
 import {
@@ -32,6 +32,11 @@ import { buildPublishingDailyBriefPrefix } from "./contentWorkflow/publishingBri
 import type { TopicBankEntry } from "./contentWorkflow/types";
 import { getNextTopic } from "./contentWorkflow/topicBank";
 import { recordSubcategoryUsed } from "./contentWorkflow/topicRotationStore";
+import {
+  runMarketingZernioSameDayPost,
+  type MarketingZernioPostOutcome,
+} from "@/lib/marketingZernioSameDayPost";
+import { resolveWorkerEnv } from "./resolveWorkerEnv";
 import { zernioListProfiles } from "./phase7Clients";
 import { buildPhase7WorkerContext } from "./phase7PipelineContext";
 import {
@@ -178,6 +183,8 @@ export type DepartmentPipelineResult =
         zernio:
           | { ok: true; profileCount: number }
           | { ok: false; error: string };
+        /** Set when `AGENTIC_MARKETING_ZERNIO_POST` is enabled (rolling-window article + cooldown → Zernio). */
+        marketingZernio?: MarketingZernioPostOutcome;
       };
       contentWorkflow?: ContentWorkflowHandoff;
     }
@@ -352,13 +359,13 @@ export async function runDepartmentPipeline(
     config;
   const cwd = input.cwd ?? process.cwd();
   const DEPT = departmentLabel;
+  const nameCfg = await loadAgentNamesResolved(cwd);
   const execName =
     input.executiveName?.trim() ||
-    executiveDisplayName(departmentId, cwd);
-  const nameCfg = loadAgentNamesConfig(cwd);
+    executiveDisplayName(departmentId, cwd, nameCfg);
   const dn = nameCfg.departments[departmentId]!;
   const managerAssigned = dn.manager.name?.trim() || undefined;
-  const executiveAssigned = getExecutiveAssignedName(departmentId, cwd, input.executiveName);
+  const executiveAssigned = getExecutiveAssignedName(departmentId, cwd, input.executiveName, nameCfg);
 
   let effectiveTask = input.task;
   let effectiveKeyword = input.keyword;
@@ -703,15 +710,21 @@ ${workerOutput}`;
               zernio:
                 | { ok: true; profileCount: number }
                 | { ok: false; error: string };
+              marketingZernio?: MarketingZernioPostOutcome;
             }
           | undefined;
         if (departmentId === "marketing") {
           const z = await zernioListProfiles();
-          phase7 = {
-            zernio: z.error
-              ? { ok: false, error: z.error }
-              : { ok: true, profileCount: z.profiles?.length ?? 0 },
-          };
+          const zernio: { ok: true; profileCount: number } | { ok: false; error: string } = z.error
+            ? { ok: false, error: z.error }
+            : { ok: true, profileCount: z.profiles?.length ?? 0 };
+          const mFlag = (await resolveWorkerEnv("AGENTIC_MARKETING_ZERNIO_POST"))?.trim().toLowerCase();
+          if (mFlag === "true" || mFlag === "1") {
+            const marketingZernio = await runMarketingZernioSameDayPost(cwd);
+            phase7 = { zernio, marketingZernio };
+          } else {
+            phase7 = { zernio };
+          }
         }
 
         if (departmentId === "publishing" && input.useDailyProductionTracker) {
