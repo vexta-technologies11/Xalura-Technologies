@@ -8,7 +8,16 @@ import { generateHeroImage } from "./heroImageGenerate";
 import { readEvents } from "./eventQueue";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
-import { complianceOfficerDisplayName, graphicDesignerDisplayName } from "./agentNames";
+import {
+  complianceOfficerDisplayName,
+  graphicDesignerDisplayName,
+  loadAgentNamesConfig,
+} from "./agentNames";
+import {
+  complianceOfficerEmailSignatureHtmlSync,
+  complianceOfficerEmailSignaturePlainSync,
+} from "@/lib/chiefEmailBranding";
+import { complianceMemoMarkdownToEmailHtml } from "@/lib/complianceMemoHtml";
 import { resolveGeminiApiKey, runAgent } from "./gemini";
 import { getAgenticRoot } from "./paths";
 import { COMPLIANCE_OFFICER_RUBRIC } from "./complianceOfficerRubric";
@@ -149,8 +158,13 @@ export async function executeFounderOversightPublishEmail(
     return;
   }
 
-  const cwd = process.cwd();
+  const cwd = p.cwd;
   const complianceName = complianceOfficerDisplayName(cwd);
+  const coNta = loadAgentNamesConfig(cwd).complianceOfficer;
+  const signatureOverrides = {
+    name: coNta?.name?.trim() || "Martin Cruz",
+    title: (coNta?.title?.trim() || "Head of Compliance") as string,
+  };
   const graphicName = graphicDesignerDisplayName(cwd);
   const resolveHeroImageLabel = async (): Promise<string> => {
     const prov = (await resolveWorkerEnv("AGENTIC_HERO_IMAGE_PROVIDER"))?.trim().toLowerCase();
@@ -247,54 +261,65 @@ ${briefing.slice(0, 28_000)}
     chiefAuditMd = `_(Chief-line audit failed: ${esc(String(e))})_`;
   }
 
-  const complianceTask = `You are the **Compliance Officer** for Xalura Tech (advisory only — **no veto**; the article is already live). You report to the **Founder** in one consolidated memo.
+  const memoDate = new Date().toISOString().slice(0, 10);
+  const complianceTask = `You are **${complianceName}**, **Head of Compliance** for Xalura Tech. The **article** is **already live**; this is an **internal compliance & content-risk memorandum** (advisory — **no veto**).
 
-Internal analysts already produced notes below (QA, Risk, Chief-line process). **Honor the Risk analyst’s first-line \`RISK_LEVEL:\`** — do not contradict it. Synthesize; do not invent facts absent from the briefing or notes.
+**Voice:** write like a **real company** compliance or **outside counsel** memo: numbered issues, short paragraphs, defined terms, no chatty tone, **no** repeating the same fact in three places. **Synthesize** the internal analyst notes — do **not** paste them verbatim.
 
-You must **read the article excerpt and executive summary in the briefing** as primary sources, then cross-check the INTERNAL analyst blocks.
+**Risk:** if the Risk analyst’s output contains a first line \`RISK_LEVEL: …\`, **honor** it; do not contradict it.
 
 ${COMPLIANCE_OFFICER_RUBRIC}
 
-Output **markdown** with this structure (use these headings in order):
+### Use these **markdown** section headings **in order** (##):
 
-## Article digest (for the Founder)
-- 4–8 bullets: what the piece actually says/does (topics, claims, audience) — from the briefing only.
+## Cover
+One short block: "MEMORANDUM" · Date **${memoDate}** · **TO:** Chief Executive (internal) · **FROM:** ${complianceName}, Head of Compliance · **RE:** ${p.title} (${p.articlePath}) · one line: **Confidential — internal management & compliance use only** (not for public distribution without approval).
 
-## Scored rubric (D1–D7)
-- Markdown table with columns: Dimension | Score 1–10 | Evidence (quote or paraphrase from briefing, ≤25 words each). Use INSUFFICIENT_DATA only when the briefing truly lacks basis.
+## Executive summary
+3–6 tight paragraphs: net assessment, key drivers of the overall score, and what you are recommending **monitor** (not people blame).
 
-## Regulatory & legal posture (advisory)
-- 4–8 short paragraphs: counsel-style analysis, cautious hedging, explicit **not legal advice** framing.
+## Scope and materials reviewed
+What you had (briefing, manager/executive path, excerpt) and explicit limits (what you did not review, e.g. off-platform ads).
 
-## Risk snapshot
-- **Rating:** one line — copy the Risk analyst’s \`RISK_LEVEL: …\` line verbatim if present, else state unknown.
+## Summary of published content
+Neutral, accurate summary of subject matter and claims — **briefing only**.
 
-## Top risk factors
-- 3–8 bullets (tight, from evidence in the notes/briefing only).
+## Scored assessment (D1–D7)
+- One markdown **table** with columns: **Dimension** | **Score (1–10) or INSUFFICIENT_DATA** | **Evidence (short)**.
+- Then **exactly** these two lines on their own (machine-parseable):
+- \`COMPLIANCE_SCORE_OVERALL: X.X/10\`
+- \`COMPLIANCE_CONFIDENCE: HIGH\` or \`MEDIUM\` or \`LOW\`
 
-## Compliance officer executive summary
-- 3–6 sentences: residual concerns, monitoring hooks for the next publish cycle.
+## Substantive analysis (content & reputation risk)
+Counsel-style discussion tied to the scores and the Risk level. Reference **Publishing Manager** approval and **Executive summary** as **process context**, not a substitute for your independent assessment of **content risk**.
 
-## Draft email (memo — Cc lines are **for display only**; they are not separate recipients)
-Write a polished **email-shaped block** the Founder could paste or forward. Use exactly this header format (fill Subject and body):
+## General legal considerations (not legal advice)
+A dedicated section: **jurisdiction-agnostic** topics that **qualified counsel** often reviews for **public marketing content** (e.g. misleading claims, professional advice boundaries, comparative statements, privacy representations). This must read like **prudent** in-house guidance. **State clearly** that this section is **general** commentary for the business, is **not** a legal opinion, is **not** legal advice to any person, and is **not** a substitute for **retaining licensed counsel** where required. You may still give **practical, ordinary-course** recommendations (e.g. consider adding a brief informational disclaimer in future similar pieces if…).
 
-To: Founder
-Cc: Chief AI (informational — advisory roll-up only), Executives (informational — advisory roll-up only)
-Subject: [Compliance] Published article — ${p.title.slice(0, 120)}
+## Monitoring and next steps
+Concrete follow-ups for the **next** publish cycle or policy review.
 
-Then the email body (plain paragraphs, no markdown headings inside the body): acknowledge publish, one-line link path \`${p.articlePath}\`, include **COMPLIANCE_SCORE_OVERALL** and **COMPLIANCE_CONFIDENCE** lines verbatim, summarize top rubric findings and Risk level, note that **Publishing Manager** approved per ladder, and that Chief AI / Executives are Cc’d **for context only** (no automatic mail to them).
+## Reliance and limitations
+Standard close: based on materials provided; no guarantee of outcome; new facts may change the view.
 
----
-INTERNAL — QA analyst:
-${qaMd.slice(0, 4500)}
-
----
-INTERNAL — Risk analyst:
-${riskMd.slice(0, 4500)}
+## Distribution note (at most 4 lines)
+State that copies may be shared with **Chief AI** and **Executives** for **context only** unless management directs otherwise. **Do not** produce a second full "forwardable" email that duplicates the entire memorandum.
 
 ---
-INTERNAL — Chief-line audit:
-${chiefAuditMd.slice(0, 4500)}
+## PRIMARY BRIEFING (authoritative — ground all factual claims here)
+${briefing.slice(0, 32_000)}
+
+---
+## INTERNAL — Quality assurance (synthesize; do not copy)
+${qaMd.slice(0, 6000)}
+
+---
+## INTERNAL — Risk (synthesize; honor RISK_LEVEL)
+${riskMd.slice(0, 6000)}
+
+---
+## INTERNAL — Chief-line process (synthesize only)
+${chiefAuditMd.slice(0, 6000)}
 ---`;
 
   try {
@@ -360,40 +385,77 @@ ${p.executiveSummary.slice(0, 2000)}`,
     }
   }
 
-  const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;max-width:900px">
-<h1>Compliance officer — new article published</h1>
-<p><strong>${esc(p.title)}</strong> · <code>${esc(p.slug)}</code> · ${esc(p.articlePath)}</p>
-${p.contentVerticalId ? `<p>Vertical: <strong>${esc(p.contentVerticalLabel ?? "")}</strong> <code>${esc(p.contentVerticalId)}</code></p>` : ""}
-<p><em>Advisory only — no automatic veto. Triggered on every successful site publish when compliance email is enabled. Publishing Manager approved this run (see below). <strong>Cc: Chief AI / Executives</strong> in the draft section are for your records only — not sent as separate Resend recipients.</em></p>
-
-<h2>Compliance officer memo (risk + draft email)</h2>
-<pre style="white-space:pre-wrap;background:#f0f4ff;padding:14px;border-radius:8px;border:1px solid #c7d2fe">${esc(complianceMd)}</pre>
-
-<h2>Who approved</h2>
-<p><strong>Publishing Manager</strong> (Gemini, same ladder as production). First lines:</p>
-<pre style="white-space:pre-wrap;background:#f6f8fa;padding:12px;border-radius:8px">${esc(p.managerOutput.slice(0, 6000))}</pre>
-
-<h2>Supporting — quality assurance (flash-lite)</h2>
-<pre style="white-space:pre-wrap;background:#f9fafb;padding:12px;border-radius:8px">${esc(qaMd)}</pre>
-
-<h2>Supporting — risk &amp; reputation (flash-lite)</h2>
-<pre style="white-space:pre-wrap;background:#fff8f0;padding:12px;border-radius:8px">${esc(riskMd)}</pre>
-
-<h2>Supporting — Chief-line process audit (flash-lite)</h2>
-<pre style="white-space:pre-wrap;background:#f4fbf4;padding:12px;border-radius:8px">${esc(chiefAuditMd)}</pre>
-
+  const memoBodyHtml = complianceMemoMarkdownToEmailHtml(complianceMd);
+  const sigHtml = complianceOfficerEmailSignatureHtmlSync(signatureOverrides);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:24px;background:#e8e8e4;">
+<div style="max-width:720px;margin:0 auto;background:#fafaf8;border:1px solid #c8c8c0;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+<div style="padding:28px 32px 8px 32px;border-bottom:2px solid #1a1a16;">
+<p style="margin:0 0 6px 0;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#4a4a45;font-family:Georgia,serif;">Internal — content risk &amp; compliance</p>
+<h1 style="margin:0 0 8px 0;font-size:22px;font-weight:600;color:#0a0a0a;font-family:Georgia,serif;">Memorandum — published article</h1>
+<p style="margin:0 0 4px 0;font-size:14px;color:#333;font-family:system-ui,Segoe UI,sans-serif;"><strong>${esc(
+    p.title,
+  )}</strong> · <code style="font-size:13px;">${esc(p.slug)}</code></p>
+<p style="margin:0;font-size:14px;font-family:system-ui,Segoe UI,sans-serif;">Path: <strong>${esc(p.articlePath)}</strong></p>
+${
+  p.contentVerticalId
+    ? `<p style="margin:10px 0 0 0;font-size:13px;font-family:system-ui,sans-serif;color:#444;">Vertical: <strong>${esc(
+        p.contentVerticalLabel ?? "",
+      )}</strong> <code>${esc(p.contentVerticalId)}</code></p>`
+    : ""
+}
+</div>
+<div style="padding:8px 32px 0 32px;">
+<p style="font-size:13px;line-height:1.5;color:#3d3d38;font-family:system-ui,sans-serif;margin:20px 0 16px 0;"><em>Advisory memorandum. Publication is not withdrawn. Publishing Manager and Executive sign-off are summarized in the body below. Open the appendices in your mail client for raw analyst notes if needed.</em></p>
+</div>
+<div style="padding:0 32px 8px 32px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.62;color:#1a1a1a;">
+${memoBodyHtml}
+</div>
+<div style="padding:0 32px 28px 32px;">${sigHtml}</div>
+<details style="padding:0 32px 24px 32px;font-family:system-ui,sans-serif;font-size:12px;">
+<summary style="cursor:pointer;font-weight:600;color:#333;">Appendix — manager approval (excerpt)</summary>
+<pre style="white-space:pre-wrap;background:#f2f2ee;padding:12px;border-radius:6px;border:1px solid #d8d8d0;max-height:400px;overflow:auto;margin:10px 0 0 0;">${esc(p.managerOutput.slice(0, 8000))}</pre>
+</details>
+<details style="padding:0 32px 16px 32px;font-family:system-ui,sans-serif;font-size:12px;">
+<summary style="cursor:pointer;font-weight:600;color:#333;">Appendix — internal QA, Risk, Chief process (synthesis source)</summary>
+<div style="margin-top:10px;">
+<p style="font-size:11px;font-weight:600;margin:0 0 4px 0;">Quality assurance</p>
+<pre style="white-space:pre-wrap;background:#f9fafb;padding:10px;border-radius:6px;border:1px solid #e5e5e0;max-height:280px;overflow:auto;">${esc(qaMd)}</pre>
+<p style="font-size:11px;font-weight:600;margin:10px 0 4px 0;">Risk &amp; reputation</p>
+<pre style="white-space:pre-wrap;background:#fffaf5;padding:10px;border-radius:6px;border:1px solid #e8e0d8;max-height:280px;overflow:auto;">${esc(riskMd)}</pre>
+<p style="font-size:11px;font-weight:600;margin:10px 0 4px 0;">Chief-line process</p>
+<pre style="white-space:pre-wrap;background:#f4fbf4;padding:10px;border-radius:6px;border:1px solid #d8e8d8;max-height:280px;overflow:auto;">${esc(chiefAuditMd)}</pre>
+</div>
+</details>
 ${graphicSection}
-
-<h2>Agentic log tail (raw)</h2>
-<pre style="white-space:pre-wrap;font-size:11px;background:#111;color:#eee;padding:12px;border-radius:8px;max-height:480px;overflow:auto">${esc(readEvents(p.cwd).slice(-25).map((e) => JSON.stringify(e)).join("\n"))}</pre>
+<details style="padding:0 32px 32px 32px;font-family:system-ui,sans-serif;font-size:11px;">
+<summary style="cursor:pointer;font-weight:600;color:#555;">Raw agentic log tail (technical)</summary>
+<pre style="white-space:pre-wrap;font-size:10px;background:#1a1a1a;color:#e8e8e0;padding:12px;border-radius:6px;max-height:400px;overflow:auto;margin:10px 0 0 0;">${esc(
+    readEvents(p.cwd)
+      .slice(-20)
+      .map((e) => JSON.stringify(e))
+      .join("\n"),
+  )}</pre>
+</details>
+</div>
 </body></html>`;
 
-  const subject = `[Xalura compliance] ${p.title.slice(0, 72)}`;
+  const subject = `[Xalura] Compliance memorandum — ${p.title.slice(0, 72)}`;
+  const textPlain = [
+    `COMPLIANCE MEMORANDUM — ${p.title}`,
+    `Path: ${p.articlePath}  |  slug: ${p.slug}`,
+    "",
+    complianceMd,
+    "",
+    complianceOfficerEmailSignaturePlainSync(signatureOverrides),
+    "",
+    "— Full HTML version uses formatted headings and table where applicable; appendices: manager output and internal QA / Risk / Chief process notes. —",
+  ].join("\n");
   const sent = await sendResendEmail({
     to,
     subject,
     html,
-    text: `Compliance officer report for ${p.title}\nSlug: ${p.slug}\nOpen the HTML email for the memo, draft Cc lines (display only), supporting analyst notes, and any attachment.`,
+    text: textPlain,
     attachments: attachments.length ? attachments : undefined,
   });
 

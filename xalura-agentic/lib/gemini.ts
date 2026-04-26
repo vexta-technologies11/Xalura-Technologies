@@ -187,6 +187,12 @@ function maxOutputTokensForContext(params: RunAgentParams): number | undefined {
     ) {
       return 10_000;
     }
+    if (
+      "kind" in c &&
+      String((c as { kind?: string }).kind ?? "") === "compliance_officer_memo"
+    ) {
+      return 16_384;
+    }
   }
   return undefined;
 }

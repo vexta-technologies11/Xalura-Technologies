@@ -50,7 +50,7 @@ const DEFAULT: AgentNamesConfig = {
     news_preprod: { worker: defaultName(), manager: defaultName(), executive: defaultName() },
   },
   chiefAI: defaultName(),
-  complianceOfficer: defaultName(),
+  complianceOfficer: { name: "Martin Cruz", title: "Head of Compliance" },
   graphicDesigner: defaultName(),
   headOfNews: defaultName(),
   newsPhotographer: defaultName(),
@@ -170,9 +170,9 @@ export function chiefDisplayName(cwd: string = process.cwd()): string | undefine
   return n || undefined;
 }
 
-export function complianceOfficerDisplayName(cwd: string = process.cwd()): string | undefined {
+export function complianceOfficerDisplayName(cwd: string = process.cwd()): string {
   const n = loadAgentNamesConfig(cwd).complianceOfficer?.name?.trim();
-  return n || undefined;
+  return n || "Martin Cruz";
 }
 
 export function graphicDesignerDisplayName(cwd: string = process.cwd()): string | undefined {

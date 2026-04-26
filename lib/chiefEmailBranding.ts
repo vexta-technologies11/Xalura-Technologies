@@ -127,6 +127,46 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Post-publish **article** compliance memorandum — signature block (logo + Head of Compliance). */
+export function complianceOfficerEmailSignatureHtmlSync(overrides?: {
+  name?: string;
+  title?: string;
+  phone?: string;
+  email?: string;
+}): string {
+  const name = overrides?.name?.trim() || "Martin Cruz";
+  const title = overrides?.title?.trim() || "Head of Compliance";
+  const phone = overrides?.phone?.trim() || "0918-348-3860";
+  const email = overrides?.email?.trim() || "martincruz@xaluratech.com";
+  const src = chiefEmailLogoUrlSync();
+  const phoneDigits = phone.replace(/\D/g, "");
+  const telHref =
+    phoneDigits.length >= 8
+      ? `tel:${phoneDigits.startsWith("0") && phoneDigits.length === 11 ? `+63${phoneDigits.slice(1)}` : `+${phoneDigits}`}`
+      : `tel:${encodeURIComponent(phone)}`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:24px;padding-top:12px;max-width:480px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#1a1a1a;">
+<tr><td style="padding:0 16px 12px 0;vertical-align:top;"><img src="${src}" width="120" height="auto" alt="Xalura Tech" style="display:block;border:0;max-width:120px;height:auto;" /></td>
+<td style="vertical-align:top;padding-top:4px;">
+<div style="font-weight:600;">${escapeHtml(name)}</div>
+<div style="font-size:13px;opacity:0.88;">${escapeHtml(title)}</div>
+<div style="margin-top:8px;font-size:13px;">Phone: <a href="${escapeHtml(telHref)}" style="color:#0a0a0a;">${escapeHtml(phone)}</a></div>
+<div style="font-size:13px;">Email: <a href="mailto:${escapeHtml(email)}" style="color:#0a0a0a;">${escapeHtml(email)}</a></div>
+</td></tr></table>`;
+}
+
+export function complianceOfficerEmailSignaturePlainSync(overrides?: {
+  name?: string;
+  title?: string;
+  phone?: string;
+  email?: string;
+}): string {
+  const name = overrides?.name?.trim() || "Martin Cruz";
+  const title = overrides?.title?.trim() || "Head of Compliance";
+  const phone = overrides?.phone?.trim() || "0918-348-3860";
+  const email = overrides?.email?.trim() || "martincruz@xaluratech.com";
+  return ["—", `${name}, ${title}`, `Phone: ${phone}`, `Email: ${email}`].join("\n");
+}
+
 function isHeadingLine(line: string): boolean {
   const t = line.trim();
   return (
