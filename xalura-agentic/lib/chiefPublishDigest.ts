@@ -1,8 +1,11 @@
 import {
   clipChiefEmailWords,
   finishChiefPlainBody,
+  finishNewsAuditDigestPlainBody,
   pickChiefEmailOpeningSalutation,
+  pickChiefEmailReplySalutation,
   wrapChiefEmailHtml,
+  wrapNewsAuditDigestEmailHtml,
 } from "@/lib/chiefEmailBranding";
 import { clipNewsEmailWords } from "@/lib/newsTeamEmailSend";
 import { runChiefAI } from "../agents/chiefAI";
@@ -45,6 +48,7 @@ export type ChiefPublishDigestParams = {
  * - `AGENTIC_CHIEF_DIGEST_EMAIL` — recipient (same as audit digest)
  * - `RESEND_API_KEY` (+ optional `RESEND_FROM`)
  * - `GEMINI_API_KEY` — Chief summary is richer with live Gemini; stub otherwise
+ * - **News** (`publishKind: "news"`): CC merges `CHIEF_EMAIL_CC` with desk inboxes: optional `CHIEF_NEWS_DESK_CC`, else `HEAD_OF_NEWS_DIGEST_EMAIL` + `NEWS_AUDITOR_DIGEST_EMAIL`, and always `richardmaybach@xaluratech.com`. Optional memo: `CHIEF_NEWS_MEMO_TO` / `CHIEF_NEWS_MEMO_FROM` / `CHIEF_NEWS_MEMO_CC_LINE` (body uses Richard’s signature block, not Ryzen’s).
  *
  * Uses Cloudflare `waitUntil` when available so the Worker is not frozen before Resend/Gemini finish.
  *
@@ -56,6 +60,77 @@ export function scheduleChiefPublishCycleEmail(params: ChiefPublishDigestParams)
 }
 
 const NEWS_DIGEST_WORDS = 1_600;
+
+const RICHARD_MAYBACH_CC = "richardmaybach@xaluratech.com";
+
+function parseCommaEmails(s: string | undefined): string[] {
+  return s?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
+}
+
+/** Merge and dedupe CC lists (case-insensitive), preserving first-seen casing. */
+function mergeEmailCc(...lists: string[][]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const list of lists) {
+    for (const a of list) {
+      const k = a.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(a);
+    }
+  }
+  return out;
+}
+
+/**
+ * News post-publish: `CHIEF_EMAIL_CC` plus **Head of News** + **Chief of Audit** (Richard Maybach) inboxes.
+ * - `CHIEF_NEWS_DESK_CC` (comma-separated) lists extra desk addresses when you want to override/extend the default desk list.
+ * - If `CHIEF_NEWS_DESK_CC` is unset, desk CC falls back to `HEAD_OF_NEWS_DIGEST_EMAIL` and `NEWS_AUDITOR_DIGEST_EMAIL` (when set).
+ * - `richardmaybach@xaluratech.com` is always merged in (deduped) so the Chief of Audit is on the thread.
+ */
+async function buildNewsPublishCcList(): Promise<string[] | undefined> {
+  const base = parseCommaEmails(await resolveWorkerEnv("CHIEF_EMAIL_CC"));
+  const deskEnv = (await resolveWorkerEnv("CHIEF_NEWS_DESK_CC"))?.trim();
+  let desk: string[];
+  if (deskEnv) {
+    desk = parseCommaEmails(deskEnv);
+  } else {
+    const hon = (await resolveWorkerEnv("HEAD_OF_NEWS_DIGEST_EMAIL"))?.trim();
+    const aud = (await resolveWorkerEnv("NEWS_AUDITOR_DIGEST_EMAIL"))?.trim();
+    desk = [hon, aud].filter(Boolean) as string[];
+  }
+  const merged = mergeEmailCc(base, desk, [RICHARD_MAYBACH_CC]);
+  return merged.length ? merged : undefined;
+}
+
+/** Remove addresses that are already the primary `to` (avoids duplicate To+Cc). */
+function ccExcludingTo(
+  cc: string[] | undefined,
+  to: string,
+): string[] | undefined {
+  if (!cc?.length) return undefined;
+  const t = to.toLowerCase();
+  const next = cc.filter((a) => a.toLowerCase() !== t);
+  return next.length ? next : undefined;
+}
+
+async function buildNewsPublishMemoOverrides(): Promise<{
+  to?: string;
+  from?: string;
+  ccLine?: string;
+}> {
+  const to =
+    (await resolveWorkerEnv("CHIEF_NEWS_MEMO_TO"))?.trim() ||
+    (await resolveWorkerEnv("CHIEF_EMAIL_MEMO_TO"))?.trim() ||
+    "JhonCadullo@xaluratech.com";
+  const from =
+    (await resolveWorkerEnv("CHIEF_NEWS_MEMO_FROM"))?.trim() ||
+    "richardmaybach@xaluratech.com";
+  const ccLine =
+    (await resolveWorkerEnv("CHIEF_NEWS_MEMO_CC_LINE"))?.trim() ||
+    "Head of News; Chief of Audit, Richard Maybach; additional parties as shown in Resend Cc.";
+  return { to, from, ccLine };
+}
 
 async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Promise<void> {
   const flag = (await resolveWorkerEnv("AGENTIC_CHIEF_EMAIL_ON_PUBLISH"))?.trim().toLowerCase();
@@ -105,6 +180,7 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
 
   const chiefN = chiefDisplayName(params.cwd);
   const openLine = pickChiefEmailOpeningSalutation();
+  const newsWarmOpen = pickChiefEmailReplySalutation();
   let body: string;
   let subject: string;
   try {
@@ -112,21 +188,20 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
       const rid = (params.newsRunId || params.slug).slice(0, 200);
       const raw = await runChiefAI({
         department: "All",
-        task: `You are **${chiefN}** (Chief AI, Xalura Head of Operations). A **News department** story was just **published live** (web path: ${params.articlePath}). The CEO (Boss) receives this via the same Chief post-publish path as /articles. Run: ${rid}
+        task: `You are **${chiefN}** (Chief AI, Xalura Head of Operations) briefing the **CEO (Boss)**. A **News** story just went **live** (path: ${params.articlePath}). Run: ${rid}
 
-**Write as the authoritative Chief:** first line a greeting to Boss, then a **scannable activity report** so they see manager rejections with **reasons**, writer revisions, and final audit.
+**Voice & tone (critical):** Sound like a **confident, human operator** on the executive floor—**not** a Jira ticket, not stiff corporate bullet robots. The Boss should feel a warm, direct email: **your first line must be exactly (punctuation as given):** ${newsWarmOpen}
+Then a short line break, then the rest. You may add one short human line after the opener (e.g. “good news on this run” / “I wanted you to see the craft behind this one”) before substance—keep it real, not sycophantic.
 
-**You must include these sections in order (plain text, clear headers):**
-1) **What shipped** — title, one line on angle, public URL, run id.
-2) **Pre-Production** — picks and **each manager REJECT with reason and round** when the briefing shows rejections.
-3) **Writer desk** — passes and **rejects with reasons** if any.
-4) **Chief of Audit (executive)** — pipeline tries if more than one; final outcome; **relevancy 0–100** vs today’s news cycle; **letter grade (A+–F)**.
-5) **Risks / watch** — one line.
-6) **Close** — you are the single line of sight for News on Xalura for this run.
+**Two voices in one message (plain text, human section titles—avoid numbered lists like "1)"):**
+- **Narrative body (${chiefN} / desk):** The briefing below includes a **full pipeline narrative** (Pre-Production → Writer → Chief of Audit). You must walk the Boss through that **sequence** and, for **every** REJECT or non-VERIFIED step, give the **actual reason text** from the briefing (not just "round 2" or a run id). Cover what Head of News’s chain did from story pick to live URL, then a crisp “so what” for the company. Subheads in plain English (e.g. *What we shipped*, *Pre-Production*, *Writer desk*, *Audit*, *Risks*).
+- **"From Richard Maybach, Chief of Audit" (mandatory, first person: I / my):** Write **as Richard Maybach in the first person.** Explain **why I approved** the piece, **how I verified** it is legitimate news and not fluff or fiction (cross-checks, recency, corroboration—only what the **briefing** supports; **do not fabricate** sources or URLs), **where the key facts were sourced or checked** (briefing fields, pools, serp, wire notes—name them only if the briefing does), my **relevancy score 0–100** for today’s news cycle, my **letter grade (A+–F)**, and **one or two candid sentences** on what I really think of the quality and the decision to ship. If the briefing is thin on a detail, say you’re drawing on the run record rather than inventing a channel.
 
-**Hard cap ~${Math.floor(NEWS_DIGEST_WORDS * 0.95)}–${NEWS_DIGEST_WORDS} words** (this is a full desk report, not the 100-word article note).
+**Do not** include a formal email signature (no “Phone:” lines); the system adds the footer.
 
-BRIEFING (facts; do not invent):
+**Length:** about **${Math.floor(NEWS_DIGEST_WORDS * 0.95)}–${NEWS_DIGEST_WORDS} words** total (full desk narrative + Richard’s block).
+
+BRIEFING (facts; do not invent beyond this):
 ---
 ${briefing}
 ---`,
@@ -134,7 +209,7 @@ ${briefing}
         assignedName: chiefN,
       });
       body = clipNewsEmailWords(raw, NEWS_DIGEST_WORDS);
-      subject = `News live: ${params.title.slice(0, 64)} — Chief full activity`;
+      subject = `News live: ${params.title.slice(0, 64)} — desk + Chief of Audit`;
     } else {
       const raw = await runChiefAI({
         department: "All",
@@ -169,20 +244,23 @@ ${briefing}
     }
   }
 
-  const textOut = finishChiefPlainBody(body.replace(/\r\n/g, "\n").trim(), true);
-  const htmlOut = wrapChiefEmailHtml({
-    bodyPlain: body.replace(/\r\n/g, "\n").trim(),
-    includeMemo: true,
-  });
+  const trimmed = body.replace(/\r\n/g, "\n").trim();
+  const newsMemo = isNews ? await buildNewsPublishMemoOverrides() : undefined;
+  const textOut = isNews
+    ? finishNewsAuditDigestPlainBody(trimmed, true, newsMemo)
+    : finishChiefPlainBody(trimmed, true);
+  const htmlOut = isNews
+    ? wrapNewsAuditDigestEmailHtml({
+        bodyPlain: trimmed,
+        includeMemo: true,
+        memoOverrides: newsMemo,
+      })
+    : wrapChiefEmailHtml({ bodyPlain: trimmed, includeMemo: true });
   const fromChief =
     (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
     (await resolveWorkerEnv("RESEND_FROM"))?.trim();
-  const ccRaw = isNews ? (await resolveWorkerEnv("CHIEF_EMAIL_CC"))?.trim() : undefined;
-  const cc = ccRaw
-    ? ccRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
+  const cc = isNews
+    ? ccExcludingTo(await buildNewsPublishCcList(), to)
     : undefined;
   const sent = await sendResendEmail({
     from: fromChief,

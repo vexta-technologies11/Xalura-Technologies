@@ -1,4 +1,5 @@
 import { fetchAgenticPipelineLogsForAdminFeedByDepartment } from "@/lib/agenticPipelineLogSupabase";
+import { formatNewsRunEventForEmailSnapshot } from "@/lib/newsRunEventDisplay";
 import { fetchNewsRunEventsForAdminFeed } from "@/lib/newsRunEvents";
 import { AGENTIC_RELEASE_ID } from "@/xalura-agentic/engine/version";
 
@@ -22,12 +23,7 @@ export async function buildNewsTeamEmailSnapshot(): Promise<string> {
   const runLines =
     runs.length === 0
       ? "(none)"
-      : runs
-          .map(
-            (e) =>
-              `- [${e.created_at.slice(0, 19)}] ${e.run_id} / ${e.stage}: ${e.summary?.slice(0, 200) ?? ""}`,
-          )
-          .join("\n");
+      : runs.map((e) => formatNewsRunEventForEmailSnapshot(e)).join("\n\n");
   return [
     `release_id: ${AGENTIC_RELEASE_ID}`,
     "Recent `agentic_pipeline_stage_log` (department=news) — all worker/manager/executive/chief_of_audit pipeline stages:",

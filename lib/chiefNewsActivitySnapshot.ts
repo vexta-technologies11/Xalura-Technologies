@@ -1,3 +1,4 @@
+import { formatNewsRunEventForEmailSnapshot } from "@/lib/newsRunEventDisplay";
 import { fetchNewsRunEventsForAdminFeed } from "@/lib/newsRunEvents";
 
 /**
@@ -23,13 +24,9 @@ export async function buildNewsDepartmentActivitySnapshotForChief(
   if (!rows.length) {
     return "(No rows in `news_run_events` yet, or Supabase service client unavailable.)";
   }
-  const lines = rows.map((r) => {
-    const ts = r.created_at?.slice(0, 19) ?? "?";
-    const sm = (r.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
-    return `[${ts}] **${r.stage}** (run \`${r.run_id}\`)\n  ${sm}`;
-  });
-  return `Recent News pipeline activity (newest first, capped):\n\n${lines.join("\n\n")}`.slice(
+  const lines = rows.map((r) => formatNewsRunEventForEmailSnapshot(r));
+  return `Recent News pipeline activity (newest first, each row includes detail when stored: reasons, worker/audit excerpts):\n\n${lines.join("\n\n")}`.slice(
     0,
-    10_000,
+    14_000,
   );
 }

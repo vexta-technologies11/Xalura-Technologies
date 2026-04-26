@@ -163,6 +163,15 @@ function runAgentStub(params: RunAgentParams): string {
   ].join("\n");
 }
 
+function maxOutputTokensForContext(params: RunAgentParams): number | undefined {
+  const c = params.context;
+  if (c && typeof c === "object" && c !== null && "channel" in c) {
+    const ch = String((c as { channel?: string }).channel ?? "");
+    if (ch.includes("chief_inbound")) return 8192;
+  }
+  return undefined;
+}
+
 async function runGeminiLive(
   apiKey: string,
   params: RunAgentParams,
@@ -172,7 +181,13 @@ async function runGeminiLive(
   if (!key) throw new Error("GEMINI_API_KEY missing");
   const modelName = getEffectiveGeminiModelName();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: modelName });
+  const maxOut = maxOutputTokensForContext(params);
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    ...(maxOut != null
+      ? { generationConfig: { maxOutputTokens: maxOut } }
+      : {}),
+  });
   const prompt = buildPrompt(params);
   const result = await model.generateContent(prompt);
   const text = result.response.text();

@@ -79,6 +79,16 @@ export function chiefEmailSignaturePlainSync(): string {
   ].join("\n");
 }
 
+/** News publish digest: Chief of Audit closing block (same visual pattern as Chief; used instead of Ryzen for that send). */
+export function richardMaybachSignaturePlainSync(): string {
+  return [
+    "—",
+    "Richard Maybach, Chief of Audit",
+    "Phone: (715) 491-0295",
+    "Email: richardmaybach@xaluratech.com",
+  ].join("\n");
+}
+
 export function chiefEmailLogoUrlSync(): string {
   return `${publicSiteBaseUrl()}/email/xalura-xt-logo.png`;
 }
@@ -93,6 +103,19 @@ export function chiefEmailSignatureHtmlSync(): string {
 <div style="font-size:13px;opacity:0.9;">CAI | Head of Operations</div>
 <div style="margin-top:8px;font-size:13px;">Phone: <a href="tel:+17154911674" style="color:inherit;">(715) 491-1674</a></div>
 <div style="font-size:13px;">Email: <a href="mailto:RyzenQi@xaluratech.com" style="color:inherit;">RyzenQi@xaluratech.com</a></div>
+</td></tr></table>`;
+}
+
+/** HTML footer for News digest (Chief of Audit) — same table layout as Chief. */
+export function richardMaybachSignatureHtmlSync(): string {
+  const src = chiefEmailLogoUrlSync();
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;padding-top:8px;max-width:420px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:inherit;">
+<tr><td style="padding:0 16px 12px 0;vertical-align:top;"><img src="${src}" width="120" height="auto" alt="Xalura Tech" style="display:block;border:0;max-width:120px;height:auto;" /></td>
+<td style="vertical-align:top;padding-top:4px;">
+<div style="font-weight:600;">Richard Maybach</div>
+<div style="font-size:13px;opacity:0.9;">Chief of Audit</div>
+<div style="margin-top:8px;font-size:13px;">Phone: <a href="tel:+17154910295" style="color:inherit;">(715) 491-0295</a></div>
+<div style="font-size:13px;">Email: <a href="mailto:richardmaybach@xaluratech.com" style="color:inherit;">richardmaybach@xaluratech.com</a></div>
 </td></tr></table>`;
 }
 
@@ -119,11 +142,15 @@ export function plainToHtmlParagraphs(text: string): string {
 export function wrapChiefEmailHtml(params: {
   bodyPlain: string;
   includeMemo?: boolean;
+  /** When set, use these instead of default memo; for news desk Cc line. */
+  memoOverrides?: { to?: string; from?: string; ccLine?: string };
 }): string {
   const memoHtml =
     params.includeMemo === false
       ? ""
-      : `<div style="font-size:12px;padding-bottom:12px;margin-bottom:12px;line-height:1.5;color:inherit;opacity:0.9;">${chiefEmailMemoBlockSync()
+      : `<div style="font-size:12px;padding-bottom:12px;margin-bottom:12px;line-height:1.5;color:inherit;opacity:0.9;">${chiefEmailMemoBlockSync(
+          params.memoOverrides,
+        )
           .trim()
           .split("\n")
           .map((l) => escapeHtml(l))
@@ -138,9 +165,49 @@ ${chiefEmailSignatureHtmlSync()}
 </div></body></html>`;
 }
 
+/** News post-publish digest: same memo pattern + Richard Maybach signature instead of Ryzen. */
+export function wrapNewsAuditDigestEmailHtml(params: {
+  bodyPlain: string;
+  includeMemo?: boolean;
+  memoOverrides?: { to?: string; from?: string; ccLine?: string };
+}): string {
+  const memoHtml =
+    params.includeMemo === false
+      ? ""
+      : `<div style="font-size:12px;padding-bottom:12px;margin-bottom:12px;line-height:1.5;color:inherit;opacity:0.9;">${chiefEmailMemoBlockSync(
+          params.memoOverrides,
+        )
+          .trim()
+          .split("\n")
+          .map((l) => escapeHtml(l))
+          .join("<br/>")}</div>`;
+  const bodyHtml = plainToHtmlParagraphs(params.bodyPlain);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"></head>
+<body style="margin:0;padding:16px;background:transparent;color:inherit;">
+<div style="max-width:560px;margin:0;">
+${memoHtml}
+${bodyHtml}
+${richardMaybachSignatureHtmlSync()}
+</div></body></html>`;
+}
+
 /** Appends memo (optional) + signature to plain text body. */
-export function finishChiefPlainBody(mainBody: string, includeMemo = true): string {
+export function finishChiefPlainBody(
+  mainBody: string,
+  includeMemo = true,
+  memoOverrides?: { to?: string; from?: string; ccLine?: string },
+): string {
   const m = mainBody.replace(/\r\n/g, "\n").trim();
-  const memo = includeMemo ? `${chiefEmailMemoBlockSync()}\n` : "";
+  const memo = includeMemo ? `${chiefEmailMemoBlockSync(memoOverrides)}\n` : "";
   return `${memo}${m}\n\n${chiefEmailSignaturePlainSync()}`;
+}
+
+export function finishNewsAuditDigestPlainBody(
+  mainBody: string,
+  includeMemo = true,
+  memoOverrides?: { to?: string; from?: string; ccLine?: string },
+): string {
+  const m = mainBody.replace(/\r\n/g, "\n").trim();
+  const memo = includeMemo ? `${chiefEmailMemoBlockSync(memoOverrides)}\n` : "";
+  return `${memo}${m}\n\n${richardMaybachSignaturePlainSync()}`;
 }

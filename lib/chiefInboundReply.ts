@@ -37,6 +37,41 @@ import {
   wantsNewsDepartmentContext,
 } from "@/lib/chiefNewsActivitySnapshot";
 
+/** Default max words for Chief’s main AI reply (independent of the 100-word publish-digest cap). */
+const DEFAULT_CHIEF_INBOUND_MAX_WORDS = 2_500;
+/** System / command / parse-error replies stay short for Resend and readability. */
+const INBOUND_SYSTEM_REPLY_MAX_WORDS = 500;
+
+/**
+ * `CHIEF_INBOUND_MAX_WORDS` — number of words, or `0` / `unlimited` / `none` to skip clipping.
+ * Previously `sharedSend` used `clipChiefEmailWords(body)` (default 100) and erased long model output.
+ */
+async function resolveChiefInboundMaxWords(
+  newsContextMode: boolean,
+): Promise<{ cap: number | null; capLabel: string }> {
+  const raw = (await resolveWorkerEnv("CHIEF_INBOUND_MAX_WORDS"))?.trim().toLowerCase();
+  if (raw === "0" || raw === "unlimited" || raw === "none") {
+    return { cap: null, capLabel: "unlimited (stay concise but answer completely)" };
+  }
+  if (raw) {
+    const n = Math.floor(Number(raw));
+    if (Number.isFinite(n) && n > 0) {
+      const cap = Math.min(n, 8_000);
+      return { cap, capLabel: String(cap) };
+    }
+  }
+  const base = DEFAULT_CHIEF_INBOUND_MAX_WORDS;
+  const cap = newsContextMode
+    ? Math.min(8_000, Math.floor(base * 1.25))
+    : base;
+  return { cap, capLabel: String(cap) };
+}
+
+function clipInboundBody(text: string, maxWords: number | null): string {
+  if (maxWords == null) return text.replace(/\r\n/g, "\n").trim();
+  return clipChiefEmailWords(text, maxWords);
+}
+
 function parseEmailAddress(fromHeader: string): string {
   const m = /<([^>]+)>/.exec(fromHeader);
   if (m?.[1]) return m[1].trim().toLowerCase();
@@ -190,22 +225,24 @@ async function buildOpsSnapshot(cwd: string): Promise<string> {
   ].join("\n");
 }
 
-const sharedSend = (
+function makeChiefSend(
   row: ResendReceivedEmailRow,
   toUser: string,
   chiefFrom: string,
   th: ThreadingForSend,
-) =>
-  ({ main, sub }: { main: string; sub: string }) =>
-    sendHtmlChiefReply(clipChiefEmailWords(main), sub, {
+) {
+  return (maxWords: number | null, p: { main: string; sub: string }) =>
+    sendHtmlChiefReply(clipInboundBody(p.main, maxWords), p.sub, {
       row,
       toUserAddr: toUser,
       chiefFrom,
       th,
     });
+}
 
 /**
- * After Resend `email.received` — Chief replies by email (plain text), strict org role.
+ * After Resend `email.received` — Chief replies by email (plain + HTML), exec-style voice.
+ * Long replies: set `CHIEF_INBOUND_MAX_WORDS` or `unlimited` (default ~2500 words, higher when News context).
  * Caller must have verified the webhook and allowlisted the sender.
  */
 export async function chiefReplyToInboundEmail(params: {
@@ -262,7 +299,7 @@ export async function chiefReplyToInboundEmail(params: {
     chiefFromBase,
   );
 
-  const doSend = sharedSend(params.row, fromAddr, chiefFromBase, th);
+  const send = makeChiefSend(params.row, fromAddr, chiefFromBase, th);
 
   const actionsRaw = (await resolveWorkerEnv("CHIEF_INBOUND_ACTIONS_SENDERS"))?.trim();
   const actionSenders = actionsRaw
@@ -280,7 +317,7 @@ export async function chiefReplyToInboundEmail(params: {
 
   const cmd = parseChiefInboundCommand(bodyText);
   if (cmd.kind === "error") {
-    const s = await doSend({
+    const s = await send(INBOUND_SYSTEM_REPLY_MAX_WORDS, {
       main: preface(
         `Command block unreadable (${cmd.error}). Use CHIEF_COMMAND lines or write me without that block — I’ll reply normally.`,
       ),
@@ -290,7 +327,7 @@ export async function chiefReplyToInboundEmail(params: {
     return { ok: true };
   }
   if (cmd.kind === "need_approve") {
-    const s = await doSend({
+    const s = await send(INBOUND_SYSTEM_REPLY_MAX_WORDS, {
       main: preface(
         `Saw: ${cmd.description}. Not run yet — reply with a line that says only: approve.`,
       ),
@@ -301,7 +338,7 @@ export async function chiefReplyToInboundEmail(params: {
   }
   if (cmd.kind === "ready") {
     if (!canRunActions) {
-      const s = await doSend({
+      const s = await send(INBOUND_SYSTEM_REPLY_MAX_WORDS, {
         main: preface(
           `Automation not allowed for this address. Remove the command block; I’ll reply normally, or get added to CHIEF_INBOUND_ACTIONS_SENDERS.`,
         ),
@@ -314,7 +351,7 @@ export async function chiefReplyToInboundEmail(params: {
     const bodyOut = ex.ok
       ? `Done. ${ex.text.replace(/\s+/g, " ").trim()}`
       : `Failed: ${ex.error?.replace(/\s+/g, " ").trim() ?? "unknown"}`;
-    const s = await doSend({ main: preface(bodyOut), sub: subject });
+    const s = await send(INBOUND_SYSTEM_REPLY_MAX_WORDS, { main: preface(bodyOut), sub: subject });
     if (s.error) return { ok: false, error: s.error };
     return { ok: true };
   }
@@ -357,42 +394,49 @@ ${historyText}
 `
     : `**(No prior thread in log — new topic or logging disabled.)**
 `;
-  const requiredSalutation = pickChiefEmailSalutation(
+  const suggestedOpen = pickChiefEmailSalutation(
     threadIsReply ? "reply" : "opening",
   );
 
   const newsContextMode = wantsNewsDepartmentContext(subject, forConversation);
-  const wordCap = newsContextMode ? 220 : 100;
+  const { cap: wordCap, capLabel } = await resolveChiefInboundMaxWords(
+    newsContextMode,
+  );
+  const wordRule =
+    wordCap == null
+      ? "Length: use as many words as a sharp executive email needs; **answer completely** and do not cut yourself off. Avoid filler."
+      : `Aim to stay at or under about **${capLabel} words** if you can, but **never** sacrifice a clear, complete answer to meet a number.`;
 
   const chiefRaw = await runChiefAI({
     department: "All",
-    task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech, emailing the CEO.
+    task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura Tech — a senior operator the CEO (Boss) trusts. You are **not** a call-center script, not a Jira autoresponder, and not a list of process bullets. You are capable, direct, and human.
 
-**Your first line of the reply (before anything else) must be exactly this line, punctuation and capitalization as written:**
-${requiredSalutation}
+**How to write (critical):**
+- **Answer the Boss’s actual message first.** If they’re checking in, greet them back in kind (e.g. how things are going) before you pivot to ops. If they asked a direct question, answer it plainly in the first half of the email.
+- **Sound like a person:** warm but professional, confident, a little personality. The Boss can say "hey" — you can mirror that energy and still be Chief.
+- **Open with a human line to the Boss.** Suggested line (use this **or** the same register—same warmth, you may add one short follow-on sentence of rapport, then separate paragraph for substance): ${suggestedOpen}
+- **Use the thread and snapshot to inform you**, not to replace a real reply. Cite **specific** facts (runs, stages, published pieces) from the thread/snapshot when relevant. If a fact is missing, say you don’t have it rather than inventing.
+- **Stay in role** as Head of Operations: org-wide pipeline view, not random internet trivia. For non-ops chitchat, keep it brief and cordial, then steer back to what you own.
+${newsContextMode ? "- **They asked about News** — use the News snapshot in depth: stages, who blocked what and why, what actually shipped; be concrete, not a generic 'desk update'." : ""}
+- ${automationNote} ${executiveBlock}
+- Do **not** recite the snapshot as a wall of text. Weave in what matters. Use the thread: **do not contradict** prior written agreements in this log.
 
-**Hard rule: your entire reply body must be at most ${wordCap} words (including that first line).** ${
-      newsContextMode
-        ? "They asked about **News** — use the News department snapshot: cite recent stages, manager reject/approve pattern if visible in summaries, and what published; be specific, not generic."
-        : "No run/approval/CHIEF_COMMAND instructions **unless** they explicitly ask how to trigger automation — then a short hint only, still under the word cap."
-    }
+**${wordRule}**
 
-Summarize what matters from their message + earlier thread + snapshot: answer the question, or the most important operational fact. Use the thread to stay consistent; do not contradict prior agreements. ${automationNote} ${executiveBlock}
+**Plain text body only** (no "Subject:", no signature line); the app adds a footer.
 
 ${historyBlock}
 **Their current email** — Subject: ${subject}
 ${forConversation.slice(0, 8_000)}
 
-**Snapshot (facts only)**
+**Operational snapshot (facts; may be partial):**
 ${snapshot}
-
-Write **only** the reply body (no signature). **≤${wordCap} words including the required first line.**`,
+`,
     context: { channel: "chief_inbound_email", subject },
     assignedName: chiefN,
   });
 
-  const chiefMd = clipChiefEmailWords(chiefRaw, wordCap);
-  const sent = await doSend({ main: chiefMd, sub: subject });
+  const sent = await send(wordCap, { main: chiefRaw, sub: subject });
   if (sent.error) return { ok: false, error: sent.error };
   return { ok: true };
 }

@@ -1,3 +1,4 @@
+import { formatNewsPipelineFullNarrativeForEmail } from "@/lib/newsPipelineEmailNarrative";
 import { clipNewsEmailWords } from "@/lib/newsTeamEmailSend";
 import { finishChiefPlainBody, wrapChiefEmailHtml } from "@/lib/chiefEmailBranding";
 import { runAgent } from "@/xalura-agentic/lib/gemini";
@@ -36,8 +37,9 @@ export type NewsPublishPostEmailContext = {
   topPoolTitles: string;
 };
 
-const HON_PUBLISH_MAX_WORDS = 420;
-const AUDITOR_REPORT_MAX_WORDS = 1_200;
+/** Head of News must narrate the full run — higher cap. */
+const HON_PUBLISH_MAX_WORDS = 1_200;
+const AUDITOR_REPORT_MAX_WORDS = 2_000;
 
 function logEmailSkip(
   kind: "head_of_news" | "chief_of_audit",
@@ -114,29 +116,7 @@ export async function sendNewsAuditorPublishedEmailIfEnabled(params: {
   const bodyClip = params.bodyExcerpt.replace(/\s+/g, " ").trim().slice(0, 6_000);
   const auditClip = params.auditText.replace(/\s+/g, " ").trim().slice(0, 6_000);
   const ctx = params.postEmailContext;
-
-  const roundsBlock =
-    ctx && ctx.audit.executiveRounds.length > 0
-      ? ctx.audit.executiveRounds
-          .map(
-            (r, i) =>
-              `### Full-pipeline run ${r.pipelineRound} (exec round ${i + 1}): ${r.verified ? "ACCEPT (VERIFIED)" : "REJECT (not verified)"}\n${r.excerpt.slice(0, 3_000)}`,
-          )
-          .join("\n\n")
-      : "";
-
-  const preWriterBlock = ctx
-    ? `**Pre-Production (final winning pipeline):** approved on **round ${ctx.preprod.passRound}** after **${ctx.preprod.rejectionsBeforePass}** manager reject(s) before that pass.
-**Writer desk:** approved on **round ${ctx.writer.passRound}** after **${ctx.writer.rejectionsBeforePass}** manager reject(s).
-**End-to-end:** **${ctx.audit.fullPipelineRounds}** full pipeline run(s) to Chief of Audit; **${ctx.audit.executiveRejectionsBeforeSuccess}** executive rejection(s) before the published VERIFIED.
-**Same-day news pool (count):** ${ctx.newsPoolItemCount}. **Sample story titles from pool:** ${ctx.topPoolTitles}
-**Independent Serp (title cross-check) excerpt:**
-${ctx.serpForAudit.replace(/\s+/g, " ").trim().slice(0, 2_500)}
-
-**30-item checklist (same day / beat context — for timeliness and overlap):**
-${ctx.checklistExcerpt.slice(0, 4_000)}
-`
-    : "";
+  const fullPipelineNarrative = formatNewsPipelineFullNarrativeForEmail(ctx);
 
   let brief: string;
   try {
@@ -148,10 +128,7 @@ ${ctx.checklistExcerpt.slice(0, 4_000)}
 **You must use this exact section structure in the body (markdown headings in plain text, e.g. lines like "1. Executive summary" — no # symbols required):**
 1) **Executive summary** — 2–4 sentences: what was published and your bottom-line judgment.
 2) **Scope and criteria** — what you reviewed (sourcing, alignment with public reporting, checklist vs today’s items).
-3) **Accept / reject counts (pipeline)** — State clearly:
-   - Pre-Production: how many **manager REJECTS** then **1 approve** (use the stats below if present).
-   - Writer desk: same.
-   - Chief of Audit: how many full **executive REJECTS** (UNVERIFIED/MISLEADING) before the final **ACCEPT** (if stats say only one run, state that). Use the raw round log if present.
+3) **Pipeline walkthrough (mandatory, sequential)** — Using **only** the "What happened" block below, explain in plain language how the piece moved from **Pre-Production → Writer → Chief of Audit** to the site. For **every** manager REJECT, state **why** the manager said so. For **every** executive (Chief of Audit) non-VERIFIED, summarize what was wrong. Do **not** list run ids alone; tie each step to a human-readable reason. If a section says "no rejections", say the first pass was accepted and why that matters.
 4) **Findings** — numbered. Each: observation, **risk** (Low/Medium/High), and **recommendation**.
 5) **Relevancy vs today’s news** — a **0–100 score** (AI industry + timeliness). One line: **Relevancy grade: N/100** with brief justification, referencing how the piece lines up (or not) with the same-day pool / checklist.
 6) **Final grade (news quality)** — assign one letter **A+ through F** with one paragraph justification. Also repeat **Relevancy: N/100** in that paragraph as a cross-check.
@@ -163,10 +140,8 @@ ${ctx.checklistExcerpt.slice(0, 4_000)}
 **Run id:** ${params.runId}
 **URL:** ${url}
 
-${preWriterBlock}
-
-**Round-by-round executive outputs (if any prior rejects):**
-${roundsBlock || "Single run — use final audit only."}
+**Complete pipeline (facts — the Boss must understand what every desk did):**
+${fullPipelineNarrative}
 
 **Final (publishable) audit text:**
 ${auditClip}
@@ -246,32 +221,25 @@ export async function sendHeadOfNewsPublishedEmailIfEnabled(params: {
   const hon = loadAgentNamesConfig(params.cwd).headOfNews?.name?.trim() || "Head of News";
   const url = publicSiteNewsUrl(params.slug);
   const ctx = params.postEmailContext;
-  const dataBlock = ctx
-    ? `
-**Context for your judgment (read carefully):**
-- Same-day pool size: **${ctx.newsPoolItemCount}** stories gathered. **Sample headlines in pool:** ${ctx.topPoolTitles}
-- **30-item checklist (AI news; timeliness and beat):**
-${ctx.checklistExcerpt.slice(0, 3_200)}
-- **Published draft excerpt:**
-${ctx.draftExcerpt.replace(/\s+/g, " ").trim().slice(0, 4_000)}
-- **Independent Serp lines for the headline (reality check vs web):** ${ctx.serpForAudit.replace(/\s+/g, " ").trim().slice(0, 1_200)}
-- Pipeline: Pre-Prod approved round **${ctx.preprod.passRound}** with **${ctx.preprod.rejectionsBeforePass}** pre-prod manager reject(s); Writer approved round **${ctx.writer.passRound}** with **${ctx.writer.rejectionsBeforePass}** writer-manager reject(s); **${ctx.audit.fullPipelineRounds}** end-to-end pipeline run(s) to audit; **${ctx.audit.executiveRejectionsBeforeSuccess}** executive not-verified run(s) before the final publishable verify.
-`
-    : "";
+  const dataBlock = `
+**What happened in this run (read every section — the Boss should get the full story from your desk to publish):**
+${formatNewsPipelineFullNarrativeForEmail(ctx)}
+`;
 
   let body: string;
   try {
     body = await runAgent({
       role: "Head of News",
       department: "News",
-      task: `You are **${hon}**, **Head of News** at Xalura. A story is **now live** on the site. Write a **substantive email to the CEO ("Boss")** (not a tweet).
+      task: `You are **${hon}**, **Head of News** at Xalura. A story is **now live** on the site. Write a **substantive email to the CEO ("Boss")** (not a tweet or status line).
 
-**You must include:**
-- Opening greeting to Boss (one line).
-- **Your professional read** on the publish: is the **angle** right, what works, one thing you would tighten next time (if any).
-- **Relevancy vs "today’s news"**: explicitly state whether the piece **aligns** with the same-day AI / tech news cycle represented by the checklist and pool below — **yes / partially / no**, with 2–4 sentences. Give a one-line **Relevancy: N/100** (your editorial judgment vs current cycle).
-- Include the public link, title, and run id once: **URL** ${url} | **Title:** ${params.title} | **Run:** ${params.runId}
-- **Cap the body at ~${HON_PUBLISH_MAX_WORDS} words.** Clear paragraphs. No system boilerplate. No "Sent from…".
+**You must include, in order:**
+- Opening greeting to Boss (one line, warm, executive).
+- **Narrate the run for the Boss in order:** Pre-Production (what the team picked, any manager **REJECTS** and **what reason was given**), then Writer (same), then what Chief of Audit did before the piece was cleared. Use **only** the facts in the "What happened" block below; **do not** recite only run ids — the Boss should understand *why* each desk approved or sent work back. If a stage had a clean first-pass approval, say so clearly.
+- **Your professional read** on the published story: angle, what works, one thing you would tighten next time (if any).
+- **Relevancy vs "today’s news"**: does the piece align with the same-day AI/tech news cycle in the materials — **yes / partially / no** with 2–4 sentences. **Relevancy: N/100** in one line.
+- Include once: **URL** ${url} | **Title:** ${params.title} | **Run:** ${params.runId}
+- **Cap the body at ~${HON_PUBLISH_MAX_WORDS} words.** Clear paragraphs. No "Sent from…" boilerplate.
 
 ${dataBlock}
 `,
