@@ -11,7 +11,7 @@ import { clipNewsEmailWords } from "@/lib/newsTeamEmailSend";
 import { runChiefAI } from "../agents/chiefAI";
 import { waitUntilAfterResponse } from "./cloudflareWaitUntil";
 import { appendFailedOperation, readFailedQueue } from "./failedQueue";
-import { chiefDisplayName } from "./agentNames";
+import { chiefDisplayName, getExecutiveAssignedName } from "./agentNames";
 import { sendResendEmail } from "./phase7Clients";
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 
@@ -60,6 +60,7 @@ export function scheduleChiefPublishCycleEmail(params: ChiefPublishDigestParams)
 }
 
 const NEWS_DIGEST_WORDS = 1_600;
+const NEWS_AUDIT_DIGEST_WORDS = 1_250;
 
 const RICHARD_MAYBACH_CC = "richardmaybach@xaluratech.com";
 
@@ -114,7 +115,10 @@ function ccExcludingTo(
   return next.length ? next : undefined;
 }
 
-async function buildNewsPublishMemoOverrides(): Promise<{
+async function buildNewsPublishMemoOverrides(opts?: {
+  fromOverride?: string;
+  ccLineOverride?: string;
+}): Promise<{
   to?: string;
   from?: string;
   ccLine?: string;
@@ -124,12 +128,24 @@ async function buildNewsPublishMemoOverrides(): Promise<{
     (await resolveWorkerEnv("CHIEF_EMAIL_MEMO_TO"))?.trim() ||
     "JhonCadullo@xaluratech.com";
   const from =
+    opts?.fromOverride?.trim() ||
     (await resolveWorkerEnv("CHIEF_NEWS_MEMO_FROM"))?.trim() ||
     "richardmaybach@xaluratech.com";
   const ccLine =
+    opts?.ccLineOverride?.trim() ||
     (await resolveWorkerEnv("CHIEF_NEWS_MEMO_CC_LINE"))?.trim() ||
     "Head of News; Chief of Audit, Richard Maybach; additional parties as shown in Resend Cc.";
   return { to, from, ccLine };
+}
+
+async function resolveNewsAuditResendFrom(): Promise<string> {
+  return (
+    (await resolveWorkerEnv("CHIEF_NEWS_AUDIT_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("CHIEF_OF_AUDIT_NEWS_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
+    (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
+    "richardmaybach@xaluratech.com"
+  );
 }
 
 async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Promise<void> {
@@ -186,30 +202,143 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
   try {
     if (isNews) {
       const rid = (params.newsRunId || params.slug).slice(0, 200);
-      const raw = await runChiefAI({
-        department: "All",
-        task: `You are **${chiefN}** (Chief AI, Xalura Head of Operations) briefing the **CEO (Boss)**. A **News** story just went **live** (path: ${params.articlePath}). Run: ${rid}
+      const opsFrom =
+        (await resolveWorkerEnv("CHIEF_RESEND_FROM"))?.trim() ||
+        (await resolveWorkerEnv("RESEND_FROM"))?.trim() ||
+        "RyzenQi@xaluratech.com";
+      const auditFrom = await resolveNewsAuditResendFrom();
+      const opsMemo = await buildNewsPublishMemoOverrides({ fromOverride: opsFrom });
+      const auditMemo = await buildNewsPublishMemoOverrides({
+        fromOverride: auditFrom,
+      });
+      const cc = ccExcludingTo(await buildNewsPublishCcList(), to);
 
-**Voice & tone (critical):** Sound like a **confident, human operator** on the executive floor—**not** a Jira ticket, not stiff corporate bullet robots. The Boss should feel a warm, direct email: **your first line must be exactly (punctuation as given):** ${newsWarmOpen}
-Then a short line break, then the rest. You may add one short human line after the opener (e.g. “good news on this run” / “I wanted you to see the craft behind this one”) before substance—keep it real, not sycophantic.
+      let opsRaw = "";
+      try {
+        opsRaw = await runChiefAI({
+          department: "All",
+          task: `You are **${chiefN}** (Chief AI, Xalura Head of Operations) briefing the **CEO (Boss)**. A **News** story just went **live** (path: ${params.articlePath}). Run: ${rid}
 
-**Two voices in one message (plain text, human section titles—avoid numbered lists like "1)"):**
-- **Narrative body (${chiefN} / desk):** The briefing below includes a **full pipeline narrative** (Pre-Production → Writer → Chief of Audit). You must walk the Boss through that **sequence** and, for **every** REJECT or non-VERIFIED step, give the **actual reason text** from the briefing (not just "round 2" or a run id). Cover what Head of News’s chain did from story pick to live URL, then a crisp “so what” for the company. Subheads in plain English (e.g. *What we shipped*, *Pre-Production*, *Writer desk*, *Audit*, *Risks*).
-- **"From Richard Maybach, Chief of Audit" (mandatory, first person: I / my):** Write **as Richard Maybach in the first person.** Explain **why I approved** the piece, **how I verified** it is legitimate news and not fluff or fiction (cross-checks, recency, corroboration—only what the **briefing** supports; **do not fabricate** sources or URLs), **where the key facts were sourced or checked** (briefing fields, pools, serp, wire notes—name them only if the briefing does), my **relevancy score 0–100** for today’s news cycle, my **letter grade (A+–F)**, and **one or two candid sentences** on what I really think of the quality and the decision to ship. If the briefing is thin on a detail, say you’re drawing on the run record rather than inventing a channel.
+Write a **human, executive email** with **clear paragraph breaks** and short section headings. Do not compress everything into one block.
 
-**Do not** include a formal email signature (no “Phone:” lines); the system adds the footer.
+**Voice & tone:** confident, warm, direct, and natural. The Boss should feel greeted like a real person. Use the opener exactly as given, then add 1 short sentence of warmth if it fits.
+**First line of the body must be exactly:** ${newsWarmOpen}
 
-**Length:** about **${Math.floor(NEWS_DIGEST_WORDS * 0.95)}–${NEWS_DIGEST_WORDS} words** total (full desk narrative + Richard’s block).
+**Must cover in order:**
+1. What shipped.
+2. Pre-Production: the selected story, each reject, and the reason behind it.
+3. Writer desk: each reject and the reason behind it.
+4. Chief of Audit: what was verified, why it was approved, what issues were caught, and the final outcome.
+5. Risks / watch and a short close.
 
-BRIEFING (facts; do not invent beyond this):
+Use the briefing facts only. If a reason or source is not in the briefing, say so plainly rather than inventing it.
+
+BRIEFING:
 ---
 ${briefing}
 ---`,
-        context: { kind: "chief_news_publish_activity", slug: params.slug },
-        assignedName: chiefN,
+          context: { kind: "chief_news_publish_activity_ops", slug: params.slug },
+          assignedName: chiefN,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        opsRaw = `Operations note unavailable: ${msg.slice(0, 120)}.\n\nBriefing:\n${briefing}`;
+      }
+      const opsBody = clipNewsEmailWords(opsRaw, NEWS_DIGEST_WORDS).replace(/\r\n/g, "\n").trim();
+      const opsSubject = `News live: ${params.title.slice(0, 64)} — operations`;
+      const opsText = finishChiefPlainBody(opsBody, true, opsMemo);
+      const opsHtml = wrapChiefEmailHtml({
+        bodyPlain: opsBody,
+        includeMemo: true,
+        memoOverrides: opsMemo,
       });
-      body = clipNewsEmailWords(raw, NEWS_DIGEST_WORDS);
-      subject = `News live: ${params.title.slice(0, 64)} — desk + Chief of Audit`;
+
+      const auditDisplayName = getExecutiveAssignedName("news", params.cwd) || "Richard Maybach";
+      let auditRaw = "";
+      try {
+        auditRaw = await runChiefAI({
+          department: "All",
+          task: `You are **${auditDisplayName}**, **Chief of Audit** for News briefing the **CEO (Boss)**. A **News** story just went **live** (path: ${params.articlePath}). Run: ${rid}
+
+Write as the **Chief of Audit** in the first person. Use **clear sentence breaks** and short sections so the Boss can read it quickly.
+
+**First line of the body should be a warm greeting to the Boss.**
+
+**You must include:**
+1. Your audit judgment and the score.
+2. Why you approved it.
+3. How you verified it was real news.
+4. Where you got or cross-checked the facts.
+5. The final grade and what you honestly think of the piece.
+
+Use only the briefing below. Do not invent sources, channels, or URLs.
+
+BRIEFING:
+---
+${briefing}
+---`,
+          context: { kind: "chief_news_publish_activity_audit", slug: params.slug },
+          assignedName: auditDisplayName,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        auditRaw = `Audit note unavailable: ${msg.slice(0, 120)}.\n\nBriefing:\n${briefing}`;
+      }
+      const auditBody = clipNewsEmailWords(auditRaw, NEWS_AUDIT_DIGEST_WORDS)
+        .replace(/\r\n/g, "\n")
+        .trim();
+      const auditSubject = `News live: ${params.title.slice(0, 64)} — Chief of Audit`;
+      const auditText = finishNewsAuditDigestPlainBody(auditBody, true, auditMemo);
+      const auditHtml = wrapNewsAuditDigestEmailHtml({
+        bodyPlain: auditBody,
+        includeMemo: true,
+        memoOverrides: auditMemo,
+      });
+
+      const [opsRes, auditRes] = await Promise.allSettled([
+        sendResendEmail({
+          from: opsFrom,
+          to,
+          cc,
+          subject: `[Xalura] ${opsSubject}`,
+          text: opsText,
+          html: opsHtml,
+        }),
+        sendResendEmail({
+          from: auditFrom,
+          to,
+          cc,
+          subject: `[Xalura] ${auditSubject}`,
+          text: auditText,
+          html: auditHtml,
+        }),
+      ]);
+
+      const reportSendResult = (kind: string, result: PromiseSettledResult<{ id?: string; error?: string }>) => {
+        if (result.status === "rejected") {
+          appendFailedOperation({
+            kind: "other",
+            message: `Chief publish digest ${kind} threw`,
+            detail: String(result.reason).slice(0, 400),
+          });
+          return;
+        }
+        if (result.value.error) {
+          appendFailedOperation({
+            kind: "other",
+            message: `Chief publish digest ${kind}: ${result.value.error}`,
+            detail: `to=${to}${isNews ? " (news)" : ""}`,
+          });
+          return;
+        }
+        console.log(
+          `[chief-publish-digest] news ${kind} sent`,
+          result.value.id ? `resend_id=${result.value.id}` : "(no id)",
+        );
+      };
+      reportSendResult("operations", opsRes);
+      reportSendResult("audit", auditRes);
+      return;
     } else {
       const raw = await runChiefAI({
         department: "All",

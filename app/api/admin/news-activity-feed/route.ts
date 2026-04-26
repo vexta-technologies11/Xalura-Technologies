@@ -9,6 +9,27 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 400;
 
+function humanizeNewsStage(stage: string): string {
+  switch (stage) {
+    case "preprod_worker":
+      return "Pre-Production";
+    case "preprod_manager":
+      return "Selection";
+    case "news_writer":
+      return "News Desk";
+    case "writer_manager":
+      return "Editorial Review";
+    case "chief_of_audit":
+      return "Chief of Audit";
+    case "head_of_news":
+      return "Head of News";
+    case "photographer":
+      return "Photographer";
+    default:
+      return stage.replace(/_/g, " ");
+  }
+}
+
 function runEventToPipelineRow(r: NewsRunEventRow, releaseId: string): AgenticPipelineLogRow {
   return {
     id: r.id,
@@ -16,7 +37,7 @@ function runEventToPipelineRow(r: NewsRunEventRow, releaseId: string): AgenticPi
     release_id: releaseId,
     department: "news",
     agent_lane_id: r.run_id,
-    stage: r.stage,
+    stage: humanizeNewsStage(r.stage),
     event: "news_run_event",
     summary: r.summary,
     detail: (r.detail ?? {}) as Record<string, unknown>,

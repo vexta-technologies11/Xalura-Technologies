@@ -11,7 +11,25 @@ export type PublishAgenticNewsInput = {
   /** ai | technology | both */
   track?: string | null;
   sourceCitations?: unknown;
+  primarySourceUrl?: string | null;
 };
+
+function makeNewsExcerpt(body: string): string | null {
+  const withoutTitle = body
+    .replace(/^\s*#\s+.*\n+/, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+  if (!withoutTitle) return null;
+  const firstParagraph = withoutTitle.split(/\n\n+/).find((p) => p.trim().length > 0);
+  const raw = (firstParagraph ?? withoutTitle).replace(/\s+/g, " ").trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.slice(0, 260) || null;
+}
 
 /**
  * Upsert a published row into Supabase `news_items` (service role). Site: `/news/[slug]`.
@@ -30,7 +48,7 @@ export async function publishAgenticNews(
   const slug = computeArticleSlug(input.title, input.slug);
   const excerpt =
     input.excerpt?.trim() ||
-    input.body.replace(/\s+/g, " ").trim().slice(0, 280) ||
+    makeNewsExcerpt(input.body) ||
     null;
   const row: Record<string, unknown> = {
     slug,
@@ -50,6 +68,9 @@ export async function publishAgenticNews(
   }
   if (input.sourceCitations !== undefined) {
     row["source_citations"] = input.sourceCitations ?? null;
+  }
+  if (input.primarySourceUrl !== undefined) {
+    row["primary_source_url"] = input.primarySourceUrl?.trim() || null;
   }
   const { error } = await supabase.from("news_items").upsert(row, { onConflict: "slug" });
   if (error) {

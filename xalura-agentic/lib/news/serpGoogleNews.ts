@@ -4,6 +4,10 @@
  */
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { firecrawlScrape } from "../phase7Clients";
+import {
+  fetchPublishedNewsSourceUrls,
+  filterOutPublishedNewsItems,
+} from "@/lib/newsPublishedSources";
 
 export type GoogleNewsItem = {
   title: string;
@@ -281,10 +285,12 @@ export async function gatherPreprodNewsPool(params: {
   if (rawPool.length === 0) {
     return { ok: false, error: "Serp returned no news_results (empty pool)" };
   }
-  const strict = dedupeNewsByLink(filterSameCalendarDayNews([...rawPool], now, timeZone));
+  const publishedUrls = await fetchPublishedNewsSourceUrls();
+  const unpublishedPool = filterOutPublishedNewsItems(rawPool, publishedUrls);
+  const strict = dedupeNewsByLink(filterSameCalendarDayNews([...unpublishedPool], now, timeZone));
   let merged = strict;
   if (merged.length < minCount) {
-    const loose = filterRelaxedRecentNews([...rawPool], now, timeZone);
+    const loose = filterRelaxedRecentNews([...unpublishedPool], now, timeZone);
     const seen = new Set(merged.map((i) => i.link.trim()));
     for (const it of loose) {
       const k = it.link.trim();
@@ -295,7 +301,7 @@ export async function gatherPreprodNewsPool(params: {
     }
   }
   if (merged.length < minCount) {
-    for (const it of rawPool) {
+    for (const it of unpublishedPool) {
       const k = it.link.trim();
       if (!k || merged.some((m) => m.link.trim() === k)) continue;
       merged.push(it);

@@ -75,9 +75,13 @@ function oneWorkerLane(
       ? `${d.manager} — Reason: ${parsed.reason}`
       : d.manager;
   const dnames = names.departments[dept]!;
-  const exDefault = dept === "news" ? "Chief of Audit" : "Pre-Production Executive";
-  const exPosDefault =
-    dept === "news" ? "Executive · News (Chief of Audit)" : "Executive · News — Pre-Production";
+  const isNews = dept === "news";
+  const exDefault = isNews ? "Chief of Audit" : "Pre-Production Lead";
+  const exPosDefault = isNews ? "News · audit and publish" : "News · source selection and review";
+  const mgrDefault = isNews ? `${label} Editor` : `${label} Lead`;
+  const mgrPosDefault = isNews ? "News · editorial review" : "News · source review";
+  const workerDefault = isNews ? "News Desk" : "Pre-Production Desk";
+  const workerPosDefault = isNews ? "News · draft and citations" : "News · pool and excerpts";
   return {
     deptId: dept,
     deptLabel: label,
@@ -91,8 +95,8 @@ function oneWorkerLane(
     },
     manager: {
       id: `${dept}_manager`,
-      displayName: withConfiguredName(`${label} Manager`, dnames.manager.name),
-      position: titleOr(dnames.manager.title, `Manager · ${label}`),
+      displayName: withConfiguredName(mgrDefault, dnames.manager.name),
+      position: titleOr(dnames.manager.title, mgrPosDefault),
       avatarUrl: cleanAvatarUrl(dnames.manager.avatar),
       facts: mgrFacts,
       managerChecklist: mgrCheck,
@@ -101,8 +105,8 @@ function oneWorkerLane(
     workers: [
       {
         id: `${dept}_worker`,
-        displayName: withConfiguredName(`${label} Worker`, dnames.worker.name),
-        position: titleOr(dnames.worker.title, `Worker · ${label}`),
+        displayName: withConfiguredName(workerDefault, dnames.worker.name),
+        position: titleOr(dnames.worker.title, workerPosDefault),
         avatarUrl: cleanAvatarUrl(dnames.worker.avatar),
         facts: d.worker,
         source: d.source,

@@ -474,7 +474,8 @@ create table if not exists news_items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   track text,
-  source_citations jsonb
+  source_citations jsonb,
+  primary_source_url text
 );
 
 create index if not exists news_items_published_at_idx

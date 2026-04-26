@@ -1,5 +1,26 @@
 import type { NewsRunEventRow } from "@/lib/newsRunEvents";
 
+function humanizeNewsStage(stage: string): string {
+  switch (stage) {
+    case "preprod_worker":
+      return "Pre-Production";
+    case "preprod_manager":
+      return "Selection";
+    case "news_writer":
+      return "News Desk";
+    case "writer_manager":
+      return "Editorial Review";
+    case "chief_of_audit":
+      return "Chief of Audit";
+    case "head_of_news":
+      return "Head of News";
+    case "photographer":
+      return "Photographer";
+    default:
+      return stage.replace(/_/g, " ");
+  }
+}
+
 function detailLines(
   d: Record<string, unknown> | null | undefined,
 ): string[] {
@@ -35,7 +56,8 @@ export function formatNewsRunEventForEmailSnapshot(
 ): string {
   const ts = (r.created_at ?? "").replace("T", " ").slice(0, 19) || "?";
   const sm = (r.summary ?? "").replace(/\s+/g, " ").trim() || "—";
-  const base = `[${ts}] **${(r.stage ?? "?").replace(/\s+/g, " ").trim()}** — ${sm}  \`run: ${(r.run_id ?? "").replace(/`/g, "")}\``;
+  const stage = humanizeNewsStage((r.stage ?? "").trim() || "?");
+  const base = `[${ts}] **${stage}** — ${sm}  \`run: ${(r.run_id ?? "").replace(/`/g, "")}\``;
   const d = (r.detail ?? null) as Record<string, unknown> | null;
   const extra = detailLines(d);
   if (extra.length === 0) return base;

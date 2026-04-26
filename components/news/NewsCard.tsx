@@ -36,9 +36,6 @@ export function NewsCard({ item }: NewsCardProps) {
       >
         {item.title}
       </h2>
-      {item.excerpt ? (
-        <p style={{ color: "var(--mid)", margin: 0, lineHeight: 1.55, fontSize: 15 }}>{item.excerpt}</p>
-      ) : null}
       <p style={{ fontSize: 13, color: "var(--gray)", margin: "10px 0 0" }}>
         {item.author ? `${item.author} · ` : null}
         {item.published_at

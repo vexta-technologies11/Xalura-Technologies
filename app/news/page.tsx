@@ -20,8 +20,8 @@ export default async function NewsPage() {
           News
         </h1>
         <p className="body-text r" style={{ marginBottom: 40, maxWidth: 560 }}>
-          The News team: Pre-Production, Writers, Chief of Audit, Photographer — same agentic
-          contract as our articles, built for same-day, sourced reporting.
+          Same-day reporting from the News desk, with editorial review and audit behind every
+          story. Clean, sourced, and published as soon as it is ready.
         </p>
         <Suspense
           fallback={

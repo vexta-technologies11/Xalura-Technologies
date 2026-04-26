@@ -168,6 +168,20 @@ function exampleLines(
   const list = DEMO[dept];
   const i = Math.floor(now / EXAMPLE_ROTATION_MS) % list.length;
   const row = list[i]!;
+  if (dept === "news") {
+    return {
+      worker: "Draft desk: story assembled and staged for publish",
+      manager: "Editorial review: checking reasons, relevance, and clarity",
+      executive: "Chief of Audit: publish readiness and score",
+    };
+  }
+  if (dept === "news_preprod") {
+    return {
+      worker: "Pre-Production: story scan and source pack",
+      manager: "Selection desk: checklist vs same-day pool",
+      executive: "Chief of Audit: pre-prod support",
+    };
+  }
   return { worker: row.w, manager: row.m, executive: row.e };
 }
 
@@ -177,6 +191,74 @@ function liveLines(
   cycle: { approvalsInWindow: number; auditsCompleted: number },
 ): { worker: string; manager: string; executive: string } {
   const windowHint = `Window ${cycle.approvalsInWindow}/10 · audits ${cycle.auditsCompleted}`;
+  if (dept === "news") {
+    switch (e.type) {
+      case "WAITING":
+        return {
+          worker: `Draft desk: ${e.payload.reason}`,
+          manager: `Editorial review: ${windowHint} — approve or decline next draft`,
+          executive: "Chief of Audit: coordinating the publish ladder",
+        };
+      case "AUDIT_COMPLETE":
+        return {
+          worker: "Draft desk: cycle output captured on disk",
+          manager: `Editorial review: complete · ${windowHint}`,
+          executive: `Chief of Audit: audit filed — cross-dept visibility (${e.payload.audit_file})`,
+        };
+      case "ARTICLE_PUBLISHED":
+        return {
+          worker: "Draft desk: article assembled + staged for site",
+          manager: "Editorial review: APPROVED path → live publish",
+          executive: "Chief of Audit: handoff complete (site / notifications)",
+        };
+      case "KEYWORD_READY":
+        return {
+          worker: `Draft desk: research bundle ready (${e.payload.keywords?.length ?? 0} keywords)`,
+          manager: `Editorial review: ${windowHint} — bundle review`,
+          executive: "Chief of Audit: coordinating downstream",
+        };
+      case "TOPIC_BANK_REFRESHED":
+        return {
+          worker: `Draft desk: refreshed bank (${e.payload.topic_count} topics)`,
+          manager: "Editorial review: bank freshness check",
+          executive: "Chief of Audit: SEO → pipeline consumers",
+        };
+    }
+  }
+  if (dept === "news_preprod") {
+    switch (e.type) {
+      case "WAITING":
+        return {
+          worker: `Pre-Production desk: ${e.payload.reason}`,
+          manager: `Selection desk: ${windowHint} — approve or decline next candidate`,
+          executive: "Chief of Audit: supporting pre-prod lane",
+        };
+      case "AUDIT_COMPLETE":
+        return {
+          worker: "Pre-Production desk: cycle output captured on disk",
+          manager: `Selection desk: complete · ${windowHint}`,
+          executive: `Chief of Audit: audit filed — cross-dept visibility (${e.payload.audit_file})`,
+        };
+      case "ARTICLE_PUBLISHED":
+        return {
+          worker: "Pre-Production desk: story packet prepared",
+          manager: "Selection desk: approved path → writer handoff",
+          executive: "Chief of Audit: handoff complete",
+        };
+      case "KEYWORD_READY":
+        return {
+          worker: `Pre-Production desk: research bundle ready (${e.payload.keywords?.length ?? 0} keywords)`,
+          manager: `Selection desk: ${windowHint} — bundle review`,
+          executive: "Chief of Audit: coordinating downstream",
+        };
+      case "TOPIC_BANK_REFRESHED":
+        return {
+          worker: `Pre-Production desk: refreshed bank (${e.payload.topic_count} topics)`,
+          manager: "Selection desk: bank freshness check",
+          executive: "Chief of Audit: SEO → pipeline consumers",
+        };
+    }
+  }
   switch (e.type) {
     case "WAITING":
       return {

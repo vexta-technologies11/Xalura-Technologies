@@ -27,6 +27,7 @@ import { parseManagerDecision } from "../managerDecision";
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { generateHeroImage } from "../heroImageGenerate";
 import { parseAuditorDecision } from "./auditorParse";
+import { normalizeNewsSourceUrl } from "@/lib/newsPublishedSources";
 import {
   addFirecrawlExcerpts,
   gatherPreprodNewsPool,
@@ -77,6 +78,44 @@ function checklistJson(items: GoogleNewsItem[]): string {
         `${i + 1}. ${x.title} — ${x.source || "?"} — ${x.link} — ${x.date || "?"}`,
     )
     .join("\n");
+}
+
+function buildNewsExcerptFromDraft(body: string): string | undefined {
+  const t = body
+    .replace(/\r\n/g, "\n")
+    .replace(/^#\s+.*\n+/, "")
+    .trim();
+  if (!t) return undefined;
+  const firstParagraph = t.split(/\n\n+/).find((p) => p.trim().length > 0) ?? t;
+  const clean = firstParagraph
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return undefined;
+  return clean.slice(0, 260);
+}
+
+function choosePrimaryNewsUrl(
+  workerOut: string,
+  pool: (GoogleNewsItem & { firecrawl_excerpt?: string })[],
+  fallbackIndex: number,
+): string {
+  const poolByUrl = new Map<string, string>();
+  for (const item of pool) {
+    const normalized = normalizeNewsSourceUrl(item.link);
+    if (normalized && !poolByUrl.has(normalized)) {
+      poolByUrl.set(normalized, item.link);
+    }
+  }
+  const matches = workerOut.match(/https?:\/\/[^\s)<>"']+/gi) || [];
+  for (const raw of matches) {
+    const normalized = normalizeNewsSourceUrl(raw);
+    if (!normalized) continue;
+    const found = poolByUrl.get(normalized);
+    if (found) return found;
+  }
+  return pool[Math.min(pool.length - 1, Math.max(0, fallbackIndex % pool.length))]!.link;
 }
 
 export type RunNewsPipelineResult =
@@ -131,6 +170,8 @@ export async function runNewsPipeline(
   let checklist: GoogleNewsItem[] = [];
   let draft = "";
   let title = "News update";
+  let pickUrl = "";
+  let primaryExcerpt: string | undefined;
   /** For post-publish CEO email from Chief of Audit. */
   let lastAuditTextForEmail = "";
   /** Filled on successful pass — Head of News + Chief of Audit post-publish reports. */
@@ -216,7 +257,7 @@ ${preWorkerOut}
       }
     }
 
-    const pickUrl = preprodPool[0]!.link;
+    pickUrl = choosePrimaryNewsUrl(preWorkerOut, preprodPool, auditAttempt);
     const packContext = preprodPool
       .slice(0, 5)
       .map(
@@ -229,6 +270,7 @@ ${preWorkerOut}
     let writerFeedback = "";
     for (let w = 0; w < MAX_WRITER; w++) {
       const t = `You are a **News Writer** (Xalura News). Draft a **factual, neutral** news post in Markdown. Start with \`# Title\`. 400–800 words. **Do not** invent events; ground in the **sources** below. Not marketing. Cite real URLs. Primary: **${pickUrl}**
+**Do not mention internal roles or pipeline labels** (Worker, Manager, Executive, Pre-Production, audit gate) in the public article unless they are part of an actual quote from a source.
 
 ## Source pack
 ${packContext}
@@ -273,6 +315,7 @@ ${draft}
 
     title = extractMarkdownTitle(draft) || "News update";
     const serpForAudit = await serpForAuditorLine(title);
+    primaryExcerpt = buildNewsExcerptFromDraft(draft);
 
     const audit = await runExecutive({
       task: `You are the **Chief of Audit** (News). Check if the draft is **grounded in real reporting** (not obvious fabrication). First line: **VERIFIED** or **UNVERIFIED** (or **MISLEADING**). Then one short paragraph.
@@ -360,10 +403,13 @@ ${draft}
   const pub = await publishAgenticNews({
     title,
     body: draft,
+    excerpt: primaryExcerpt,
     author: newsWriterByline(cwd),
     coverImageUrl: cover,
     track: "both",
+    primarySourceUrl: pickUrl,
     sourceCitations: {
+      primary_source_url: pickUrl,
       pool: preprodPool.slice(0, 20),
       checklist,
     },

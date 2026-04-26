@@ -58,11 +58,6 @@ export function LatestNewsStrip({ items }: { items: NewsRow[] }) {
             >
               {n.title}
             </p>
-            {n.excerpt ? (
-              <p style={{ fontSize: 14, color: "var(--mid)", margin: 0, lineHeight: 1.45 }}>
-                {n.excerpt.length > 120 ? `${n.excerpt.slice(0, 120)}…` : n.excerpt}
-              </p>
-            ) : null}
           </Link>
         ))}
       </div>

@@ -127,16 +127,77 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export function plainToHtmlParagraphs(text: string): string {
-  const t = text.trim();
+function isHeadingLine(line: string): boolean {
+  const t = line.trim();
+  return (
+    /^#{1,3}\s+/.test(t) ||
+    /^\*\*[^*]+\*\*$/.test(t) ||
+    /^[A-Z][A-Z0-9 /&(),.'-]{4,}:$/.test(t)
+  );
+}
+
+function splitLongSentenceParagraph(text: string): string[] {
+  const parts = text
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9“"(\[])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 1 ? parts : [text];
+}
+
+function paragraphHtml(text: string): string {
+  return `<p style="margin:0 0 12px 0;line-height:1.58;color:inherit;">${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
+}
+
+function headingHtml(text: string): string {
+  const t = text.replace(/^#{1,3}\s+/, "").replace(/^\*\*|\*\*$/g, "").trim();
+  return `<h2 style="margin:18px 0 10px 0;line-height:1.28;color:inherit;font-size:17px;font-weight:700;">${escapeHtml(t)}</h2>`;
+}
+
+function bulletHtml(text: string): string {
+  return `<p style="margin:0 0 10px 0;line-height:1.58;color:inherit;padding-left:14px;text-indent:-14px;">${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
+}
+
+export function emailPlainToRichHtml(text: string): string {
+  const t = text.replace(/\r\n/g, "\n").trim();
   if (!t) return "";
-  return t
-    .split(/\n\n+/)
-    .map(
-      (p) =>
-        `<p style="margin:0 0 12px 0;line-height:1.55;color:inherit;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`,
-    )
-    .join("");
+  const out: string[] = [];
+  let para: string[] = [];
+  const flush = () => {
+    const joined = para.join(" ").replace(/\s+/g, " ").trim();
+    para = [];
+    if (!joined) return;
+    const parts =
+      joined.length > 280 && !joined.includes("\n")
+        ? splitLongSentenceParagraph(joined)
+        : [joined];
+    for (const part of parts) {
+      out.push(paragraphHtml(part));
+    }
+  };
+  for (const rawLine of t.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    if (isHeadingLine(line)) {
+      flush();
+      out.push(headingHtml(line));
+      continue;
+    }
+    if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+      flush();
+      out.push(bulletHtml(line));
+      continue;
+    }
+    para.push(line);
+  }
+  flush();
+  return out.join("");
+}
+
+export function plainToHtmlParagraphs(text: string): string {
+  return emailPlainToRichHtml(text);
 }
 
 export function wrapChiefEmailHtml(params: {
@@ -155,7 +216,7 @@ export function wrapChiefEmailHtml(params: {
           .split("\n")
           .map((l) => escapeHtml(l))
           .join("<br/>")}</div>`;
-  const bodyHtml = plainToHtmlParagraphs(params.bodyPlain);
+  const bodyHtml = emailPlainToRichHtml(params.bodyPlain);
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"></head>
 <body style="margin:0;padding:16px;background:transparent;color:inherit;">
 <div style="max-width:560px;margin:0;">
@@ -181,7 +242,7 @@ export function wrapNewsAuditDigestEmailHtml(params: {
           .split("\n")
           .map((l) => escapeHtml(l))
           .join("<br/>")}</div>`;
-  const bodyHtml = plainToHtmlParagraphs(params.bodyPlain);
+  const bodyHtml = emailPlainToRichHtml(params.bodyPlain);
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"></head>
 <body style="margin:0;padding:16px;background:transparent;color:inherit;">
 <div style="max-width:560px;margin:0;">
