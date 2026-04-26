@@ -170,6 +170,10 @@ export type DepartmentPipelineResult =
       executiveSummary: string;
       cycle: RecordApprovalResult;
       managerAttempts: number;
+      /** Manager REJECTED reasons in the winning escalation phase, before the final APPROVE (if any). */
+      managerRejectionHistory: string[];
+      /** How many executive rewrite phases (0 = none) were used before approval. */
+      escalationPhaseIndex: number;
       phase7?: {
         zernio:
           | { ok: true; profileCount: number }
@@ -783,6 +787,8 @@ ${workerOutput}`;
           executiveSummary,
           cycle,
           managerAttempts: totalManagerAttempts,
+          managerRejectionHistory: [...rejectionReasons],
+          escalationPhaseIndex: escalationPhase,
           ...(phase7 ? { phase7 } : {}),
           ...(contentWorkflow ? { contentWorkflow } : {}),
         };

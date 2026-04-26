@@ -61,14 +61,24 @@ export function buildFounderOversightBriefing(p: FounderOversightPublishParams):
     cycleExcerpt = "(cycle file read error)";
   }
 
+  const h = (p.managerRejectionHistory ?? []).filter(Boolean);
+  const rejectBlock =
+    h.length > 0
+      ? h.map((r, i) => `${i + 1}. ${r.replace(/\s+/g, " ").trim()}`).join("\n")
+      : "(none)";
+
   return [
     `TITLE: ${p.title}`,
     `SLUG: ${p.slug}  PATH: ${p.articlePath}`,
     p.contentVerticalId
       ? `VERTICAL: ${p.contentVerticalLabel ?? ""} (${p.contentVerticalId})`
       : "",
+    `escalationPhaseIndex=${p.escalationPhaseIndex ?? 0}  managerAttempts=${p.managerAttempts}`,
     "",
-    "=== Publishing Manager (approval authority) ===",
+    "=== Manager rejections (before final APPROVE, this phase) ===",
+    rejectBlock,
+    "",
+    "=== Publishing Manager (final approval output) ===",
     p.managerOutput.slice(0, 8000),
     "",
     "=== Executive summary ===",

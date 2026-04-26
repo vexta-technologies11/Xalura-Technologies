@@ -104,6 +104,15 @@ function geminiRetryCount(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
+function chiefAuthorityBlock(): string {
+  return [
+    "## Chief AI remit (Head of Operations)",
+    "You have **full operational authority** to diagnose failures in the agentic pipeline (Worker → Manager → Executive → site), integrations (Gemini, Resend, Supabase, Zernio, storage, topic bank), and publishing workflows.",
+    "You do **not** need to ask the CEO for permission before recommending or steering **technical and process fixes** to keep cycles moving. You may direct owners to change config, env vars, API keys, cron, or handoff rules. Use **Gemini reasoning** (this API) to form concrete, verifiable fix plans and root-cause analysis.",
+    "Exception: you do not grant legal sign-off, spend money, or override external compliance where a human signatory is required — but you still route the fix clearly.",
+  ].join("\n");
+}
+
 function buildPrompt(params: RunAgentParams): string {
   const ctx =
     params.context !== undefined
@@ -118,10 +127,12 @@ function buildPrompt(params: RunAgentParams): string {
   const nameLine = params.assignedName?.trim()
     ? `Your assigned display name for this run: **${params.assignedName.trim()}**. Use it when signing or referring to yourself; stay within role + department.`
     : `You do not have a personal name unless assigned in config — identify by role and department.`;
+  const chiefBlock = params.role === "Chief AI" ? chiefAuthorityBlock() : "";
   return [
     `You are a ${params.role} in the ${params.department} department of Xalura Tech.`,
     `You operate within a strict hierarchy: Worker → Manager → Executive → Chief AI.`,
     nameLine,
+    chiefBlock,
     `Respond in clear markdown unless asked for JSON.`,
     ``,
     `## Task`,
@@ -165,9 +176,17 @@ function runAgentStub(params: RunAgentParams): string {
 
 function maxOutputTokensForContext(params: RunAgentParams): number | undefined {
   const c = params.context;
-  if (c && typeof c === "object" && c !== null && "channel" in c) {
-    const ch = String((c as { channel?: string }).channel ?? "");
-    if (ch.includes("chief_inbound")) return 8192;
+  if (c && typeof c === "object" && c !== null) {
+    if ("channel" in c) {
+      const ch = String((c as { channel?: string }).channel ?? "");
+      if (ch.includes("chief_inbound")) return 8192;
+    }
+    if (
+      "kind" in c &&
+      String((c as { kind?: string }).kind ?? "") === "publish_digest"
+    ) {
+      return 10_000;
+    }
   }
   return undefined;
 }

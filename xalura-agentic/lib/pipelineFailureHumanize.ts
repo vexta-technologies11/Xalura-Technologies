@@ -82,6 +82,41 @@ export function humanOpsAlertEmailBody(op: FailedOperation): string {
   return `${brief}\n\n${technical}`;
 }
 
+export function humanOpsAlertDigestEmailBody(
+  items: FailedOperation[],
+  opts?: { maxItems?: number; windowStartIso?: string },
+): string {
+  const max = Math.min(100, Math.max(1, opts?.maxItems ?? 40));
+  const slice = items.length > max ? items.slice(-max) : items;
+  const head = [
+    "Mr President — this is a **batched** pipeline alert (at most one digest per configured interval; failures are grouped here).",
+    opts?.windowStartIso
+      ? `Including failures with timestamps after: ${opts.windowStartIso} (and not yet included in a prior digest).`
+      : "",
+    slice.length < items.length
+      ? `Showing the newest ${slice.length} of ${items.length} in this window (cap ${max}).`
+      : `Count in this batch: ${slice.length}.`,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const blocks = slice.map((op, i) => {
+    const brief = opsAlertBriefFromFailedOperation(op);
+    const technical = [
+      `--- [${i + 1}] ---`,
+      `kind: ${op.kind}`,
+      `message: ${op.message}`,
+      op.detail ? `detail:\n${op.detail}` : "",
+      `id: ${op.id}  ts: ${op.ts}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return `${brief}\n\n${technical}`;
+  });
+  return `${head}\n\n${blocks.join("\n\n")}`;
+}
+
 export function humanIncrementalSeoFailureMessage(
   input: {
     status: string;

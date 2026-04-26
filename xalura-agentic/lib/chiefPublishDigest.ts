@@ -27,6 +27,12 @@ export type ChiefPublishDigestParams = {
   cycleIndex: number;
   auditTriggered: boolean;
   cycleFileRelative: string;
+  /** Full Publishing Manager output for this approval (APPROVED + reasons). */
+  managerOutputFull?: string;
+  /** Manager rejection reasons in the winning phase before the final APPROVE (if any). */
+  managerRejectionHistory?: string[];
+  /** Number of executive rewrite phases (0 = none) before final approval. */
+  escalationPhaseIndex?: number;
   /** One-line Zernio outcome for this publish. */
   zernioLine: string;
   /**
@@ -61,6 +67,8 @@ export function scheduleChiefPublishCycleEmail(params: ChiefPublishDigestParams)
 
 const NEWS_DIGEST_WORDS = 1_600;
 const NEWS_AUDIT_DIGEST_WORDS = 1_250;
+/** Article post-publish: comprehensive CEO note (cap). */
+const CHIEF_ARTICLE_PUBLISH_MAX_WORDS = 1_200;
 
 const RICHARD_MAYBACH_CC = "richardmaybach@xaluratech.com";
 
@@ -165,6 +173,13 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
           )
           .join("\n");
 
+  const hist = (params.managerRejectionHistory ?? []).filter(Boolean);
+  const histBlock =
+    hist.length > 0
+      ? hist.map((r, i) => `  ${i + 1}. ${r.replace(/\s+/g, " ").trim()}`).join("\n")
+      : "  (none — Manager approved on first try, or no prior rejections recorded in this phase.)";
+  const mgrFull = (params.managerOutputFull ?? "").trim();
+
   const baseBriefing = [
     `Original task (truncated):\n${params.task.slice(0, 900)}`,
     "",
@@ -172,17 +187,26 @@ async function runChiefPublishDigestWork(params: ChiefPublishDigestParams): Prom
     `URL path: ${params.articlePath} (slug: ${params.slug})`,
     "",
     `Cycle: index ${params.cycleIndex}, file ${params.cycleFileRelative}, auditTriggered=${params.auditTriggered}`,
-    `Manager attempts this run: ${params.managerAttempts}`,
+    `Manager review rounds (total, all phases): ${params.managerAttempts}`,
+    `Executive rewrite phases used before final approval: ${params.escalationPhaseIndex ?? 0}`,
+    "",
+    "Manager REJECTION rounds before final APPROVE (this winning phase only):",
+    histBlock,
+    "",
+    "Final Manager output (full — line 1 should be APPROVED or REJECTED):",
+    mgrFull
+      ? mgrFull.slice(0, 12_000)
+      : "(not provided — see executive summary and worker excerpt only.)",
+    "",
+    "Executive (Publishing) — stored summary after Manager approved (what the Executive said was being committed):",
+    params.executiveSummary.slice(0, 3500),
+    "",
+    "Worker final draft (excerpt, markdown):",
+    params.workerOutputExcerpt.slice(0, 5000),
     "",
     `Zernio: ${params.zernioLine}`,
     "",
-    "Executive summary (from this pipeline run):",
-    params.executiveSummary.slice(0, 2500),
-    "",
-    "Worker output (excerpt):",
-    params.workerOutputExcerpt.slice(0, 3500),
-    "",
-    "Recent failures (failed queue, newest at bottom):",
+    "Recent failures (failed queue tail, for ops context only):",
     failBlock,
   ].join("\n");
 
@@ -342,20 +366,31 @@ ${briefing}
     } else {
       const raw = await runChiefAI({
         department: "All",
-        task: `You are **Ryzen Qi**, **CAI | Head of Operations**. Publishing just shipped an article to the site. Write one email to the CEO.
+        task: `You are **Ryzen Qi**, **CAI | Head of Operations** at Xalura. An **article** was just published to the public site. Write **one comprehensive email to the CEO (Boss)** in a confident, executive, CEO-appropriate tone — warm, direct, no stilted jargon clumps, no emojis.
 
-**Your first line of the body must be exactly (punctuation as given):** ${openLine}
-**Your entire body must be at most 100 words, including that first line.** Add what matters: article/theme, quality or risk if the briefing shows it. No run codes, no extra sections, no signature line.
+**First line of the body must be exactly (punctuation as given):** ${openLine}
+
+**Length:** up to **${CHIEF_ARTICLE_PUBLISH_MAX_WORDS} words** total, including the first line. (Use the full budget only when the cycle had multiple review rounds; otherwise be concise but complete.)
+
+**You must cover, in order, with clear subheadings or short titled sections the Boss can scan:**
+1. **What published** — title, URL path, one-line what it is for readers.
+2. **Cycle** — which cycle / log file, whether the 10-cycle **Chief audit** window triggered, and what that means for governance.
+3. **Manager & Executive story** — For each **manager rejection** in the briefing, what was wrong and what changed before the next draft. The **final Manager** decision: APPROVE vs path to approval, with **why** (checklist, keyword, tone, handoff, etc.). What the **Executive summary** said was being stored and why that matters.
+4. **Why this was safe to ship** — tie to the Executive summary and the final manager approval.
+5. **Residual risks / follow-ups** — if any, including Zernio, failed-queue noise, or anything in the briefing worth watching.
+6. If the failed-queue section shows **recent integration errors**, state that you are **empowered to drive fixes** without re-asking the CEO for day-to-day pipeline repairs (per your remit) — one sentence.
+
+Use only the BRIEFING for factual claims. If a fact is missing, say so. Do not invent URLs or people not implied by the briefing. No signature line (memo wrapper adds branding).
 
 BRIEFING:
 ---
 ${briefing}
 ---`,
-        context: { kind: "publish_digest", slug: params.slug },
+        context: { kind: "publish_digest", slug: params.slug, longFormArticle: true },
         assignedName: chiefN,
       });
-      body = clipChiefEmailWords(raw);
-      subject = `Published: ${params.title.slice(0, 72)} — Chief note`;
+      body = clipChiefEmailWords(raw, CHIEF_ARTICLE_PUBLISH_MAX_WORDS);
+      subject = `Published: ${params.title.slice(0, 72)} — Chief brief`;
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

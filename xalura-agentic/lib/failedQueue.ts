@@ -4,7 +4,6 @@ import {
   readFileUtf8Agentic,
   writeFileUtf8Agentic,
 } from "./agenticDisk";
-import { scheduleFailedOperationResend } from "./phase7Alerts";
 import { getAgenticRoot } from "./paths";
 
 const FILE = "operations-queue.json";
@@ -65,7 +64,11 @@ export function appendFailedOperation(
     data.items = data.items.slice(-200);
   }
   save(data, cwd);
-  scheduleFailedOperationResend(full);
+  setImmediate(() => {
+    void import("./opsAlertSchedule")
+      .then((m) => m.maybeSendOpsAlertDigest(cwd))
+      .catch((e) => console.warn("[failedQueue] ops digest", e));
+  });
   return full;
 }
 
