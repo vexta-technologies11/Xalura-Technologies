@@ -380,20 +380,26 @@ export async function addFirecrawlExcerpts(
     // First attempt: fetch HTML and ask Gemini to extract markdown (cheaper/free if using Gemini)
     let used = false;
     try {
-      const res = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; XaluraBot/1.0)" }, timeout: 12_000 as any });
-      if (res.ok) {
-        const ct = res.headers.get("content-type") || "";
-        if (/html/i.test(ct)) {
-          const html = await res.text().catch(() => "");
-          if (html) {
-            const ex = await geminiExtractFromHtml(html, { maxChars: 4000 });
-            n++;
-            if (!ex.error && ex.markdown) {
-              out[i]!.firecrawl_excerpt = ex.markdown.replace(/\s+/g, " ").trim().slice(0, 1_200);
-              used = true;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12_000);
+      try {
+        const res = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; XaluraBot/1.0)" }, signal: controller.signal });
+        if (res.ok) {
+          const ct = res.headers.get("content-type") || "";
+          if (/html/i.test(ct)) {
+            const html = await res.text().catch(() => "");
+            if (html) {
+              const ex = await geminiExtractFromHtml(html, { maxChars: 4000 });
+              n++;
+              if (!ex.error && ex.markdown) {
+                out[i]!.firecrawl_excerpt = ex.markdown.replace(/\s+/g, " ").trim().slice(0, 1_200);
+                used = true;
+              }
             }
           }
         }
+      } finally {
+        clearTimeout(timer);
       }
     } catch {
       // ignore and fallback to Firecrawl
