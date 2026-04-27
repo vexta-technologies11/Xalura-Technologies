@@ -32,6 +32,8 @@
     "agentic:smoke-manager-seo": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-manager-seo.ts",
     "agentic:incremental-once": "tsx --env-file=.env.local xalura-agentic/scripts/incremental-hour-once.ts",
     "agentic:diagnose-serpapi": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-serpapi-search.ts",
+    "agentic:diagnose-gemini": "tsx --env-file=.env.local xalura-agentic/scripts/diagnose-gemini.ts",
+    "agentic:gemini-news-20": "tsx --env-file=.env.local xalura-agentic/scripts/gemini-news-20.ts",
     "agentic:smoke-pipeline-log": "tsx --env-file=.env.local xalura-agentic/scripts/smoke-pipeline-log.ts",
     "agentic:smoke-leonardo": "tsx xalura-agentic/scripts/smoke-leonardo.ts",
     "agentic:smoke-pipeline-and-graphics": "npm run agentic:smoke-pipeline-log && npm run agentic:smoke-leonardo",

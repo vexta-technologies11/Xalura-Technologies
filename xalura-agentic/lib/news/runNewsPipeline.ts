@@ -33,6 +33,7 @@ import { parseManagerDecision } from "../managerDecision";
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { generateHeroImage } from "../heroImageGenerate";
 import { parseAuditorDecision } from "./auditorParse";
+import { geminiComplete, geminiConfigured } from "../geminiClient";
 import { normalizeNewsSourceUrl } from "@/lib/newsPublishedSources";
 import {
   addFirecrawlExcerpts,
@@ -389,13 +390,32 @@ ${draft}
     const serpForAudit = await serpForAuditorLine(title);
     primaryExcerpt = buildNewsExcerptFromDraft(draft);
 
-    const audit = await runExecutive({
-      task: `You are the **Chief of Audit** (News). Check if the draft is **grounded in real reporting** (not obvious fabrication). First line: **VERIFIED** or **UNVERIFIED** (or **MISLEADING**). Then one short paragraph.
+    // Try an automated Gemini verification first to assist the Chief of Audit (Gemini-first).
+    let geminiVerification = "";
+    try {
+      const useGem = (await geminiConfigured()) && (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0";
+      if (useGem) {
+        const gv = await geminiComplete([
+          "You are an automated verifier. Given a news draft and independent SERP evidence, decide if the draft is grounded in real reporting.",
+          "Return ONLY a JSON object with {verdict, note} where 'verdict' is one of 'VERIFIED','UNVERIFIED','MISLEADING' and 'note' is a one-sentence explanation.",
+          `Draft: ${draft.slice(0, 6_000)}`,
+          `SerpEvidence: ${serpForAudit.slice(0, 6_000)}`,
+        ], { maxOutputTokens: 800, temperature: 0.0 });
+        if (gv.text) geminiVerification = gv.text.trim();
+      }
+    } catch (e) {
+      // ignore gemini verification errors and continue to runExecutive
+    }
 
+    const execPrompt = `You are the **Chief of Audit** (News). Check if the draft is **grounded in real reporting** (not obvious fabrication). First line: **VERIFIED** or **UNVERIFIED** (or **MISLEADING**). Then one short paragraph.
+
+${geminiVerification ? `Automated Gemini verification (for reference):\n${geminiVerification}\n\n` : ""}
 **Draft:**\n${draft.slice(0, 6_000)}
 
-**Serp (independent):**\n${serpForAudit}
-`,
+**Serp (independent):**\n${serpForAudit}`;
+
+    const audit = await runExecutive({
+      task: execPrompt,
       role: "Executive",
       department: "News — Chief of Audit",
       context: { kind: "news_chief_of_audit", runId, attempt: auditAttempt + 1 },

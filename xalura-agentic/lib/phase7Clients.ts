@@ -4,12 +4,14 @@
  */
 
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
+import { geminiExtractFromHtml, geminiConfigured } from "./geminiClient";
 
 export type Phase7Configured = {
   resend: boolean;
   firecrawl: boolean;
   zernio: boolean;
   google_search_console: boolean;
+  gemini: boolean;
 };
 
 export async function getPhase7Configured(): Promise<Phase7Configured> {
@@ -21,6 +23,7 @@ export async function getPhase7Configured(): Promise<Phase7Configured> {
     gscSecret,
     gscRefresh,
     gscSite,
+    geminiKey,
   ] = await Promise.all([
     resolveWorkerEnv("RESEND_API_KEY"),
     resolveWorkerEnv("FIRECRAWL_API_KEY"),
@@ -29,12 +32,14 @@ export async function getPhase7Configured(): Promise<Phase7Configured> {
     resolveWorkerEnv("GOOGLE_SC_SECRET"),
     resolveWorkerEnv("GOOGLE_SC_REFRESH_TOKEN"),
     resolveWorkerEnv("GOOGLE_SC_SITE_URL"),
+    resolveWorkerEnv("GEMINI_API_KEY"),
   ]);
   return {
     resend: !!resend,
     firecrawl: !!firecrawl,
     zernio: !!zernio,
     google_search_console: !!(gscId && gscSecret && gscRefresh && gscSite),
+    gemini: !!geminiKey,
   };
 }
 
@@ -120,35 +125,60 @@ export async function firecrawlScrape(
   url: string,
   formats: ("markdown" | "html")[] = ["markdown"],
 ): Promise<{ markdown?: string; html?: string; error?: string }> {
-  const key = await resolveWorkerEnv("FIRECRAWL_API_KEY");
-  if (!key) return { error: "FIRECRAWL_API_KEY not set" };
-  const base =
-    (await resolveWorkerEnv("FIRECRAWL_BASE_URL"))?.replace(/\/$/, "") ||
-    FIRECRAWL_DEFAULT;
-  const res = await fetch(`${base}/v1/scrape`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, formats }),
-  });
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) {
-    const msg =
-      typeof json["message"] === "string"
-        ? json["message"]
-        : typeof json["error"] === "string"
-          ? json["error"]
-          : `Firecrawl HTTP ${res.status}`;
-    return { error: msg };
+  // Prefer Gemini extraction when available and enabled; fallback to Firecrawl API.
+  try {
+    const useGemini = (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0" && (await geminiConfigured());
+    const gemOnly = (await resolveWorkerEnv("AGENTIC_GEMINI_ONLY"))?.trim() === "1";
+    if (useGemini) {
+      try {
+        const fetched = await fetch(url, { method: "GET" });
+        if (fetched.ok) {
+          const htmlText = await fetched.text().catch(() => "");
+          if (htmlText) {
+            const g = await geminiExtractFromHtml(htmlText, { maxChars: 20000 });
+            if (g.markdown) return { markdown: g.markdown };
+          }
+        }
+      } catch (err) {
+        // ignore and fall through to Firecrawl (unless gemini-only)
+      }
+      if (gemOnly) {
+        return { error: "AGENTIC_GEMINI_ONLY=1: Gemini extraction failed or returned no markdown" };
+      }
+    }
+
+    const key = await resolveWorkerEnv("FIRECRAWL_API_KEY");
+    if (!key) return { error: "FIRECRAWL_API_KEY not set" };
+    const base =
+      (await resolveWorkerEnv("FIRECRAWL_BASE_URL"))?.replace(/\/$/, "") ||
+      FIRECRAWL_DEFAULT;
+    const res = await fetch(`${base}/v1/scrape`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, formats }),
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const msg =
+        typeof json["message"] === "string"
+          ? json["message"]
+          : typeof json["error"] === "string"
+            ? json["error"]
+            : `Firecrawl HTTP ${res.status}`;
+      return { error: msg };
+    }
+    const data = json["data"] as Record<string, unknown> | undefined;
+    const markdown =
+      data && typeof data["markdown"] === "string" ? data["markdown"] : undefined;
+    const html =
+      data && typeof data["html"] === "string" ? data["html"] : undefined;
+    return { markdown, html };
+  } catch (err: any) {
+    return { error: String(err?.message || err) };
   }
-  const data = json["data"] as Record<string, unknown> | undefined;
-  const markdown =
-    data && typeof data["markdown"] === "string" ? data["markdown"] : undefined;
-  const html =
-    data && typeof data["html"] === "string" ? data["html"] : undefined;
-  return { markdown, html };
 }
 
 const ZERNIO_DEFAULT = "https://zernio.com/api";

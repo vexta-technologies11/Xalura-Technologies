@@ -4,6 +4,7 @@
  */
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { firecrawlScrape } from "../phase7Clients";
+import { geminiSuggestUrls, geminiExtractFromHtml, geminiConfigured } from "../geminiClient";
 import {
   fetchPublishedNewsSourceUrls,
   filterOutPublishedNewsItems,
@@ -139,6 +140,49 @@ export async function serpGoogleNewsCollect(
   return { items: out };
 }
 
+/** Use Gemini suggestions as a primary source for news links when enabled. */
+export async function geminiNewsCollect(
+  query: string,
+  target: number,
+): Promise<SerpGoogleNewsResult> {
+  try {
+    const use = (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0" && (await geminiConfigured());
+    if (!use) return { error: "Gemini not enabled" };
+    // Try multiple Gemini suggestion prompts to build a larger candidate pool
+    const attemptPrompts = [
+      "",
+      "Latest headlines and authoritative sources",
+      "Recent today news articles",
+      "Top stories and breaking news",
+      "Headlines from major publishers",
+      "Today",
+      "Recent headlines",
+    ];
+    const out: GoogleNewsItem[] = [];
+    const seen = new Set<string>();
+    for (const suffix of attemptPrompts) {
+      if (out.length >= target) break;
+      const q = suffix ? `${query} — ${suffix}` : query;
+      const candSize = Math.max(target * 10, 160);
+      const g = await geminiSuggestUrls(q, candSize);
+      if (g.error) continue;
+      const items = (g.items || [])
+        .map((i) => ({ title: i.title || "", link: i.link || "", snippet: i.snippet || "" }))
+        .filter((it) => it.link && /^https?:\/\//i.test(it.link));
+      for (const it of items) {
+        const k = it.link.trim();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push({ title: it.title, link: k, snippet: it.snippet });
+        if (out.length >= target) break;
+      }
+    }
+    return { items: out };
+  } catch (e: any) {
+    return { error: String(e?.message || e) };
+  }
+}
+
 function calDaySimple(d: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timeZone || "UTC",
@@ -263,12 +307,11 @@ export async function gatherPreprodNewsPool(params: {
 
   // Cap per-query size to cut Serp HTTP subrequests (Cloudflare Workers per-invocation limit).
   const perQuery = Math.min(40, Math.max(minCount * 2, 28));
-  const [ai, tech, e1, e2] = await Promise.all([
-    serpGoogleNewsCollect(qAi, perQuery),
-    serpGoogleNewsCollect(qTech, perQuery),
-    serpGoogleNewsCollect(q3, perQuery),
-    serpGoogleNewsCollect(q4, perQuery),
-  ]);
+  const useGem = (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0" && (await geminiConfigured());
+  const collectors = useGem
+    ? [geminiNewsCollect(qAi, perQuery), geminiNewsCollect(qTech, perQuery), geminiNewsCollect(q3, perQuery), geminiNewsCollect(q4, perQuery)]
+    : [serpGoogleNewsCollect(qAi, perQuery), serpGoogleNewsCollect(qTech, perQuery), serpGoogleNewsCollect(q3, perQuery), serpGoogleNewsCollect(q4, perQuery)];
+  const [ai, tech, e1, e2] = await Promise.all(collectors);
   if (!(ai.items?.length || tech.items?.length)) {
     return {
       ok: false,
@@ -334,6 +377,29 @@ export async function addFirecrawlExcerpts(
   for (let i = 0; i < out.length && n < max; i++) {
     const u = out[i]!.link;
     if (!u || u.includes("google.com/")) continue;
+    // First attempt: fetch HTML and ask Gemini to extract markdown (cheaper/free if using Gemini)
+    let used = false;
+    try {
+      const res = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; XaluraBot/1.0)" }, timeout: 12_000 as any });
+      if (res.ok) {
+        const ct = res.headers.get("content-type") || "";
+        if (/html/i.test(ct)) {
+          const html = await res.text().catch(() => "");
+          if (html) {
+            const ex = await geminiExtractFromHtml(html, { maxChars: 4000 });
+            n++;
+            if (!ex.error && ex.markdown) {
+              out[i]!.firecrawl_excerpt = ex.markdown.replace(/\s+/g, " ").trim().slice(0, 1_200);
+              used = true;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore and fallback to Firecrawl
+    }
+    if (used) continue;
+    // Fallback to Firecrawl API if Gemini extraction not available or failed
     const r = await firecrawlScrape(u, ["markdown"]);
     n++;
     if (r.markdown) {
@@ -352,8 +418,25 @@ export async function fetchAiNewsChecklist30(): Promise<
 > {
   const q =
     (await resolveWorkerEnv("NEWS_CHECKLIST_SERP_QUERY"))?.trim() || "AI news";
+  const useGem = (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0" && (await geminiConfigured());
   const all: GoogleNewsItem[] = [];
   const seen = new Set<string>();
+
+  if (useGem) {
+    // Gemini-first checklist: request a larger candidate set then dedupe to 30
+    const candSize = 120;
+    const g = await geminiNewsCollect(q, candSize);
+    if (g.error) return { ok: false, error: g.error };
+    for (const it of g.items || []) {
+      if (seen.has(it.link)) continue;
+      seen.add(it.link);
+      all.push(it);
+      if (all.length >= 30) break;
+    }
+    if (all.length < 30) return { ok: false, error: `Checklist: only ${all.length} items (Gemini)` };
+    return { ok: true, items: all.slice(0, 30) };
+  }
+
   for (let off = 0; all.length < 30 && off < 60; off += CHUNK) {
     const r = await serpGoogleNewsSearch(q, { num: CHUNK, start: off });
     if (r.error && !r.items?.length) {
