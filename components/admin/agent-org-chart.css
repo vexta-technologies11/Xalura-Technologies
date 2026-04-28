@@ -1385,9 +1385,27 @@
 }
 
 .admin-agentic-activity-feed__line {
-  margin: 0 0 0.45rem 0;
+  margin: 0 0 0.55rem 0;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.72rem;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.admin-agentic-activity-feed__event {
+  display: inline-block;
+  margin-right: 0.45rem;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.16);
+  color: #bae6fd;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.admin-agentic-activity-feed__text {
   color: #cbd5e1;
 }

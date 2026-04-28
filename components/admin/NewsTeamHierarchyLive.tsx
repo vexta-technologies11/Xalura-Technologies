@@ -28,12 +28,64 @@ type PipelineLogFeedRow = {
   stage: string;
   event: string;
   summary: string;
+  detail?: unknown;
 };
 
-function formatPipelineFeedLine(r: PipelineLogFeedRow): string {
+function compactOneLine(v: string): string {
+  return v.replace(/\s+/g, " ").trim();
+}
+
+function formatDetailSnippet(detail: unknown): string | null {
+  if (detail == null) return null;
+  if (typeof detail === "string") {
+    const t = compactOneLine(detail);
+    return t ? t.slice(0, 220) : null;
+  }
+  if (typeof detail !== "object") return null;
+  const d = detail as Record<string, unknown>;
+  const picks = [
+    d["decision"],
+    d["reason"],
+    d["note"],
+    d["message"],
+    d["result"],
+    d["status"],
+  ];
+  for (const p of picks) {
+    if (typeof p === "string" && p.trim()) return compactOneLine(p).slice(0, 220);
+  }
+  try {
+    const raw = compactOneLine(JSON.stringify(d));
+    return raw ? raw.slice(0, 220) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isManagerDecisionRow(r: PipelineLogFeedRow): boolean {
+  const s = r.stage.toLowerCase();
+  const e = r.event.toLowerCase();
+  return (
+    s.includes("manager") ||
+    e.includes("approve") ||
+    e.includes("decline") ||
+    e.includes("reject")
+  );
+}
+
+function formatPipelineFeedRow(
+  r: PipelineLogFeedRow,
+): { eventLabel: string; lineText: string } {
   const t = r.created_at?.slice(0, 19)?.replace("T", " ") ?? "?";
-  const lane = r.agent_lane_id?.trim() ? ` / ${r.agent_lane_id.trim()}` : "";
-  return `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
+  const eventLabel = compactOneLine(r.event || "event");
+  const detailSnippet = formatDetailSnippet(r.detail);
+  const useDetailOverRunId = isManagerDecisionRow(r) && !!detailSnippet;
+  const lane = !useDetailOverRunId && r.agent_lane_id?.trim() ? ` / ${r.agent_lane_id.trim()}` : "";
+  const detailPart = useDetailOverRunId ? ` / detail: ${detailSnippet}` : "";
+  const summary = compactOneLine(r.summary || "");
+  const lineText =
+    `[${t}] ${r.department}${lane} / ${r.stage}${detailPart}: ${summary}`.trim();
+  return { eventLabel, lineText };
 }
 
 const ZOOM_KEY = "xalura-news-hierarchy-chart-zoom";
@@ -56,7 +108,7 @@ function readStoredZoom(): number {
   return ZOOM_DEFAULT;
 }
 
-type ActivityFeedItem = { t: "row"; text: string };
+type ActivityFeedItem = { t: "row"; eventLabel: string; text: string };
 
 export function NewsTeamHierarchyLive() {
   const [snap, setSnap] = useState<NewsLiveApiResponse | null>(null);
@@ -304,7 +356,8 @@ export function NewsTeamHierarchyLive() {
           return;
         }
         setActivityErr(null);
-        const lines = j.rows.map((r) => formatPipelineFeedLine(r));
+        const rows = j.rows.map((r) => formatPipelineFeedRow(r));
+        const lines = rows.map((r) => `${r.eventLabel} ${r.lineText}`);
         const capped = capNewestFirstLinesToWordBudget(lines, MAX_ACTIVITY_WORDS);
         const before = countWords(lines.join(" "));
         const after = countWords(capped.join(" "));
@@ -315,7 +368,20 @@ export function NewsTeamHierarchyLive() {
         } else {
           setActivityWordNote(null);
         }
-        setActivityItems(capped.map((t) => ({ t: "row" as const, text: t })));
+        const capCounts = new Map<string, number>();
+        for (const c of capped) {
+          capCounts.set(c, (capCounts.get(c) ?? 0) + 1);
+        }
+        const picked: ActivityFeedItem[] = [];
+        for (const r of rows) {
+          const key = `${r.eventLabel} ${r.lineText}`;
+          const left = capCounts.get(key) ?? 0;
+          if (left > 0) {
+            picked.push({ t: "row", eventLabel: r.eventLabel, text: r.lineText });
+            capCounts.set(key, left - 1);
+          }
+        }
+        setActivityItems(picked);
       } catch (e) {
         if (!cancelled) {
           setActivityErr(e instanceof Error ? e.message : String(e));
@@ -545,7 +611,8 @@ export function NewsTeamHierarchyLive() {
             <div className="admin-agentic-activity-feed__body">
               {activityItems.map((it, i) => (
                 <p key={`r-${i}`} className="admin-agentic-activity-feed__line">
-                  {it.text}
+                  <span className="admin-agentic-activity-feed__event">{it.eventLabel}</span>
+                  <span className="admin-agentic-activity-feed__text"> {it.text}</span>
                 </p>
               ))}
             </div>
