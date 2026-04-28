@@ -64,7 +64,7 @@ export async function serpApiSearch(
     if (useGemini) {
       const g = await geminiSuggestUrls(query, num);
       if (g.items && g.items.length) {
-        return { items: g.items.slice(0, num).map((i) => ({ title: i.title, link: i.link, snippet: i.snippet || "" })) };
+        return { items: g.items.slice(0, num).map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })) };
       }
       if (gemOnly) {
         return { error: "AGENTIC_GEMINI_ONLY=1: Gemini enabled but returned no suggestions" };
