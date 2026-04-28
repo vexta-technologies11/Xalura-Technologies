@@ -1,0 +1,31 @@
+name: Gemini smoke — Gemini-only
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+
+jobs:
+  gemini-smoke:
+    name: Gemini-only smoke (runs only when GEMINI_API_KEY secret set)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.GEMINI_API_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Gemini-only smoke (news gatherer)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AGENTIC_GEMINI_ONLY: '1'
+        run: |
+          npx tsx xalura-agentic/scripts/gemini-news-20.ts --count 1 || (echo "Gemini smoke failed" && exit 1)
