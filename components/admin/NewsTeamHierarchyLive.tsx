@@ -308,7 +308,6 @@ export function NewsTeamHierarchyLive() {
   const [activityItems, setActivityItems] = useState<ActivityFeedItem[]>([]);
   const [activityErr, setActivityErr] = useState<string | null>(null);
   const [activityWordNote, setActivityWordNote] = useState<string | null>(null);
-  const [checklistItems, setChecklistItems] = useState<{ title: string; link: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,21 +334,6 @@ export function NewsTeamHierarchyLive() {
           return;
         }
         setActivityErr(null);
-        // Extract latest checklist items (if any) from pipeline feed rows
-        try {
-          const checklistRow = (j.rows || []).find((rr: PipelineLogFeedRow) => rr.event === "preprod_checklist_items" && rr.detail && Array.isArray(rr.detail.items));
-          if (checklistRow && checklistRow.detail) {
-            const itemsAny = (checklistRow.detail as any).items || [];
-            const mapped = Array.isArray(itemsAny)
-              ? itemsAny.slice(0, 10).map((it: any) => ({ title: String(it.title || it["title"] || "").slice(0, 200), link: String(it.link || it["link"] || "").slice(0, 400) }))
-              : [];
-            setChecklistItems(mapped);
-          } else {
-            setChecklistItems([]);
-          }
-        } catch {
-          setChecklistItems([]);
-        }
         const lines = j.rows.map((r) => formatPipelineFeedLine(r));
         const capped = capNewestFirstLinesToWordBudget(lines, MAX_ACTIVITY_WORDS);
         const before = countWords(lines.join(" "));
@@ -575,20 +559,6 @@ export function NewsTeamHierarchyLive() {
         <h3 className="admin-agentic-activity-feed__title">
           Activity — <code>agentic_pipeline_stage_log</code> + <code>news_run_events</code>
         </h3>
-        {checklistItems.length > 0 ? (
-          <div className="admin-agentic-checklist-box">
-            <h4>Latest checklist — gathered news</h4>
-            <ul>
-              {checklistItems.map((it, idx) => (
-                <li key={`cl-${idx}`}>
-                  <a href={it.link} target="_blank" rel="noreferrer">
-                    {it.title || it.link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
         <p className="admin-agentic-activity-feed__sub">
           Newest first. Display up to <strong>{MAX_ACTIVITY_WORDS} words</strong>.
           {activityWordNote != null && activityWordNote ? (
