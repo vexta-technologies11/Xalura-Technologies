@@ -37,14 +37,50 @@ type PipelineLogFeedRow = {
   stage: string;
   event: string;
   summary: string;
+  /** Detail from pipeline logs — holds rejection/approval reasons. */
+  detail?: Record<string, unknown>;
 };
+
+function isManagerDecisionStage(r: PipelineLogFeedRow): boolean {
+  const s = r.stage.toLowerCase();
+  const e = r.event.toLowerCase();
+  return (
+    s.includes("manager") ||
+    e.includes("approve") ||
+    e.includes("decline") ||
+    e.includes("reject")
+  );
+}
+
+function extractDetailReason(detail: Record<string, unknown> | undefined): string | null {
+  if (!detail) return null;
+  const picks = [
+    detail["decision"],
+    detail["reason"],
+    detail["note"],
+    detail["message"],
+    detail["result"],
+    detail["status"],
+  ];
+  for (const p of picks) {
+    if (typeof p === "string" && p.trim()) {
+      return p.replace(/\s+/g, " ").trim().slice(0, 300);
+    }
+  }
+  return null;
+}
 
 function formatPipelineFeedLine(r: PipelineLogFeedRow): string {
   const t = r.created_at?.slice(0, 19)?.replace("T", " ") ?? "?";
   const lane = r.agent_lane_id?.trim()
     ? ` / ${r.agent_lane_id.trim()}`
     : "";
-  return `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
+  const base = `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
+  const reason = isManagerDecisionStage(r) ? extractDetailReason(r.detail) : null;
+  if (reason) {
+    return `${base} — ${reason}`;
+  }
+  return base;
 }
 
 type PipelineDeptKey = "seo" | "publishing" | "marketing" | "chief" | "compliance" | "other";
