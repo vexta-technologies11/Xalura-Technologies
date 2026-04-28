@@ -67,13 +67,17 @@ void (async () => {
     "  Graphic Designer brief (publishing) mandates photorealistic / editorial phrasing — see `publishingHeroImage.ts`.",
   );
 
-  console.log("\n[1/3] Direct leonardoGenerate (production image path)…");
-  const direct = await generateLeonardoImage({ apiKey: key, prompt: TEST_PROMPT });
-  if (!direct.ok) {
-    console.error("FAIL direct:", direct.error);
-    process.exit(1);
+  if (articleUsesLeonardo) {
+    console.log("\n[1/3] Direct leonardoGenerate (production image path)…");
+    const direct = await generateLeonardoImage({ apiKey: key, prompt: TEST_PROMPT });
+    if (!direct.ok) {
+      console.error("FAIL direct:", direct.error);
+      process.exit(1);
+    }
+    console.log("OK: base64 length=%d mime=%s", direct.base64.length, direct.mimeType);
+  } else {
+    console.log("\n[1/3] Skipping direct Leonardo test because AGENTIC_HERO_IMAGE_PROVIDER=imagen");
   }
-  console.log("OK: base64 length=%d mime=%s", direct.base64.length, direct.mimeType);
 
   console.log("\n[2/3] generateHeroImage (should route to Leonardo when key is set)…");
   const hero = await generateHeroImage({ prompt: TEST_PROMPT.slice(0, 200) });

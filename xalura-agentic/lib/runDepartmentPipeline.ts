@@ -24,6 +24,11 @@ import {
   loadStrategyOverlay,
 } from "./auditStrategyOverlayStore";
 import type { AuditStrategyOverlayV1 } from "./auditStrategyOverlayStore";
+import {
+  isPipelinePaused,
+  isPipelineCancelled,
+  getOperationalOverrides,
+} from "./chiefActions";
 import { getVerticalById } from "./contentWorkflow/contentVerticals";
 import { getLatestEvent, type KeywordReadyPayload } from "./eventQueue";
 import { parseManagerDecision } from "./managerDecision";
@@ -45,7 +50,7 @@ import {
 } from "./seoTopicResearchContext";
 import { buildPublishingHandoffProtocolBlock } from "./contentWorkflow/xaluraContentProtocol";
 
-const MAX_MANAGER_ROUNDS = 3;
+let MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
 
 function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
@@ -360,6 +365,42 @@ export async function runDepartmentPipeline(
   const cwd = input.cwd ?? process.cwd();
   const DEPT = departmentLabel;
   const nameCfg = await loadAgentNamesResolved(cwd);
+
+  // Early logging helper (before agentLaneId is resolved)
+  const plogEarly = (
+    stage: string,
+    event: string,
+    summary: string,
+    detail?: Record<string, unknown>,
+  ) => {
+    fireAgenticPipelineLog({
+      department: departmentId,
+      agentLaneId: null,
+      stage,
+      event,
+      summary,
+      detail,
+    });
+  };
+
+  // === Chief AI operational checks ===
+  const agentLaneIdEarly = (input as any).contentVerticalId || undefined;
+  const paused = isPipelinePaused(departmentId, agentLaneIdEarly, cwd);
+  if (paused.paused) {
+    plogEarly("chief_block", "paused", `Department/lane paused: ${paused.reason}`);
+    return { status: "blocked", reason: `Chief AI paused: ${paused.reason}` };
+  }
+  const cancelled = isPipelineCancelled(departmentId, agentLaneIdEarly, cwd);
+  if (cancelled.cancelled) {
+    plogEarly("chief_block", "cancelled", `Cancelled: ${cancelled.reason}`);
+    return { status: "blocked", reason: `Chief AI cancelled: ${cancelled.reason}` };
+  }
+  // Apply operational overrides (e.g. max_manager_rounds)
+  const overrides = getOperationalOverrides(departmentId, cwd);
+  if (overrides.maxManagerRounds !== undefined) {
+    MAX_MANAGER_ROUNDS = Math.max(1, Math.min(10, overrides.maxManagerRounds));
+  }
+  // === End Chief AI operational checks ===
   const execName =
     input.executiveName?.trim() ||
     executiveDisplayName(departmentId, cwd, nameCfg);

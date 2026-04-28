@@ -11,6 +11,10 @@ export type DepartmentCycleState = {
   approvalsInWindow: number;
   /** How many full audit files have been written for this department. */
   auditsCompleted: number;
+  /** Chief AI pause: ISO timestamp when pause expires, or null. */
+  pausedUntil?: string | null;
+  /** Chief AI pause: human-readable reason. */
+  pausedReason?: string;
 };
 
 export type CycleStateFile = {
@@ -82,6 +86,8 @@ export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
         merged.departments[id] = {
           approvalsInWindow: Math.max(0, Math.min(10, d.approvalsInWindow)),
           auditsCompleted: Math.max(0, d.auditsCompleted ?? 0),
+          pausedUntil: typeof d.pausedUntil === "string" ? d.pausedUntil : undefined,
+          pausedReason: typeof d.pausedReason === "string" ? d.pausedReason : undefined,
         };
       }
     }
@@ -94,6 +100,8 @@ export function loadCycleState(cwd: string = process.cwd()): CycleStateFile {
         merged.agentLanes![k] = {
           approvalsInWindow: Math.max(0, Math.min(10, d.approvalsInWindow)),
           auditsCompleted: Math.max(0, d.auditsCompleted ?? 0),
+          pausedUntil: typeof d.pausedUntil === "string" ? d.pausedUntil : undefined,
+          pausedReason: typeof d.pausedReason === "string" ? d.pausedReason : undefined,
         };
       }
     }
@@ -116,3 +124,4 @@ export function saveCycleState(state: CycleStateFile, cwd: string = process.cwd(
   };
   writeFileUtf8Agentic(p, JSON.stringify(normalized, null, 2));
 }
+

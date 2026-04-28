@@ -78,9 +78,10 @@ export async function generateLeonardoImage(params: {
   const h = Math.floor(height / 8) * 8;
   const photoRealRaw = (await resolveWorkerEnv("LEONARDO_PHOTO_REAL"))?.trim().toLowerCase();
   const usePhotoReal = photoRealRaw !== "false" && photoRealRaw !== "0";
-  let photoVersion = (await resolveWorkerEnv("LEONARDO_PHOTO_REAL_VERSION"))?.trim() || "v2";
+  // Default to PhotoReal v1 (more widely available / affordable).
+  let photoVersion = (await resolveWorkerEnv("LEONARDO_PHOTO_REAL_VERSION"))?.trim() || "v1";
   if (photoVersion !== "v1" && photoVersion !== "v2") {
-    photoVersion = "v2";
+    photoVersion = "v1";
   }
   const preset =
     (await resolveWorkerEnv("LEONARDO_PRESET_STYLE"))?.trim() || "PHOTOGRAPHY";

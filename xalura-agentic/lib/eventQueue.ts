@@ -50,6 +50,21 @@ export type TopicBankRefreshedPayload = {
   mode?: "catalog_serp" | "ten_pillars";
 };
 
+export type ChiefCancelPayload = {
+  department?: string;
+  agentLaneId?: string;
+  reason: string;
+  until?: string;
+};
+
+export type ChiefTriggerPayload = {
+  target: "topic_bank_refresh" | "pipeline_run";
+  department?: string;
+  agentLaneId?: string;
+  reason: string;
+  triggeredAt: string;
+};
+
 export type AgenticEvent =
   | {
       id: string;
@@ -80,6 +95,18 @@ export type AgenticEvent =
       ts: string;
       type: "TOPIC_BANK_REFRESHED";
       payload: TopicBankRefreshedPayload;
+    }
+  | {
+      id: string;
+      ts: string;
+      type: "CHIEF_CANCEL";
+      payload: ChiefCancelPayload;
+    }
+  | {
+      id: string;
+      ts: string;
+      type: "CHIEF_TRIGGER";
+      payload: ChiefTriggerPayload;
     };
 
 export type AgenticEventType = AgenticEvent["type"];
@@ -151,3 +178,4 @@ export function getLatestEvent(
   if (!fromFile) return fromMem;
   return newerEvent(fromMem, fromFile);
 }
+

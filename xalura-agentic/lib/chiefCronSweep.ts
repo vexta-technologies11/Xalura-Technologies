@@ -6,6 +6,11 @@ import { getCycleSnapshot } from "../engine/cycleEngine";
 import { readEvents } from "./eventQueue";
 import { readSeoTrendLogs } from "./contentWorkflow/seoTrendLogsStore";
 import { chiefSweepLogPath } from "./contentWorkflow/paths";
+import {
+  parseChiefOrders,
+  executeChiefAction,
+} from "./chiefActions";
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import path from "path";
 
 function summarizeCycleState(cwd: string): string {
@@ -81,6 +86,34 @@ ${digest.slice(0, 14_000)}`,
       preview: chiefMd.replace(/\s+/g, " ").slice(0, 400),
     });
     appendFileUtf8Agentic(logPath, `${line}\n`);
+
+    // === Execute Chief's Orders as real system actions ===
+    const orders = parseChiefOrders(chiefMd);
+    const executionResults: string[] = [];
+    for (const action of orders) {
+      const result = await executeChiefAction(action, cwd);
+      if (result.ok) {
+        executionResults.push(`✅ ${action.type}: ${(action as any).reason || "executed"}`);
+      } else {
+        executionResults.push(`❌ ${action.type}: ${result.error}`);
+      }
+      fireAgenticPipelineLog({
+        department: "chief",
+        stage: "cron_sweep_action",
+        event: result.ok ? "action_executed" : "action_failed",
+        summary: `Chief ${action.type} ${result.ok ? "executed" : "failed"}: ${(action as any).reason || ""}`,
+        detail: { error: result.ok ? undefined : result.error },
+      });
+    }
+    if (executionResults.length > 0) {
+      const resultLine = JSON.stringify({
+        ts: new Date().toISOString(),
+        tag: "chief_action_results",
+        results: executionResults,
+      });
+      appendFileUtf8Agentic(logPath, `${resultLine}\n`);
+    }
+    // === End action execution ===
 
     return { ok: true, markdown: chiefMd };
   } catch (e) {
