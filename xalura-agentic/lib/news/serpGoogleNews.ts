@@ -5,6 +5,7 @@
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { firecrawlScrape } from "../phase7Clients";
 import { geminiSuggestUrls, geminiExtractFromHtml, geminiConfigured } from "../geminiClient";
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import {
   fetchPublishedNewsSourceUrls,
   filterOutPublishedNewsItems,
