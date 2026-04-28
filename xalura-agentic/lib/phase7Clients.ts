@@ -143,9 +143,6 @@ export async function firecrawlScrape(
         // ignore and fall through to Firecrawl (unless gemini-only)
       }
       if (gemOnly) {
-        // Log runtime warning so operators can see where Firecrawl fallback was skipped
-        // eslint-disable-next-line no-console
-        console.warn(`AGENTIC_GEMINI_ONLY skip Firecrawl fallback for url: ${url}`);
         return { error: "AGENTIC_GEMINI_ONLY=1: Gemini extraction failed or returned no markdown" };
       }
     }
