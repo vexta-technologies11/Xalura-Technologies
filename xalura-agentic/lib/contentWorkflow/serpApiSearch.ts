@@ -1,5 +1,4 @@
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
-import { geminiSuggestUrls, geminiConfigured } from "../geminiClient";
 
 export type SerpOrganicItem = {
   title: string;
@@ -57,23 +56,6 @@ export async function serpApiSearch(
   query: string,
   num: number = 10,
 ): Promise<SerpApiSearchResult> {
-  // Prefer Gemini suggestions when enabled; fallback to SerpAPI if Gemini unavailable.
-  try {
-    const useGemini = (await resolveWorkerEnv("AGENTIC_USE_GEMINI"))?.trim() !== "0" && (await geminiConfigured());
-    const gemOnly = (await resolveWorkerEnv("AGENTIC_GEMINI_ONLY"))?.trim() === "1";
-    if (useGemini) {
-      const g = await geminiSuggestUrls(query, num);
-      if (g.items && g.items.length) {
-        return { items: g.items.slice(0, num).map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })) };
-      }
-      if (gemOnly) {
-        return { error: "AGENTIC_GEMINI_ONLY=1: Gemini enabled but returned no suggestions" };
-      }
-    }
-  } catch (err) {
-    // ignore and fallback to SerpAPI
-  }
-
   const apiKey = (await resolveWorkerEnv("SERPAPI_API_KEY"))?.trim();
   if (!apiKey) {
     return {
