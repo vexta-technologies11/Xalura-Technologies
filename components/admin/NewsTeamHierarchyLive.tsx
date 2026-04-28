@@ -571,33 +571,24 @@ export function NewsTeamHierarchyLive() {
         <p className="admin-agentic-live__warn">Last failure: {snap.failed_hint}</p>
       ) : null}
 
-      {/** Checklist feed: separate box from the activity feed */}
-      <div className="admin-agentic-activity-feed admin-agentic-checklist-feed" aria-label="Latest gathered checklist items">
-        <h3 className="admin-agentic-activity-feed__title">Latest checklist — gathered news</h3>
-        <p className="admin-agentic-activity-feed__sub">Items gathered from the most recent run (up to 10).</p>
-        <div className="admin-agentic-activity-feed__scroll" tabIndex={0}>
-          {checklistItems.length === 0 ? (
-            <p className="admin-agentic-activity-feed__empty">No checklist items yet.</p>
-          ) : (
-            <div className="admin-agentic-activity-feed__body">
-              <ul className="admin-agentic-checklist-list">
-                {checklistItems.map((it, idx) => (
-                  <li key={`cl-${idx}`} className="admin-agentic-checklist-list__item">
-                    <a href={it.link} target="_blank" rel="noreferrer">
-                      {it.title || it.link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="admin-agentic-activity-feed" aria-label="News pipeline and run log">
         <h3 className="admin-agentic-activity-feed__title">
           Activity — <code>agentic_pipeline_stage_log</code> + <code>news_run_events</code>
         </h3>
+        {checklistItems.length > 0 ? (
+          <div className="admin-agentic-checklist-box">
+            <h4>Latest checklist — gathered news</h4>
+            <ul>
+              {checklistItems.map((it, idx) => (
+                <li key={`cl-${idx}`}>
+                  <a href={it.link} target="_blank" rel="noreferrer">
+                    {it.title || it.link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="admin-agentic-activity-feed__sub">
           Newest first. Display up to <strong>{MAX_ACTIVITY_WORDS} words</strong>.
           {activityWordNote != null && activityWordNote ? (
