@@ -450,15 +450,53 @@ export async function fetchAiNewsChecklist30(): Promise<
     // Gemini-first checklist: request a larger candidate set then dedupe to 30
     const candSize = 120;
     const g = await geminiNewsCollect(q, candSize);
-    if (g.error) return { ok: false, error: g.error };
-    for (const it of g.items || []) {
-      if (seen.has(it.link)) continue;
-      seen.add(it.link);
-      all.push(it);
-      if (all.length >= 30) break;
+    if (g.error) {
+      // If Gemini errored, fall through to Serp fallback below
+      try {
+        fireAgenticPipelineLog({
+          department: "news",
+          agentLaneId: null,
+          stage: "preprod_checklist",
+          event: "gemini_error",
+          summary: `Gemini checklist error: ${String(g.error).slice(0, 240)}`,
+          detail: { error: String(g.error).slice(0, 200) },
+        });
+      } catch {}
+    } else {
+      for (const it of g.items || []) {
+        if (seen.has(it.link)) continue;
+        seen.add(it.link);
+        all.push(it);
+        if (all.length >= 30) break;
+      }
+      // If Gemini produced at least 30, we're done.
+      if (all.length >= 30) return { ok: true, items: all.slice(0, 30) };
+      // If Gemini produced a smaller but acceptable pool (>=8), accept it as OK.
+      if (all.length >= 8) {
+        try {
+          fireAgenticPipelineLog({
+            department: "news",
+            agentLaneId: null,
+            stage: "preprod_checklist",
+            event: "gemini_partial_ok",
+            summary: `Gemini returned ${all.length} checklist items (>=8), accepting as OK`,
+            detail: { geminiCount: all.length },
+          });
+        } catch {}
+        return { ok: true, items: all.slice(0, all.length) };
+      }
+      // Log partial gemini result and attempt serp fallback to fill remaining items
+      try {
+        fireAgenticPipelineLog({
+          department: "news",
+          agentLaneId: null,
+          stage: "preprod_checklist",
+          event: "gemini_partial",
+          summary: `Gemini returned ${all.length} checklist items, falling back to Serp for the rest`,
+          detail: { geminiCount: all.length },
+        });
+      } catch {}
     }
-    if (all.length < 30) return { ok: false, error: `Checklist: only ${all.length} items (Gemini)` };
-    return { ok: true, items: all.slice(0, 30) };
   }
 
   for (let off = 0; all.length < 30 && off < 60; off += CHUNK) {
@@ -473,8 +511,19 @@ export async function fetchAiNewsChecklist30(): Promise<
       if (all.length >= 30) break;
     }
   }
-  if (all.length < 30) {
-    return { ok: false, error: `Checklist: only ${all.length} items` };
+  if (all.length >= 30) return { ok: true, items: all.slice(0, 30) };
+  if (all.length >= 8) {
+    try {
+      fireAgenticPipelineLog({
+        department: "news",
+        agentLaneId: null,
+        stage: "preprod_checklist",
+        event: "serp_partial_ok",
+        summary: `Checklist only ${all.length} items (>=8), accepting as OK`,
+        detail: { count: all.length },
+      });
+    } catch {}
+    return { ok: true, items: all.slice(0, all.length) };
   }
-  return { ok: true, items: all.slice(0, 30) };
+  return { ok: false, error: `Checklist: only ${all.length} items` };
 }
