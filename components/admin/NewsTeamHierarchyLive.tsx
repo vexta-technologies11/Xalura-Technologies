@@ -339,9 +339,15 @@ export function NewsTeamHierarchyLive() {
         try {
           const checklistRow = (j.rows || []).find((rr: PipelineLogFeedRow) => rr.event === "preprod_checklist_items" && rr.detail && Array.isArray(rr.detail.items));
           if (checklistRow && checklistRow.detail) {
-            const itemsAny = (checklistRow.detail as any).items || [];
-            const mapped = Array.isArray(itemsAny)
-              ? itemsAny.slice(0, 10).map((it: any) => ({ title: String(it.title || it["title"] || "").slice(0, 200), link: String(it.link || it["link"] || "").slice(0, 400) }))
+            const detail = checklistRow.detail as { items?: unknown } | undefined;
+            const itemsUnk = detail?.items;
+            const mapped = Array.isArray(itemsUnk)
+              ? itemsUnk.slice(0, 10).map((it) => {
+                  const obj = (it as Record<string, unknown>) || {};
+                  const title = typeof obj.title === "string" ? obj.title : typeof obj["title"] === "string" ? (obj["title"] as string) : "";
+                  const link = typeof obj.link === "string" ? obj.link : typeof obj["link"] === "string" ? (obj["link"] as string) : "";
+                  return { title: String(title).slice(0, 200), link: String(link).slice(0, 400) };
+                })
               : [];
             setChecklistItems(mapped);
           } else {
