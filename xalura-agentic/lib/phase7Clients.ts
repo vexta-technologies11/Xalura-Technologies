@@ -5,7 +5,6 @@
 
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
 import { geminiExtractFromHtml, geminiConfigured } from "./geminiClient";
-import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 
 export type Phase7Configured = {
   resend: boolean;
@@ -144,18 +143,9 @@ export async function firecrawlScrape(
         // ignore and fall through to Firecrawl (unless gemini-only)
       }
       if (gemOnly) {
-        try {
-          fireAgenticPipelineLog({
-            department: "phase7",
-            agentLaneId: null,
-            stage: "firecrawl_extract",
-            event: "gemini_only_skipped_firecrawl",
-            summary: `Gemini-only prevented Firecrawl fallback for url: ${url}`,
-            detail: { url: url.slice(0, 400) },
-          });
-        } catch {
-          // best effort
-        }
+        // Log runtime warning so operators can see where Firecrawl fallback was skipped
+        // eslint-disable-next-line no-console
+        console.warn(`AGENTIC_GEMINI_ONLY skip Firecrawl fallback for url: ${url}`);
         return { error: "AGENTIC_GEMINI_ONLY=1: Gemini extraction failed or returned no markdown" };
       }
     }

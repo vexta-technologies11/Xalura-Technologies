@@ -408,21 +408,11 @@ export async function addFirecrawlExcerpts(
     // Fallback to Firecrawl API if Gemini extraction not available or failed
     const r = await firecrawlScrape(u, ["markdown"]);
     n++;
-      if (r.error) {
-      // If Firecrawl was blocked due to Gemini-only mode, persist structured log
+    if (r.error) {
+      // If Firecrawl was blocked due to Gemini-only mode, surface a runtime warning
       if (String(r.error).includes("AGENTIC_GEMINI_ONLY")) {
-        try {
-          fireAgenticPipelineLog({
-            department: "news",
-            agentLaneId: null,
-            stage: "firecrawl_excerpt",
-            event: "gemini_only_skipped_firecrawl",
-            summary: `Gemini-only prevented Firecrawl for ${u}`,
-            detail: { url: u.slice(0, 400), error: String(r.error).slice(0, 400) },
-          });
-        } catch {
-          // best effort
-        }
+        // eslint-disable-next-line no-console
+        console.warn(`AGENTIC_GEMINI_ONLY prevented Firecrawl fallback for ${u}: ${r.error}`);
       }
     }
     if (r.markdown) {
