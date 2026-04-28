@@ -1,4 +1,5 @@
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
+import { fireAgenticPipelineLog } from "@/lib/agenticPipelineLogSupabase";
 import { geminiSuggestUrls, geminiConfigured } from "../geminiClient";
 
 export type SerpOrganicItem = {
@@ -67,11 +68,19 @@ export async function serpApiSearch(
         return { items: g.items.slice(0, num).map((i) => ({ title: i.title, link: i.link, snippet: i.snippet || "" })) };
       }
       if (gemOnly) {
-        // Log runtime warning so operators can see where fallbacks were skipped
-        // when `AGENTIC_GEMINI_ONLY=1` is set in production.
-        // Keep message concise and include the query for traceability.
-        // eslint-disable-next-line no-console
-        console.warn(`AGENTIC_GEMINI_ONLY skip SerpAPI fallback for query: ${query}`);
+        // Structured log: record where Gemini-only prevented SerpAPI fallback
+        try {
+          fireAgenticPipelineLog({
+            department: "seo",
+            agentLaneId: null,
+            stage: "serp_suggestion",
+            event: "gemini_only_skipped_fallback",
+            summary: `Gemini-only prevented SerpAPI fallback for query: ${query}`,
+            detail: { query: query.slice(0, 300) },
+          });
+        } catch {
+          // best effort
+        }
         return { error: "AGENTIC_GEMINI_ONLY=1: Gemini enabled but returned no suggestions" };
       }
     }
