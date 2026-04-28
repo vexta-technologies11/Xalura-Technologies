@@ -15,9 +15,9 @@ async function fetchWithTimeout(url: string, timeout = 15000): Promise<string | 
   }
 }
 
-function uniqByLink<T extends { link?: string }>(items: T[]): T[] {
+function uniqByLink(items: { link: string }[]) {
   const seen = new Set<string>();
-  const out: T[] = [];
+  const out: typeof items = [];
   for (const it of items) {
     const k = (it.link || "").trim();
     if (!k) continue;
