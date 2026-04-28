@@ -178,8 +178,6 @@ export async function geminiSuggestUrls(
     }
     return { error: `Gemini did not return parseable JSON for suggested URLs (second attempt): ${String(e)}` };
   }
-  // If we fell through all attempts, return a generic error
-  return { error: "Gemini did not return any usable URL suggestions" };
 }
 
 function extractObjectsFromArrayText(s: string): Array<Record<string, unknown>> {
