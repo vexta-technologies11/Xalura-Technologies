@@ -28,42 +28,12 @@ type PipelineLogFeedRow = {
   stage: string;
   event: string;
   summary: string;
-  detail?: Record<string, unknown>;
 };
-
-function extractDetailText(detail: Record<string, unknown> | undefined): string | null {
-  if (!detail) return null;
-  // Common keys we want to surface
-  const keys = ["reason", "message", "detail", "note", "notes", "error", "reason_text"];
-  for (const k of keys) {
-    const v = detail[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  // If there's a small summary-like field
-  for (const k of ["summary", "title"]) {
-    const v = detail[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  // If any string-valued property exists, use the first one
-  for (const k of Object.keys(detail)) {
-    const v = detail[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  // Fallback to compact JSON
-  try {
-    const s = JSON.stringify(detail);
-    if (s && s !== "{}") return s;
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
 
 function formatPipelineFeedLine(r: PipelineLogFeedRow): string {
   const t = r.created_at?.slice(0, 19)?.replace("T", " ") ?? "?";
-  const detailText = extractDetailText(r.detail);
-  const laneOrDetail = detailText ? ` / ${detailText}` : (r.agent_lane_id?.trim() ? ` / ${r.agent_lane_id.trim()}` : "");
-  return `[${t}] ${r.department}${laneOrDetail} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
+  const lane = r.agent_lane_id?.trim() ? ` / ${r.agent_lane_id.trim()}` : "";
+  return `[${t}] ${r.department}${lane} / ${r.stage} / ${r.event}: ${r.summary}`.replace(/\s+/g, " ").trim();
 }
 
 const ZOOM_KEY = "xalura-news-hierarchy-chart-zoom";
