@@ -87,10 +87,10 @@ function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
   }
   lines.push(
     "",
-    "### Editorial contract",
+    "### 🚨 Editorial contract — hard rules",
+    "- **🚨 FIRST RULE:** The published body starts with the `# Title`. **NO meta preamble.** No \"As a Worker\", \"As a Manager\", \"In my role as...\", \"I understand that...\", or any sentence that reveals internal pipeline role metadata. The reader is the public.",
     "- The Markdown article must **center** the primary keyword in the `#` title, lede, and body.",
     "- Do **not** substitute a generic theme (e.g. a broad audience essay) unless it is a direct framing of that exact keyword.",
-    "- The published body starts at `# Title` — no meta preamble (no \"As a Worker\", no department self-introduction).",
   );
   const protocolBlock = buildPublishingHandoffProtocolBlock(p.content_type);
   if (protocolBlock) {
@@ -664,6 +664,7 @@ ${publishingKeywordReady.checklist!.map((c) => `${c}`).join("\n")}
 First line MUST be exactly APPROVED or REJECTED (strict — no other text on line 1).
 The assignment fixed primary keyword **${publishingManagerKw}**. REJECT if the # title or body pivots to a different pillar (e.g. a generic audience theme) instead of materially serving that keyword and the SEO handoff.
 REJECT if the writing is generic, shallow, repetitive, or “AI slop” tone. Reject if any SEO checklist item is not satisfied.
+🚨 REJECT if the article starts with "As a Worker", "As a Manager", "In my role", "I understand", or any meta preamble about being an AI agent or department member — this is for external readers.
 ${checklistGate}
 Following lines: your reason (quality, brand, handoff fidelity, checklist result).
 ${strategyManagerNote}

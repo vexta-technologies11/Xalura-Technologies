@@ -6,6 +6,14 @@ export const XALURA_CONTENT_PROTOCOL_VERSION = "1.0";
 
 const PUBLISHING_GLOBAL_RULES = `
 ## Xalura Content Protocol v${XALURA_CONTENT_PROTOCOL_VERSION} — global rules
+
+### 🚨 HARD RULE: NO SELF-INTRODUCTION OR INTERNAL ROLE METADATA
+The article is for **external readers** on the public site. It must read as a normal piece of journalism or editorial content.
+- **Do NOT** start with "As a Worker...", "As a Manager...", "In my role as...", or any sentence that reveals you are an AI agent in a pipeline.
+- **Do NOT** mention internal department names, role titles (Worker, Manager, Executive), or pipeline stages in the published text.
+- The article must **begin directly** with the \`# Title\`. No meta preamble. No "I understand that...". No "This article will cover...".
+- **Write as a subject-matter expert**, not as an employee describing their job.
+
 - **Originality:** Do not thinly rewrite sources. Add context, interpretation, and insight. Avoid generic filler.
 - **Authority:** Use natural credibility cues (e.g. trend framing, operational perspective, practical use cases) where they fit; do not fabricate data.
 - **Tone:** Clear, direct, expert-to-smart-reader — not robotic or buzzword soup.
@@ -69,11 +77,16 @@ export function buildPublishingHandoffProtocolBlock(
 
 const NEWS_GLOBAL = `
 ## Xalura News Protocol v${XALURA_CONTENT_PROTOCOL_VERSION} — news rules
+
+### 🚨 HARD RULE: NO SELF-INTRODUCTION OR INTERNAL ROLE METADATA
+- **Do NOT** start with "As a Worker...", "As an AI...", "In the News department...", or any sentence that reveals you are an internal agent.
+- The article must **begin directly** with the \`# Title\`. No meta preamble. No explaining your role or the pipeline.
+- Write as a **neutral news journalist**, not as an employee describing internal operations.
+
 - Stay **grounded in the sources**; do not invent events, quotes, or outlets.
 - Still add **interpretation** and **user impact** — not a bare rehash of a wire story.
 - **Do not** turn the piece into marketing, affiliate promo, or internal pipeline chatter.
 - Keep a **neutral, newsroom** voice: clear, direct, human.
-- **Do not** mention internal roles or pipeline labels in the published text unless from a real quoted source.
 `.trim();
 
 const NEWS_TEMPLATE = `
