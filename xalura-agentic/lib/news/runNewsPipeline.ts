@@ -25,6 +25,7 @@ import { uploadNewsCoverPng } from "@/lib/newsCoverStorage";
 import { extractMarkdownTitle } from "@/lib/agenticArticlePublish";
 import { buildNewsWriterProtocolBlock } from "../contentWorkflow/xaluraContentProtocol";
 import { serpApiSearch } from "../contentWorkflow/serpApiSearch";
+import { auditorSerpWithGemini } from "../researchFallback";
 import { getExecutiveAssignedName, type AgentNamesConfig } from "../agentNames";
 import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
 import { getAgenticRoot } from "../paths";
@@ -56,14 +57,12 @@ function newsWriterByline(names: AgentNamesConfig): string {
   return w || "Xalura News";
 }
 
-async function serpForAuditorLine(titleLine: string): Promise<string> {
-  const s = await serpApiSearch(`${titleLine.slice(0, 200)}`, 5);
-  if (s.error || !s.items?.length) {
-    return `No Serp results: ${s.error || "empty"}`;
-  }
-  return s.items
-    .map((i) => `- **${i.title}**\n  ${i.link}\n  ${i.snippet}`)
-    .join("\n\n");
+/**
+ * Chief of Audit fact-check: uses **only Gemini** (no SerpAPI).
+ * This is intentionally pure Gemini so the audit step never blocks on API exhaustion.
+ */
+async function serpForAuditorLine(titleLine: string, draft: string): Promise<string> {
+  return auditorSerpWithGemini(titleLine, draft);
 }
 
 function poolJson(
@@ -386,7 +385,7 @@ ${draft}
     }
 
     title = extractMarkdownTitle(draft) || "News update";
-    const serpForAudit = await serpForAuditorLine(title);
+    const serpForAudit = await serpForAuditorLine(title, draft);
     primaryExcerpt = buildNewsExcerptFromDraft(draft);
 
     const audit = await runExecutive({
@@ -394,7 +393,7 @@ ${draft}
 
 **Draft:**\n${draft.slice(0, 6_000)}
 
-**Serp (independent):**\n${serpForAudit}
+**Gemini research (independent):**\n${serpForAudit}
 `,
       role: "Executive",
       department: "News — Chief of Audit",

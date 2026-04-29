@@ -10,6 +10,10 @@ import {
 } from "./auditStrategyOverlayStore";
 import { getExecutiveAssignedName } from "./agentNames";
 import { loadAgentNamesResolved } from "@/lib/loadAgentNamesResolved";
+import {
+  serpApiSearchWithFallback,
+  firecrawlScrapeWithFallback,
+} from "./researchFallback";
 
 export type AuditStrategyContext = {
   keyword?: string;
@@ -78,17 +82,28 @@ export async function runStrategicAuditEnrichment(params: {
   const serpQuery = buildFallbackSerpQuery(ctx);
   let serpTitles: string[] = [];
   let serpError: string | undefined;
-  const serp = await serpApiSearch(serpQuery, 6);
-  if (serp.error) {
+
+  // Use fallback: if SerpAPI returns < 3 items, Gemini fills in
+  const serp = await serpApiSearchWithFallback(
+    (q, n) => serpApiSearch(q, n),
+    serpQuery,
+    6,
+    3,
+  );
+  if (serp.fallback) {
+    serpError = `Gemini fallback (${serp.items?.length ?? 0} items)`;
+  } else if (serp.error) {
     serpError = serp.error;
-  } else {
-    serpTitles = (serp.items ?? []).map((i) => i.title).filter(Boolean);
   }
+  serpTitles = (serp.items ?? []).map((i) => i.title).filter(Boolean);
 
   let firecrawlExcerpt: string | undefined;
   const firstUrl = (serp.items ?? []).map((i) => i.link).find((u) => /^https?:\/\//i.test(u ?? ""));
   if (firstUrl) {
-    const fc = await firecrawlScrape(firstUrl, ["markdown"]);
+    const fc = await firecrawlScrapeWithFallback(
+      (u, _fmts) => firecrawlScrape(u, ["markdown"]),
+      firstUrl,
+    );
     if (fc.markdown) {
       firecrawlExcerpt = fc.markdown.replace(/\s+/g, " ").trim().slice(0, 4_500);
     }

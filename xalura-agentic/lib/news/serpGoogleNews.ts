@@ -4,6 +4,7 @@
  */
 import { resolveWorkerEnv } from "../resolveWorkerEnv";
 import { firecrawlScrape } from "../phase7Clients";
+import { geminiNewsFallback, firecrawlScrapeWithFallback } from "../researchFallback";
 import {
   fetchPublishedNewsSourceUrls,
   filterOutPublishedNewsItems,
@@ -242,7 +243,7 @@ export function dedupeNewsByLink(items: GoogleNewsItem[]): GoogleNewsItem[] {
 
 /**
  * Merged pool: several Serp queries → same-day (strict) first, then relaxed (today or yesterday) backfill
- * to reach `minCount`.
+ * to reach `minCount`. Falls back to Gemini if SerpAPI returns too few items.
  */
 export async function gatherPreprodNewsPool(params: {
   minCount: number;
@@ -270,9 +271,34 @@ export async function gatherPreprodNewsPool(params: {
     serpGoogleNewsCollect(q4, perQuery),
   ]);
   if (!(ai.items?.length || tech.items?.length)) {
+    // Both primary queries failed — try Gemini fallback
+    const fb = await geminiNewsFallback(
+      `${qAi} ${qTech}`,
+      Math.max(minCount, 8),
+      20,
+    );
+    if (fb.items && fb.items.length >= 8) {
+      // Gemini fallback items have date: "today", source: plausible sources
+      const fbItems: (GoogleNewsItem & { firecrawl_excerpt?: string })[] = fb.items.slice(0, minCount).map((i) => ({
+        ...i,
+        firecrawl_excerpt: undefined,
+      }));
+      // Firecrawl excerpts on fallback items (use Gemini domain notes)
+      for (let i = 0; i < fbItems.length && i < 4; i++) {
+        if (!fbItems[i]!.link) continue;
+        const fc = await firecrawlScrapeWithFallback(
+          (u, _fmts) => firecrawlScrape(u, ["markdown"]),
+          fbItems[i]!.link,
+        );
+        if (fc.markdown) {
+          fbItems[i]!.firecrawl_excerpt = fc.markdown.replace(/\s+/g, " ").trim().slice(0, 1_200);
+        }
+      }
+      return { ok: true, items: fbItems };
+    }
     return {
       ok: false,
-      error: `No Serp results. AI: ${ai.error || "0 items"}; Tech: ${tech.error || "0 items"}`,
+      error: `No Serp results and Gemini fallback insufficient. AI: ${ai.error || "0 items"}; Tech: ${tech.error || "0 items"}`,
     };
   }
   const now = new Date();
@@ -308,7 +334,25 @@ export async function gatherPreprodNewsPool(params: {
       if (merged.length >= minCount) break;
     }
   }
-  const trimmed = merged.slice(0, minCount);
+  let trimmed = merged.slice(0, minCount);
+  if (trimmed.length < minCount) {
+    // Try Gemini to backfill
+    const fb = await geminiNewsFallback(
+      `${qAi} ${qTech}`,
+      minCount - trimmed.length,
+      minCount - trimmed.length + 5,
+    );
+    if (fb.items?.length) {
+      const seenLinks = new Set(trimmed.map((i) => i.link.trim()));
+      for (const it of fb.items) {
+        const k = it.link.trim();
+        if (!k || seenLinks.has(k)) continue;
+        seenLinks.add(k);
+        trimmed.push({ ...it, firecrawl_excerpt: undefined } as GoogleNewsItem & { firecrawl_excerpt?: string });
+        if (trimmed.length >= minCount) break;
+      }
+    }
+  }
   if (trimmed.length < minCount) {
     return {
       ok: false,
@@ -322,6 +366,7 @@ const MAX_FC = 4;
 
 /**
  * Add Firecrawl markdown excerpts to the first `max` links (not Google URLs).
+ * Falls back to Gemini domain notes when Firecrawl fails.
  */
 export async function addFirecrawlExcerpts(
   items: GoogleNewsItem[],
@@ -334,7 +379,10 @@ export async function addFirecrawlExcerpts(
   for (let i = 0; i < out.length && n < max; i++) {
     const u = out[i]!.link;
     if (!u || u.includes("google.com/")) continue;
-    const r = await firecrawlScrape(u, ["markdown"]);
+    const r = await firecrawlScrapeWithFallback(
+      (url, _fmts) => firecrawlScrape(url, ["markdown"]),
+      u,
+    );
     n++;
     if (r.markdown) {
       out[i]!.firecrawl_excerpt = r.markdown.replace(/\s+/g, " ").trim().slice(0, 1_200);
@@ -345,6 +393,7 @@ export async function addFirecrawlExcerpts(
 
 /**
  * 30-item checklist: repeated Serp "AI news" (or override query).
+ * Falls back to Gemini if Serp returns < 30 items.
  */
 export async function fetchAiNewsChecklist30(): Promise<
   | { ok: true; items: GoogleNewsItem[] }
@@ -357,7 +406,15 @@ export async function fetchAiNewsChecklist30(): Promise<
   for (let off = 0; all.length < 30 && off < 60; off += CHUNK) {
     const r = await serpGoogleNewsSearch(q, { num: CHUNK, start: off });
     if (r.error && !r.items?.length) {
-      return { ok: false, error: r.error || "Serp failed" };
+      if (all.length === 0) {
+        // Serp failed entirely — try Gemini fallback
+        const fb = await geminiNewsFallback(q, 30, 30);
+        if (fb.items && fb.items.length >= 20) {
+          return { ok: true, items: fb.items.slice(0, 30) };
+        }
+        return { ok: false, error: r.error || "Serp failed" };
+      }
+      break; // partial results still useful
     }
     for (const it of r.items || []) {
       if (seen.has(it.link)) continue;
@@ -367,7 +424,20 @@ export async function fetchAiNewsChecklist30(): Promise<
     }
   }
   if (all.length < 30) {
-    return { ok: false, error: `Checklist: only ${all.length} items` };
+    // Backfill with Gemini
+    const fb = await geminiNewsFallback(q, 30 - all.length, 30 - all.length + 5);
+    if (fb.items?.length) {
+      for (const it of fb.items) {
+        const k = it.link.trim();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        all.push(it);
+        if (all.length >= 30) break;
+      }
+    }
+  }
+  if (all.length < 20) {
+    return { ok: false, error: `Checklist: only ${all.length} items (needs ≥20)` };
   }
   return { ok: true, items: all.slice(0, 30) };
 }

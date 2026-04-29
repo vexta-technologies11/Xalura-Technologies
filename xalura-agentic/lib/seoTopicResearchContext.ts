@@ -1,6 +1,10 @@
 import type { AuditStrategyOverlayV1 } from "./auditStrategyOverlayStore";
 import { firecrawlScrape } from "./phase7Clients";
 import { serpApiSearch } from "./contentWorkflow/serpApiSearch";
+import {
+  serpApiSearchWithFallback,
+  firecrawlScrapeWithFallback,
+} from "./researchFallback";
 
 const MAX_SERP = 8;
 const MAX_CRAWL_URLS = 3;
@@ -24,7 +28,7 @@ export function buildTopicSerpQuery(keyword: string, subcategory: string): strin
 
 /**
  * Per SEO **topic** run: SerpAPI search for the pillar/keyword, then Firecrawl markdown for
- * top organic URLs. Injected into Worker context alongside topic row + optional `referenceUrl` GSC.
+ * top organic URLs. Both have Gemini fallbacks when APIs are exhausted.
  */
 export async function buildSeoTopicResearchContext(params: {
   keyword: string;
@@ -74,18 +78,22 @@ export async function buildSeoTopicResearchContext(params: {
   }
   const notes: string[] = [];
 
-  const serp = await serpApiSearch(q, MAX_SERP);
+  // Use fallback wrapper: if SerpAPI returns < 5 items, Gemini fills in
+  const serp = await serpApiSearchWithFallback(
+    (q, n) => serpApiSearch(q, n),
+    q,
+    MAX_SERP,
+    5,
+  );
   const items = serp.items ?? [];
-  if (serp.error) {
-    notes.push(`Topic SerpAPI: ${serp.error}`);
-    out.phase7_topic_serp_organic = [];
-  } else {
-    out.phase7_topic_serp_organic = items.slice(0, MAX_SERP).map((i) => ({
-      title: i.title,
-      link: i.link,
-      snippet: i.snippet,
-    }));
+  if (serp.fallback) {
+    notes.push(`Topic SerpAPI: using Gemini fallback (${items.length} items)`);
   }
+  out.phase7_topic_serp_organic = items.slice(0, MAX_SERP).map((i) => ({
+    title: i.title,
+    link: i.link,
+    snippet: i.snippet,
+  }));
 
   const urls = Array.from(
     new Set(
@@ -96,17 +104,18 @@ export async function buildSeoTopicResearchContext(params: {
   ).slice(0, MAX_CRAWL_URLS);
 
   if (urls.length === 0) {
-    if (!serp.error) {
-      notes.push("Topic research: no http(s) URLs in organic results to Firecrawl");
-    }
+    notes.push("Topic research: no http(s) URLs to Firecrawl");
   } else {
     const parts: string[] = [];
     for (const url of urls) {
-      const r = await firecrawlScrape(url, ["markdown"]);
-      if (r.error) {
-        parts.push(`## ${url}\nError: ${r.error}\n`);
-        notes.push(`Firecrawl ${url}: ${r.error}`);
-      } else if (r.markdown) {
+      const r = await firecrawlScrapeWithFallback(
+        (u, _fmts) => firecrawlScrape(u, ["markdown"]),
+        url,
+      );
+      if (r.fallback) {
+        notes.push(`Firecrawl ${url}: using Gemini fallback`);
+      }
+      if (r.markdown) {
         parts.push(`## ${url}\n${truncate(r.markdown, PER_URL)}\n`);
       }
     }

@@ -11,6 +11,7 @@ import { buildCrawlSummary } from "./topicBankRefresh";
 import { readJsonFile, writeJsonFile } from "./jsonStore";
 import { topicBankLastAuditPath } from "./paths";
 import { serpApiSearch } from "./serpApiSearch";
+import { geminiSerpOrganicFallback } from "../researchFallback";
 import type { ContentType, TopicBankEntry, TopicBankFile } from "./types";
 import { readTopicBank, writeTopicBank, newTopicId } from "./topicBankStore";
 import { writeSeoTrendLogsFromBank } from "./seoTrendLogsStore";
@@ -196,20 +197,30 @@ export async function refreshTopicBankForTenPillars(
     const laneId = ARTICLE_SUBCATEGORY_TO_AGENT_LANE_ID[label]!;
     const q = pillarSerpQuery(label);
     const search = await serpApiSearch(q, PILLAR_SERP);
-    if (search.error) {
-      return { ok: false, error: `SerpAPI (${label}): ${search.error}` };
+    const items = (search.items ?? []).filter(Boolean);
+    let searchSummary: string;
+    let crawlSummary: string;
+
+    if (search.error || items.length === 0) {
+      // Per-pillar SerpAPI exhausted — use Gemini fallback
+      const fb = await geminiSerpOrganicFallback(q, 4, PILLAR_SERP);
+      if (fb.items && fb.items.length >= 2) {
+        searchSummary = JSON.stringify(
+          fb.items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
+        );
+        crawlSummary = "(Gemini fallback — no Firecrawl pages available)";
+      } else {
+        return { ok: false, error: `SerpAPI & Gemini fallback (${label}): ${search.error || "no items"}` };
+      }
+    } else {
+      const urls = Array.from(
+        new Set(items.map((i) => i.link).filter(Boolean) as string[]),
+      ).slice(0, PILLAR_MAX_CRAWL_URLS);
+      crawlSummary = await buildCrawlSummary(urls);
+      searchSummary = JSON.stringify(
+        items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
+      );
     }
-    const items = search.items ?? [];
-    if (!items.length) {
-      return { ok: false, error: `SerpAPI returned no results for pillar: ${label}` };
-    }
-    const urls = Array.from(
-      new Set(items.map((i) => i.link).filter(Boolean) as string[]),
-    ).slice(0, PILLAR_MAX_CRAWL_URLS);
-    const crawlSummary = await buildCrawlSummary(urls);
-    const searchSummary = JSON.stringify(
-      items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
-    );
 
     const g = await discoverPillarTopicWithGemini({
       laneId,

@@ -1,5 +1,6 @@
 import { appendEvent } from "../eventQueue";
 import { firecrawlScrape, gscSearchAnalyticsByPage } from "../phase7Clients";
+import { firecrawlScrapeWithFallback, geminiSerpOrganicFallback } from "../researchFallback";
 import { auditBankWithGemini } from "./geminiBankAuditor";
 import { rankTopicsWithGemini } from "./geminiTopicRanker";
 import { serpApiSearch } from "./serpApiSearch";
@@ -22,16 +23,19 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Reused by pillar-based refresh (one Serp + crawl per public subcategory). */
+/** Reused by pillar-based refresh (one Serp + crawl per public subcategory). Falls back to Gemini. */
 export async function buildCrawlSummary(urls: string[]): Promise<string> {
   const parts: string[] = [];
   for (const url of urls.slice(0, 4)) {
-    const r = await firecrawlScrape(url, ["markdown"]);
-    if (r.error) parts.push(`## ${url}\n_Error: ${r.error}_\n`);
-    else if (r.markdown)
+    const r = await firecrawlScrapeWithFallback(
+      (u, _fmts) => firecrawlScrape(u, ["markdown"]),
+      url,
+    );
+    if (r.markdown) {
       parts.push(
         `## ${url}\n${r.markdown.slice(0, 3500)}${r.markdown.length > 3500 ? "\n…" : ""}\n`,
       );
+    }
   }
   return parts.join("\n");
 }
@@ -114,25 +118,45 @@ export async function refreshTopicBank(
     "artificial intelligence enterprise developer cloud security MLOps education marketing infrastructure news 2026",
     10,
   );
-  if (search.error) {
-    const detail =
-      search.errorBody != null && search.errorBody.trim().length > 0
-        ? `\n\n--- SerpAPI response body (debug) ---\n${search.errorBody}`
-        : "";
-    return { ok: false, error: `${search.error}${detail}` };
-  }
-  const items = search.items ?? [];
-  if (!items.length) {
-    return { ok: false, error: "SerpAPI returned no organic results for this query" };
+  const items = (search.items ?? []).filter(Boolean);
+  let searchSummary: string;
+  let usedFallback = false;
+
+  if (search.error || items.length === 0) {
+    // SerpAPI exhausted — use Gemini fallback to synthesize research context
+    const fb = await geminiSerpOrganicFallback(
+      search.error
+        ? "artificial intelligence enterprise developer cloud security MLOps education marketing infrastructure 2026"
+        : "artificial intelligence trends 2026",
+      5,
+      10,
+    );
+    if (fb.items && fb.items.length >= 3) {
+      searchSummary = JSON.stringify(
+        fb.items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
+      );
+      usedFallback = true;
+    } else {
+      const detail =
+        search.errorBody != null && search.errorBody.trim().length > 0
+          ? `\n\n--- SerpAPI response body (debug) ---\n${search.errorBody}`
+          : "";
+      return { ok: false, error: `${search.error}${detail}` };
+    }
+  } else {
+    searchSummary = JSON.stringify(
+      items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
+    );
   }
 
-  const urls = Array.from(
-    new Set(items.map((i) => i.link).filter(Boolean) as string[]),
-  ).slice(0, 6);
-  const crawlSummary = await buildCrawlSummary(urls);
-  const searchSummary = JSON.stringify(
-    items.map((i) => ({ title: i.title, link: i.link, snippet: i.snippet })),
-  );
+  const urls = usedFallback
+    ? []
+    : Array.from(
+        new Set(items.map((i) => i.link).filter(Boolean) as string[]),
+      ).slice(0, 6);
+  const crawlSummary = usedFallback
+    ? "(Gemini fallback — no Firecrawl pages available)"
+    : await buildCrawlSummary(urls);
 
   const rot = readTopicRotation(cwd);
   const recent = recentKeywords(cwd, 30);
