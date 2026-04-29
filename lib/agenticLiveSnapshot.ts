@@ -1,3 +1,4 @@
+
 import type { AgenticEvent } from "@/xalura-agentic/lib/eventQueue";
 import { readEvents } from "@/xalura-agentic/lib/eventQueue";
 import { readFailedQueue } from "@/xalura-agentic/lib/failedQueue";
@@ -92,6 +93,10 @@ function summarizeEvent(e: AgenticEvent): string {
       return `SEO bundle ${e.payload.bundle_id} (${e.payload.keywords?.length ?? 0} kw)`;
     case "TOPIC_BANK_REFRESHED":
       return `Topic bank refresh (${e.payload.topic_count} topics)`;
+    case "CHIEF_CANCEL":
+      return `Chief cancelled ${e.payload.department ?? "global"} — ${e.payload.reason}`;
+    case "CHIEF_TRIGGER":
+      return `Chief triggered ${e.payload.target} — ${e.payload.reason}`;
   }
 }
 
@@ -191,6 +196,27 @@ function liveLines(
   cycle: { approvalsInWindow: number; auditsCompleted: number },
 ): { worker: string; manager: string; executive: string } {
   const windowHint = `Window ${cycle.approvalsInWindow}/10 · audits ${cycle.auditsCompleted}`;
+  const fallbackLines = (): { worker: string; manager: string; executive: string } => {
+    if (dept === "news") {
+      return {
+        worker: `Draft desk: team event (${e.type})`,
+        manager: `Editorial review: ${windowHint}`,
+        executive: "Chief of Audit: coordinating the publish ladder",
+      };
+    }
+    if (dept === "news_preprod") {
+      return {
+        worker: `Pre-Production desk: team event (${e.type})`,
+        manager: `Selection desk: ${windowHint}`,
+        executive: "Chief of Audit: supporting pre-prod lane",
+      };
+    }
+    return {
+      worker: `Worker: team event (${e.type})`,
+      manager: `Manager: ${windowHint}`,
+      executive: `Executive: coordinating`,
+    };
+  };
   if (dept === "news") {
     switch (e.type) {
       case "WAITING":
@@ -223,6 +249,8 @@ function liveLines(
           manager: "Editorial review: bank freshness check",
           executive: "Chief of Audit: SEO → pipeline consumers",
         };
+      default:
+        return fallbackLines();
     }
   }
   if (dept === "news_preprod") {
@@ -257,6 +285,8 @@ function liveLines(
           manager: "Selection desk: bank freshness check",
           executive: "Chief of Audit: SEO → pipeline consumers",
         };
+      default:
+        return fallbackLines();
     }
   }
   switch (e.type) {
@@ -293,6 +323,8 @@ function liveLines(
         manager: "Manager: bank freshness check",
         executive: "Executive: SEO → pipeline consumers",
       };
+    default:
+      return fallbackLines();
   }
 }
 
