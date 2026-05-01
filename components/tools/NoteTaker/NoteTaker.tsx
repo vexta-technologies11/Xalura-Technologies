@@ -13,6 +13,7 @@ import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import { useUsageLimit } from "@/lib/hooks/useUsageLimit";
 import { useUpgradeModal } from "@/lib/hooks/useUpgradeModal";
 import { cleanNotes, type NoteTakerResult } from "@/lib/services/noteTakerService";
+import type { NoteTakerParams } from "@/lib/services/prompts/noteTakerPrompt";
 
 const MODES = [
   { value: "cleanup", label: "Clean up (free)" },

@@ -88,7 +88,7 @@ export default function FeaturesSection({
   )
 }
 
-const MeetingIllustration = () => {
+function MeetingIllustration() {
   return (
     <Card
       aria-hidden
@@ -130,7 +130,7 @@ const MeetingIllustration = () => {
   )
 }
 
-const CodeReviewIllustration = () => {
+function CodeReviewIllustration() {
   return (
     <div
       aria-hidden
@@ -166,7 +166,7 @@ const CodeReviewIllustration = () => {
   )
 }
 
-const AIAssistantIllustration = () => {
+function AIAssistantIllustration() {
   return (
     <Card
       aria-hidden

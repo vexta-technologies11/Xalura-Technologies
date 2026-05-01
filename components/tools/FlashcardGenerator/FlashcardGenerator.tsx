@@ -13,6 +13,7 @@ import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import { useUsageLimit } from "@/lib/hooks/useUsageLimit";
 import { useUpgradeModal } from "@/lib/hooks/useUpgradeModal";
 import { generateFlashcards, type FlashcardResult } from "@/lib/services/flashcardService";
+import type { FlashcardParams } from "@/lib/services/prompts/flashcardPrompt";
 
 const FORMATS = [
   { value: "qa", label: "Q&A (Question → Answer)" },
@@ -35,7 +36,7 @@ export function FlashcardGenerator() {
 
   const [inputText, setInputText] = useState("");
   const [count, setCount] = useState("10");
-  const [format, setFormat] = useState("qa");
+  const [format, setFormat] = useState<FlashcardParams["format"]>("qa");
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [output, setOutput] = useState<FlashcardResult | null>(null);
@@ -138,7 +139,7 @@ export function FlashcardGenerator() {
             label="Format"
             options={FORMATS}
             value={format}
-            onChange={(e) => setFormat(e.target.value)}
+            onChange={(e) => setFormat(e.target.value as FlashcardParams["format"])}
           />
         </div>
 

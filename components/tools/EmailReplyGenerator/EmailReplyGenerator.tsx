@@ -12,6 +12,7 @@ import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import { useUsageLimit } from "@/lib/hooks/useUsageLimit";
 import { useUpgradeModal } from "@/lib/hooks/useUpgradeModal";
 import { generateEmailReply, type EmailReplyResult } from "@/lib/services/emailReplyService";
+import type { EmailReplyParams } from "@/lib/services/prompts/emailReplyPrompt";
 
 const REPLY_TYPES = [
   { value: "accept", label: "Accept" },
@@ -32,8 +33,8 @@ export function EmailReplyGenerator() {
   const { isOpen: upgradeOpen, triggerSource, openUpgrade, closeUpgrade } = useUpgradeModal();
 
   const [emailContext, setEmailContext] = useState("");
-  const [replyType, setReplyType] = useState("accept");
-  const [tone, setTone] = useState("professional");
+  const [replyType, setReplyType] = useState<EmailReplyParams["replyType"]>("accept");
+  const [tone, setTone] = useState<EmailReplyParams["tone"]>("professional");
   const [customInstructions, setCustomInstructions] = useState("");
   const [useProFeatures, setUseProFeatures] = useState(false);
 
@@ -110,13 +111,13 @@ export function EmailReplyGenerator() {
             label="Reply Type"
             options={REPLY_TYPES}
             value={replyType}
-            onChange={(e) => setReplyType(e.target.value)}
+            onChange={(e) => setReplyType(e.target.value as EmailReplyParams["replyType"])}
           />
           <SelectInput
             label="Tone"
             options={TONES}
             value={tone}
-            onChange={(e) => setTone(e.target.value)}
+            onChange={(e) => setTone(e.target.value as EmailReplyParams["tone"])}
           />
         </div>
 

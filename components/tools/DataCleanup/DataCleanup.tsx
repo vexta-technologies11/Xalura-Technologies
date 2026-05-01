@@ -34,7 +34,7 @@ export function DataCleanup() {
   const { isOpen: upgradeOpen, triggerSource, openUpgrade, closeUpgrade } = useUpgradeModal();
 
   const [rawData, setRawData] = useState("");
-  const [cleanupType, setCleanupType] = useState("deduplicate");
+  const [cleanupType, setCleanupType] = useState<"deduplicate" | "standardize" | "extract" | "csv-clean" | "custom">("deduplicate");
   const [extractPattern, setExtractPattern] = useState("emails");
   const [customRules, setCustomRules] = useState("");
   const [useProFeatures, setUseProFeatures] = useState(false);
@@ -62,7 +62,7 @@ export function DataCleanup() {
         <UsageLimitBar used={usage.used} limit={usage.limit} label="Cleanups today" cooldownMs={usage.cooldownMs} cooldownLabel={usage.cooldownLabel} />
         <TextArea label="Paste your data" value={rawData} onChange={(e) => setRawData(e.target.value)} placeholder="Paste names, emails, phone numbers, or CSV data..." rows={8} hint={`${rawData.split("\n").length} lines`} />
         <div className="ai-tools__field-row ai-tools__field-row--2">
-          <SelectInput label="Cleanup Type" options={CLEANUP_TYPES} value={cleanupType} onChange={(e) => setCleanupType(e.target.value)} />
+          <SelectInput label="Cleanup Type" options={CLEANUP_TYPES} value={cleanupType} onChange={(e) => setCleanupType(e.target.value as "deduplicate" | "standardize" | "extract" | "csv-clean" | "custom")} />
           {cleanupType === "extract" && <SelectInput label="Extract Pattern" options={EXTRACT_PATTERNS} value={extractPattern} onChange={(e) => setExtractPattern(e.target.value)} />}
         </div>
         {cleanupType === "custom" && <TextArea label="Custom Rules" value={customRules} onChange={(e) => setCustomRules(e.target.value)} placeholder="e.g. Merge first & last name columns, format phones as +1 (555) 123-4567" rows={2} />}

@@ -3,7 +3,7 @@
 import { ReactNode } from "react";
 import { UpgradeModal } from "./UpgradeModal";
 import { UsageLimitBar } from "./UsageLimitBar";
-import { AntiBotPuzzle } from "@/lib/antiBot";
+import { AntiBotPuzzle } from "@/components/shared/AntiBotPuzzle";
 import { useProtectedGenerate } from "@/lib/hooks/useProtectedGenerate";
 
 interface ProtectedToolWrapperProps {

@@ -13,6 +13,7 @@ import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import { useUsageLimit } from "@/lib/hooks/useUsageLimit";
 import { useUpgradeModal } from "@/lib/hooks/useUpgradeModal";
 import { generateEssayOutline, type EssayOutlineResult } from "@/lib/services/essayOutlinerService";
+import type { EssayOutlinerParams } from "@/lib/services/prompts/essayOutlinerPrompt";
 
 const ESSAY_TYPES = [
   { value: "argumentative", label: "Argumentative" },
@@ -29,7 +30,7 @@ export function EssayOutliner() {
   const { isOpen: upgradeOpen, triggerSource, openUpgrade, closeUpgrade } = useUpgradeModal();
 
   const [topic, setTopic] = useState("");
-  const [essayType, setEssayType] = useState("argumentative");
+  const [essayType, setEssayType] = useState<EssayOutlinerParams["essayType"]>("argumentative");
   const [thesis, setThesis] = useState("");
   const [instructions, setInstructions] = useState("");
   const [researchNotes, setResearchNotes] = useState("");
@@ -103,7 +104,7 @@ export function EssayOutliner() {
             label="Essay Type"
             options={ESSAY_TYPES}
             value={essayType}
-            onChange={(e) => setEssayType(e.target.value)}
+            onChange={(e) => setEssayType(e.target.value as EssayOutlinerParams["essayType"])}
           />
           <TextInput
             label="Your Thesis (optional)"
