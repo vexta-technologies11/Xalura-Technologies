@@ -68,14 +68,14 @@ function saveStorage(record: UsageRecord): void {
  */
 function generateDeviceId(): string {
   const nav = typeof navigator !== "undefined" ? navigator : null;
-  const screen = typeof screen !== "undefined" ? screen : null;
+  const scr = typeof screen !== "undefined" ? screen : null;
 
   const components = [
     nav?.userAgent || "",
     nav?.language || "",
-    screen?.width || "",
-    screen?.height || "",
-    screen?.colorDepth || "",
+    scr?.width || "",
+    scr?.height || "",
+    scr?.colorDepth || "",
     // Timezone offset
     new Date().getTimezoneOffset(),
     // Hardware concurrency

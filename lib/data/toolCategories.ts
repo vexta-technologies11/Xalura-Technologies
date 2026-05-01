@@ -24,9 +24,9 @@ export async function getToolCategories(): Promise<ToolCategory[]> {
     id: c.id as string,
     name: c.name as string,
     display_order: c.display_order as number,
-    items: ((c.items as Array<Record<string, unknown>>) || []).sort(
+    items: (((c.items as Array<Record<string, unknown>>) || []).sort(
       (a, b) => (a.display_order as number) - (b.display_order as number),
-    ),
+    ) as ToolCategory["items"]),
   }));
 }
 
