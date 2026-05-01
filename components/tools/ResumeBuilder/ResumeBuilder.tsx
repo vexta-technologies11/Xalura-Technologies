@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { SplitPanel } from "@/components/shared/SplitPanel";
 import { TextInput } from "@/components/shared/TextInput";
 import { TextArea } from "@/components/shared/TextArea";
-import { SelectInput } from "@/components/shared/SelectInput";
 import { Button } from "@/components/shared/Button";
 import { UploadZone } from "@/components/shared/UploadZone";
 import { OutputSkeleton } from "@/components/shared/LoadingSkeleton";
@@ -99,7 +98,7 @@ export function ResumeBuilder() {
     ]);
   };
 
-  const updateJob = (id: string, field: keyof JobEntry, value: any) => {
+  const updateJob = (id: string, field: keyof JobEntry, value: string | boolean) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, [field]: value } : j)));
   };
 

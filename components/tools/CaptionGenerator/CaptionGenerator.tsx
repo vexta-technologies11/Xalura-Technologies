@@ -20,7 +20,7 @@ import {
   type CaptionOption,
 } from "@/lib/services/captionService";
 
-const TONE_OPTIONS = [
+const TONE_OPTIONS: { value: CaptionParams["tones"][number]; label: string }[] = [
   { value: "funny", label: "Funny" },
   { value: "inspiring", label: "Inspiring" },
   { value: "educational", label: "Educational" },
@@ -349,13 +349,13 @@ export function CaptionGenerator() {
                     style={{
                       padding: "6px 12px",
                       fontSize: "0.82rem",
-                      background: selectedTones.includes(tone.value as any)
+                      background: selectedTones.includes(tone.value)
                         ? "rgba(124,58,237,0.2)"
                         : "rgba(0,0,0,0.2)",
-                      borderColor: selectedTones.includes(tone.value as any)
+                      borderColor: selectedTones.includes(tone.value)
                         ? "rgba(124,58,237,0.4)"
                         : "rgba(255,255,255,0.08)",
-                      transform: selectedTones.includes(tone.value as any) ? "scale(1.05)" : "scale(1)",
+                      transform: selectedTones.includes(tone.value) ? "scale(1.05)" : "scale(1)",
                     }}
                     onClick={() => toggleTone(tone.value as CaptionParams["tones"][number])}
                   >

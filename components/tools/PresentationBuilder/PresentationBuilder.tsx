@@ -120,7 +120,7 @@ export function PresentationBuilder() {
                   { value: "report", label: "Report" },
                 ]}
                 value={purpose}
-                onChange={(e) => setPurpose(e.target.value as any)}
+                onChange={(e) => setPurpose(e.target.value as "inform" | "persuade" | "teach" | "pitch" | "report")}
               />
               <SelectInput
                 label="Audience"
@@ -132,7 +132,7 @@ export function PresentationBuilder() {
                   { value: "customers", label: "Customers" },
                 ]}
                 value={audience}
-                onChange={(e) => setAudience(e.target.value as any)}
+                onChange={(e) => setAudience(e.target.value as "general" | "executives" | "technical" | "students" | "customers")}
               />
               <SelectInput
                 label="Tone"
@@ -144,7 +144,7 @@ export function PresentationBuilder() {
                   { value: "inspirational", label: "Inspirational" },
                 ]}
                 value={tone}
-                onChange={(e) => setTone(e.target.value as any)}
+                onChange={(e) => setTone(e.target.value as "professional" | "academic" | "persuasive" | "casual" | "inspirational")}
               />
             </div>
 
