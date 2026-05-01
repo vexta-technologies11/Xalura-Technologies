@@ -2,13 +2,10 @@
 
 import { useState, useCallback } from "react";
 import { SplitPanel } from "@/components/shared/SplitPanel";
-import { TextInput } from "@/components/shared/TextInput";
-import { TextArea } from "@/components/shared/TextArea";
 import { SelectInput } from "@/components/shared/SelectInput";
 import { Button } from "@/components/shared/Button";
 import { OutputSkeleton } from "@/components/shared/LoadingSkeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { OutputActions } from "@/components/shared/OutputActions";
 import { UsageLimitBar } from "@/components/shared/UsageLimitBar";
 import { UpgradeModal } from "@/components/shared/UpgradeModal";
 import { useUsageLimit } from "@/lib/hooks/useUsageLimit";

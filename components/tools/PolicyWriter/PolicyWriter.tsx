@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/shared/Button";
 import { SelectInput } from "@/components/shared/SelectInput";
 import { TextInput } from "@/components/shared/TextInput";
-import { TextArea } from "@/components/shared/TextArea";
 import { OutputSkeleton } from "@/components/shared/LoadingSkeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { OutputActions } from "@/components/shared/OutputActions";
