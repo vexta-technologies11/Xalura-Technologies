@@ -316,7 +316,7 @@ export function EssayOutliner() {
                 ))}
               </ul>
               <div style={{ marginTop: 8, fontSize: "0.9rem", color: "rgba(240,245,255,0.9)", fontStyle: "italic" }}>
-                "{output.conclusion.closingThought}"
+                &quot;{output.conclusion.closingThought}&quot;
               </div>
             </div>
 

@@ -124,7 +124,7 @@ export function InvoiceGenerator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [letterType, clientName, letterProjectName, letterAmount, letterDetails, incrementUsage]);
+  }, [letterType, clientName, letterProjectName, letterAmount, letterDetails, incrementUsage, usage.isBlocked, openUpgrade]);
 
   const currencySymbols: Record<string, string> = {
     USD: "$",

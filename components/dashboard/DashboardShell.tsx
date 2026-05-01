@@ -77,7 +77,7 @@ export function DashboardShell() {
         >
           <div>
             <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "rgba(240,245,255,0.9)" }}>
-              Today's Usage
+              Today&apos;s Usage
             </div>
             <div style={{ fontSize: "0.75rem", color: "rgba(200,210,230,0.5)" }}>
               Free tier: up to 5 uses per tool

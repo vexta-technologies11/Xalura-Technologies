@@ -96,7 +96,7 @@ export function AITranslator() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [sourceText, targetLanguage, formality, translatedText]);
+  }, [sourceText, targetLanguage, formality, translatedText, handleTranslate]);
 
   const handleSwap = () => {
     const newSource = targetLanguage;
