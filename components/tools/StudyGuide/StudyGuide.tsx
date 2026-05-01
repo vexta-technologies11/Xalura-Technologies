@@ -142,7 +142,7 @@ export function StudyGuide() {
                   { value: "meeting-notes", label: "Meeting Notes" },
                 ]}
                 value={sourceType}
-                onChange={(e) => setSourceType(e.target.value as any)}
+                onChange={(e) => setSourceType(e.target.value as "lecture-notes" | "textbook" | "article" | "meeting-notes")}
               />
               <SelectInput
                 label="Complexity"
@@ -153,7 +153,7 @@ export function StudyGuide() {
                   { value: "expert", label: "Expert" },
                 ]}
                 value={complexity}
-                onChange={(e) => setComplexity(e.target.value as any)}
+                onChange={(e) => setComplexity(e.target.value as "high-school" | "college" | "graduate" | "expert")}
               />
             </div>
 

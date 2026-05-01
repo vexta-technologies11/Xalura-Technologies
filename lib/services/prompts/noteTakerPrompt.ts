@@ -8,12 +8,6 @@ export interface NoteTakerParams {
 export function buildNoteTakerPrompt(params: NoteTakerParams): string {
   const { rawNotes, mode, template, isPro } = params;
 
-  const modeIdentifier = mode === "cleanup"
-    ? "Format the notes into clean bullet points. Bold key terms. Remove repetition. Organize by topic."
-    : mode === "summary"
-      ? "Create a 3-sentence executive summary first, then organize the full notes into detailed bullet points with bolded key terms."
-      : "Create a comprehensive study guide: key topics, explanations, key terms with definitions, and review questions.";
-
   const templateInstructions = template === "cornell"
     ? "Use Cornell method: left column for cues/questions, right column for notes, bottom for summary."
     : template === "outline"
