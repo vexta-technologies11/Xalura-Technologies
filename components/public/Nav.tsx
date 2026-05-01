@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Sun, Moon } from "lucide-react";
 import { LogoMark } from "./LogoMark";
+import { useTheme } from "@/components/shared/ThemeProvider";
 
 const LINKS: { href: string; label: string }[] = [
   { href: "/team", label: "Team" },
@@ -17,6 +18,7 @@ const LINKS: { href: string; label: string }[] = [
 export function Nav({ variant = "default" }: { variant?: "default" | "palantir" }) {
   const ph = variant === "palantir";
   const [open, setOpen] = useState(false);
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     if (open) {
@@ -56,6 +58,14 @@ export function Nav({ variant = "default" }: { variant?: "default" | "palantir" 
               </li>
             ))}
           </ul>
+          <button
+            className="theme-toggle"
+            onClick={toggle}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
+          </button>
           <a className="nav-pill" href="/#contact">
             Contact
           </a>
@@ -91,6 +101,16 @@ export function Nav({ variant = "default" }: { variant?: "default" | "palantir" 
                 </li>
               ))}
               <li>
+                <button
+                  className="nav-mobile-theme-toggle"
+                  onClick={() => { toggle(); close(); }}
+                  style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "inherit", padding: "12px 0", display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  {theme === "dark" ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
+                  {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                </button>
+              </li>
+              <li>
                 <a href="/#contact" onClick={close}>
                   Contact
                 </a>
@@ -112,3 +132,4 @@ export function Nav({ variant = "default" }: { variant?: "default" | "palantir" 
     </nav>
   );
 }
+

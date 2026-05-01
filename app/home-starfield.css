@@ -34,8 +34,18 @@
   opacity: 1 !important;
 }
 
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph::before {
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, rgba(200, 215, 240, 0.35) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(245, 247, 251, 0.5) 0%, rgba(242, 244, 248, 0.8) 100%) !important;
+}
+
 .public-home--starfield.public-home--palantir .hero--ph::after {
   opacity: 0.32 !important;
+}
+
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph::after {
+  opacity: 0.08 !important;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
 }
 
 /* Standalone public routes: starfield + transparent main column */
@@ -60,6 +70,69 @@
 .public-home--starfield .public-page--starfield .ph-muted,
 .public-home--starfield .public-page--starfield p.body-text {
   color: #a3a3a3 !important;
+}
+
+/* Light mode: glass cards become light frosted glass */
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass .label,
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass .body-text,
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass .body-text p {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass .h2,
+[data-theme="light"] .public-home--starfield .mission--ph.mission--bg-glass .h2 em {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .label,
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .h2,
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .h2 em,
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .body-text,
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass p {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .h2 {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-metric-label {
+  color: #9ca3af !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-metric-value {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-name,
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-body {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .feat-list li {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-metric {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .product--ph.product--bg-glass .product-card {
+  background: rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
 
 /* —— Black glass: Why we exist (mission) —— */
@@ -516,4 +589,279 @@
     margin-left: max(12px, env(safe-area-inset-left));
     margin-right: max(12px, env(safe-area-inset-right));
   }
+}
+
+/* ════════════════════════════════════════════════════════
+   LIGHT MODE — LAST DEFINTION WINS (after all dark rules)
+   ════════════════════════════════════════════════════════ */
+[data-theme="light"] .public-home--starfield .public-page--starfield .h2,
+[data-theme="light"] .public-home--starfield .public-page--starfield .h1 {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-page--starfield .label {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-page--starfield .body-text,
+[data-theme="light"] .public-home--starfield .public-page--starfield .ph-muted,
+[data-theme="light"] .public-home--starfield .public-page--starfield p.body-text {
+  color: #6b7280 !important;
+}
+
+/* Logo wordmark "Xalura Tech" */
+[data-theme="light"] .logo-wordmark {
+  color: #1c1c1e !important;
+}
+
+/* Nav scrim overlay */
+[data-theme="light"] .nav-scrim {
+  background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Nav mobile panel */
+[data-theme="light"] .nav-mobile-panel {
+  background: #ffffff !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .nav-mobile-panel a {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .nav-mobile-panel a:hover {
+  color: #4f46e5 !important;
+}
+
+/* Brand card titles & stack — override the declared-before dark !important */
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-offer-h,
+[data-theme="light"] .public-home--palantir .brand--ph h2.h2.ph-brand-offer-h,
+[data-theme="light"] .public-home--palantir .brand--ph h3.ph-brand-card-title,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-offer-card .h2.ph-brand-card-title,
+[data-theme="light"] .public-home--palantir .brand--ph h2.ph-brand-section-title,
+[data-theme="light"] .public-home--palantir .brand--ph h2.ph-brand-approach-title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph p.ph-brand-prose,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-prose,
+[data-theme="light"] .public-home--palantir .brand--ph p.ph-brand-prose--larger,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-prose--larger {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .label {
+  color: #9ca3af !important;
+}
+
+/* Home AI cards section title */
+[data-theme="light"] .public-home--starfield .home-ai {
+  color: #1c1c1e !important;
+}
+
+/* AI icon in tilt cards */
+[data-theme="light"] .public-home--starfield .home-ai__icon {
+  background: rgba(79, 70, 229, 0.12) !important;
+  color: #4f46e5 !important;
+}
+
+/* Tilt card inner border ring */
+[data-theme="light"] .public-home--starfield .home-ai__tilt-edge {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.06) inset !important;
+}
+
+/* Headline section — override dark hero text in starfield + light mode */
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph .h1,
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph .h1 em {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph .body-text,
+[data-theme="light"] .public-home--starfield.public-home--palantir .hero--ph .ph-hero-kicker {
+  color: #6b7280 !important;
+}
+
+/* AI tools hub cards on starfield pages */
+[data-theme="light"] .public-home--starfield .ai-tools-hub__link {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .ai-tools-hub__link .ai-tools-hub__title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .ai-tools-hub__link .ai-tools-hub__blurb {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .ai-tools-hub__link:hover {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+}
+
+/* Home AI tool cards */
+[data-theme="light"] .public-home--starfield .home-ai__card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-ai__card-title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-ai__card-blurb {
+  color: #6b7280 !important;
+  opacity: 1;
+}
+
+[data-theme="light"] .public-home--starfield .home-ai__all {
+  color: #4f46e5 !important;
+  text-decoration-color: rgba(79, 70, 229, 0.3) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-ai__card:hover {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+}
+
+/* News section */
+[data-theme="light"] .public-home--starfield .home-na {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-na__section {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-na__featured {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-na__article-card {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-na__article-card:hover {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-news-carousel[data-palantir] .home-news-carousel__card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .home-news-carousel[data-palantir] .home-news-carousel__card-text {
+  background: transparent !important;
+}
+
+/* Article cards */
+[data-theme="light"] .public-home--starfield .article-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #1c1c1e !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .public-home--starfield .article-card:hover {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .public-home--starfield .article-card__title,
+[data-theme="light"] .public-home--starfield .article-card__excerpt,
+[data-theme="light"] .public-home--starfield .article-card__excerpt.body-text,
+[data-theme="light"] .public-home--starfield .article-card__tag.label {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-card__meta {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .articles-browser__label {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .articles-browser__select {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-news-row__title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-news-row__meta {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .courses-index-list a {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .courses-index-list p {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .courses-index-list li {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-detail-meta {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-page--starfield .public-course-lesson-title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-page--starfield .public-lesson-body {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--starfield .public-page--starfield .public-course-h2 {
+  color: #1c1c1e !important;
+}
+
+/* Article markdown prose */
+[data-theme="light"] .public-home--starfield .article-markdown,
+[data-theme="light"] .public-home--starfield .article-markdown p,
+[data-theme="light"] .public-home--starfield .article-markdown li {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-markdown h1,
+[data-theme="light"] .public-home--starfield .article-markdown h2,
+[data-theme="light"] .public-home--starfield .article-markdown h3,
+[data-theme="light"] .public-home--starfield .article-markdown h4,
+[data-theme="light"] .public-home--starfield .article-markdown strong {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-markdown a {
+  color: #4f46e5 !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-markdown blockquote {
+  color: #6b7280 !important;
+  border-left-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-markdown code {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--starfield .article-markdown pre {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
 }

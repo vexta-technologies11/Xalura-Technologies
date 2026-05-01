@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ProActivationToggle } from "./pro-activation-toggle";
 
 export default async function AdminHome() {
   if (
@@ -18,6 +19,20 @@ export default async function AdminHome() {
     <div>
       <h1 className="admin-page-title">Dashboard</h1>
       <p className="admin-page-lead">Overview of your Xalura site configuration.</p>
+
+      {/* Pro Version Activation Toggle */}
+      <div
+        style={{
+          padding: "16px 20px",
+          borderRadius: "10px",
+          background: "rgba(245,158,11,0.08)",
+          border: "1px solid rgba(245,158,11,0.2)",
+          marginBottom: "20px",
+        }}
+      >
+        <ProActivationToggle />
+      </div>
+
       <div className="admin-stat-grid">
         <div className="admin-stat-card">
           <p className="admin-stat-label">AI Employees</p>

@@ -43,6 +43,7 @@ export function ContentToolClient() {
             onText={setOut}
             onReset={() => setOut("")}
             onSubmitLabel="Generate content"
+            toolId="content"
           />
         </form>
       </div>

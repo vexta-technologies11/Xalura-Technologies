@@ -36,7 +36,7 @@ export async function generatePublishingHeroImage(params: {
       department: "Publishing — Graphic Designer",
       task: `You are the **Graphic Designer**. Produce **only** a single compact English image generation prompt (max 500 characters) for the **hero image** of this published article. No quotes, no markdown — raw prompt text only.
 
-**Visual style (mandatory):** describe a **photorealistic** scene: believable real-world or documentary-style still, professional editorial or product photography, natural light, sharp focus. **Not** cartoon, anime, vector art, illustration, or artificial 3D game/CGI look unless the article is explicitly about that medium. The scene must support the **keyword pillar** below — not generic “tech office stock” unless the pillar is office/workplace.
+**Visual style (mandatory):** produce an **artistic, abstract, or stylized** illustration. Think modern editorial design: flat vectors, geometric shapes, subtle gradients, abstract compositions, minimal line art, or painterly soft textures. **Not** photorealistic. **No** real people, hands, or human faces. **No** text, letters, logos, or brand marks in the image. **No** photographic or documentary-style imagery. **No** 3D renders or CGI. The image should be visually appealing as a website hero — clean, modern, abstract, editorial. Color palette should be professional and harmonious.
 
 Article title: ${params.title}
 ${anchor}Executive summary:

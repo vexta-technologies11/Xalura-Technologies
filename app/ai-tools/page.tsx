@@ -1,34 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, FileText, FileBarChart2 } from "lucide-react";
+import { TOOLS } from "@/lib/data/tools";
+import { getToolCategories } from "@/lib/data/toolCategories";
 
 export const metadata: Metadata = {
   title: "Everyday tools | Xalura Tech",
   description: "Email, content, and report helpers with copy-paste ready output.",
 };
 
-const items = [
-  {
-    href: "/ai-tools/email",
-    title: "Email generator",
-    blurb: "Tell us what the message is for—get subject line ideas and a ready-to-send draft.",
-    icon: Mail,
-  },
-  {
-    href: "/ai-tools/content",
-    title: "Content generator",
-    blurb: "Share the topic and intent—get structured, web-friendly copy you can edit and ship.",
-    icon: FileText,
-  },
-  {
-    href: "/ai-tools/report",
-    title: "Report builder",
-    blurb: "Notes in, structured document out: pick a document type (or let us infer it) and get a print-ready layout—no raw markdown hash noise.",
-    icon: FileBarChart2,
-  },
-] as const;
+export default async function AiToolsHubPage() {
+  const categories = await getToolCategories();
 
-export default function AiToolsHubPage() {
+  // Collect tool IDs already assigned to any category so we don't double-render them
+  const assignedToolIds = new Set<string>();
+  for (const cat of categories) {
+    for (const item of cat.items) {
+      assignedToolIds.add(item.tool_id);
+    }
+  }
+
+  // Find unassigned TOOLS
+  const unassignedTools = TOOLS.filter((t) => !assignedToolIds.has(t.id));
+
   return (
     <section className="wrap" style={{ paddingTop: 48, paddingBottom: 80 }}>
       <h1 className="h1 r" style={{ marginBottom: 12, fontSize: "clamp(1.75rem, 2.4vw, 2.1rem)" }}>
@@ -40,29 +33,88 @@ export default function AiToolsHubPage() {
           and use it the same day.
         </p>
       </div>
-      <ul className="ai-tools-hub" role="list">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <li key={item.href}>
-              <Link className="ai-tools-hub__link" href={item.href}>
-                <span
-                  className="home-ai__icon"
-                  style={{ marginBottom: 2 }}
-                  aria-hidden
-                >
-                  <Icon size={20} strokeWidth={1.5} />
-                </span>
-                <span className="ai-tools-hub__title">{item.title}</span>
-                <p className="ai-tools-hub__blurb">{item.blurb}</p>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+
+      {/* Dynamically loaded categories from Supabase */}
+      {categories.map((cat) => {
+        const catTools = cat.items
+          .map((item) => {
+            const tool = TOOLS.find((t) => t.id === item.tool_id);
+            return tool ? { ...tool, display_order: item.display_order } : null;
+          })
+          .filter(Boolean)
+          .sort((a, b) => a!.display_order - b!.display_order);
+
+        if (catTools.length === 0) return null;
+
+        return (
+          <div key={cat.id}>
+            <h2
+              className="h2 r"
+              style={{
+                marginBottom: 12,
+                fontSize: "clamp(1.1rem, 1.5vw, 1.25rem)",
+                marginTop: 36,
+              }}
+            >
+              {cat.name}
+            </h2>
+            <ul className="ai-tools-hub" role="list">
+              {catTools.map((tool) => (
+                <li key={tool!.id}>
+                  <Link className="ai-tools-hub__link" href={tool!.route}>
+                    <span className="ai-tools-hub__title">{tool!.name}</span>
+                    <p className="ai-tools-hub__blurb">{tool!.description}</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+
+      {/* Any TOOLS not assigned to a category — shown under "Other" */}
+      {unassignedTools.length > 0 && (
+        <div>
+          {categories.length > 0 && (
+            <h2
+              className="h2 r"
+              style={{
+                marginBottom: 12,
+                fontSize: "clamp(1.1rem, 1.5vw, 1.25rem)",
+                marginTop: 36,
+              }}
+            >
+              Other
+            </h2>
+          )}
+          <ul className="ai-tools-hub" role="list">
+            {unassignedTools.map((tool) => (
+              <li key={tool.id}>
+                <Link className="ai-tools-hub__link" href={tool.route}>
+                  <span className="ai-tools-hub__title">{tool.name}</span>
+                  <p className="ai-tools-hub__blurb">{tool.description}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <p className="body-text" style={{ marginTop: 32, opacity: 0.85, fontSize: "0.9rem" }}>
         <Link className="ai-tools__back" href="/" style={{ borderBottom: 0, padding: 0 }}>
           ← Home
+        </Link>
+        &nbsp;&nbsp;·&nbsp;&nbsp;
+        <Link className="ai-tools__back" href="/pricing" style={{ borderBottom: 0, padding: 0 }}>
+          Pricing
+        </Link>
+        &nbsp;&nbsp;·&nbsp;&nbsp;
+        <Link className="ai-tools__back" href="/outputs" style={{ borderBottom: 0, padding: 0 }}>
+          Saved Outputs
+        </Link>
+        &nbsp;&nbsp;·&nbsp;&nbsp;
+        <Link className="ai-tools__back" href="/settings" style={{ borderBottom: 0, padding: 0 }}>
+          Settings
         </Link>
       </p>
     </section>

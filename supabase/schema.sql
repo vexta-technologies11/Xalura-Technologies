@@ -552,3 +552,42 @@ create policy "news_run_events_select_auth" on news_run_events
   for select to authenticated using (true);
 
 notify pgrst, 'reload schema';
+
+-- ── Tool Categories (admin-managed groupings for /ai-tools) ──────────────
+
+create table if not exists tool_categories (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists tool_category_items (
+  id uuid default gen_random_uuid() primary key,
+  category_id uuid not null references tool_categories (id) on delete cascade,
+  tool_id text not null,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (category_id, tool_id)
+);
+
+alter table tool_categories enable row level security;
+alter table tool_category_items enable row level security;
+
+drop policy if exists "tool_categories_select_public" on tool_categories;
+drop policy if exists "tool_categories_write_authenticated" on tool_categories;
+drop policy if exists "tool_category_items_select_public" on tool_category_items;
+drop policy if exists "tool_category_items_write_authenticated" on tool_category_items;
+
+create policy "tool_categories_select_public" on tool_categories
+  for select to anon, authenticated using (true);
+
+create policy "tool_categories_write_authenticated" on tool_categories
+  for all to authenticated using (true) with check (true);
+
+create policy "tool_category_items_select_public" on tool_category_items
+  for select to anon, authenticated using (true);
+
+create policy "tool_category_items_write_authenticated" on tool_category_items
+  for all to authenticated using (true) with check (true);

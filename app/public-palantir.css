@@ -11,6 +11,8 @@
   --ph-paper-2: #efefec;
   --ph-fg: #fafaf9;
   --ph-fg-dim: #a3a3a3;
+  --ph-fg-light: #1c1c1e;
+  --ph-fg-dim-light: #6b7280;
   --ph-line-w: rgba(255, 255, 255, 0.12);
   --ph-line-b: rgba(10, 10, 10, 0.08);
   background: var(--ph-ink);
@@ -383,4 +385,174 @@
   max-width: 1120px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* ════════════════════════════════════════════════════════
+   LIGHT MODE — LAST DEFINTION WINS (after all dark rules)
+   ════════════════════════════════════════════════════════ */
+[data-theme="light"] .public-home--palantir nav.nav--ph,
+[data-theme="light"] .public-home--palantir nav.nav--rwd.nav--ph {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-links a,
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-pill {
+  color: rgba(28, 28, 30, 0.7) !important;
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-links a:hover {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-pill {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: rgba(28, 28, 30, 0.8) !important;
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-pill:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #1c1c1e !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--ph .nav-login {
+  color: rgba(28, 28, 30, 0.4) !important;
+}
+
+[data-theme="light"] .public-home--palantir nav.nav--rwd.nav--ph .nav-burger {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: rgba(28, 28, 30, 0.7) !important;
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph {
+  background: #f5f7fb !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph::before {
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, rgba(200, 210, 240, 0.3) 0%, transparent 50%),
+    linear-gradient(180deg, #f5f7fb 0%, #f5f7fb 100%) !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph::after {
+  opacity: 0.1 !important;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px) !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .h1 {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .h1 em {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .body-text {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .ph-hero-kicker {
+  color: #9ca3af !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .btn.btn-ph-primary {
+  background: #1c1c1e !important;
+  color: #fafaf9 !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .btn.btn-ph-primary:hover {
+  background: #374151 !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .btn.btn-ph-secondary {
+  color: #4b5563 !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .public-home--palantir .hero--ph .btn.btn-ph-secondary:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #1c1c1e !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="light"] .public-home--palantir .ticker--ph {
+  background: #f5f7fb !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--palantir .ticker--ph .t-item {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .ticker--ph .t-dot {
+  background: #d1d5db !important;
+}
+
+[data-theme="light"] .public-home--palantir .mission--ph {
+  background: #f0f2f5 !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph {
+  background: #ffffff !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-eyebrow {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-offer-h,
+[data-theme="light"] .public-home--palantir .brand--ph h2.h2.ph-brand-offer-h,
+[data-theme="light"] .public-home--palantir .brand--ph h3.ph-brand-card-title,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-offer-card .h2.ph-brand-card-title,
+[data-theme="light"] .public-home--palantir .brand--ph h2.ph-brand-section-title,
+[data-theme="light"] .public-home--palantir .brand--ph h2.ph-brand-approach-title {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph p.ph-brand-prose,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-prose,
+[data-theme="light"] .public-home--palantir .brand--ph p.ph-brand-prose--larger,
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-prose--larger {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .label {
+  color: #9ca3af !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .ph-offer-card {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  background: rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme="light"] .public-home--palantir .brand--ph .ph-brand-divider {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .public-home--palantir #contact.footer--ph,
+[data-theme="light"] .public-home--palantir #contact {
+  background: #f5f5f7 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir #contact.footer--ph .footer-label,
+[data-theme="light"] .public-home--palantir #contact .footer-label {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir #contact.footer--ph p,
+[data-theme="light"] .public-home--palantir #contact p,
+[data-theme="light"] .public-home--palantir #contact.footer--ph a,
+[data-theme="light"] .public-home--palantir #contact a {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .public-home--palantir #contact.footer--ph a:hover,
+[data-theme="light"] .public-home--palantir #contact a:hover {
+  color: #1c1c1e !important;
 }

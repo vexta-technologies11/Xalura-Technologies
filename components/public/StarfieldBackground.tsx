@@ -4,14 +4,21 @@ import { useCallback, useEffect, useRef } from "react";
 
 type Star = { x: number; y: number; r: number; base: number; speed: number; tw: number };
 
+function getTheme(): "dark" | "light" {
+  if (typeof document === "undefined") return "dark";
+  return (document.documentElement.getAttribute("data-theme") as "dark" | "light") || "dark";
+}
+
 /**
- * Subtle full-viewport starfield (dark theme) — fixed behind page content, pointer-events none.
- * Does not receive pointer events; content stays fully interactive.
+ * Subtle full-viewport starfield — fixed behind page content, pointer-events none.
+ * Adapts to data-theme="dark" (starfield on near-black) or "light" (soft particles on white).
  */
 export function StarfieldBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const starsRef = useRef<Star[]>([]);
   const rafRef = useRef<number>(0);
+  const themeRef = useRef<"dark" | "light">("dark");
+
   const buildStars = useCallback((w: number, h: number) => {
     const area = w * h;
     const n = Math.min(520, Math.max(180, Math.floor(area / 4500)));
@@ -39,6 +46,18 @@ export function StarfieldBackground() {
     let h = 0;
     let dpr = 1;
 
+    const getBg = () => {
+      const theme = getTheme();
+      themeRef.current = theme;
+      return theme === "dark" ? "#020203" : "#f2f4f8";
+    };
+
+    const getStarColor = (a: number) => {
+      return themeRef.current === "dark"
+        ? `rgba(255, 255, 255, ${a * 0.9})`
+        : `rgba(100, 110, 140, ${a * 0.35})`;
+    };
+
     const resize = () => {
       w = window.innerWidth;
       h = window.innerHeight;
@@ -54,7 +73,8 @@ export function StarfieldBackground() {
 
     const draw = (t: number) => {
       const time = t * 0.001;
-      ctx.fillStyle = "#020203";
+      const bg = getBg();
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
       const stars = starsRef.current;
       for (let i = 0; i < stars.length; i++) {
@@ -62,7 +82,7 @@ export function StarfieldBackground() {
         const tw = 0.3 + 0.25 * Math.sin(time * s.speed + s.tw);
         const a = Math.min(1, s.base + tw);
         ctx.beginPath();
-        ctx.fillStyle = `rgba(255, 255, 255, ${a * 0.9})`;
+        ctx.fillStyle = getStarColor(a);
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -70,15 +90,24 @@ export function StarfieldBackground() {
     };
 
     resize();
-    const onResize = () => {
-      resize();
-    };
+    const onResize = () => resize();
     window.addEventListener("resize", onResize);
+
+    // Watch for theme changes via MutationObserver
+    const observer = new MutationObserver(() => {
+      // Theme changed — repaint will pick it up on next frame
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
     rafRef.current = requestAnimationFrame(draw);
 
     return () => {
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(rafRef.current);
+      observer.disconnect();
     };
   }, [buildStars]);
 

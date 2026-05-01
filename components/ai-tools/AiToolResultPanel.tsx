@@ -6,6 +6,11 @@ import remarkGfm from "remark-gfm";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { readResponseJson } from "@/lib/readResponseJson";
 import type { PdfDocument, PdfTemplateId } from "@/lib/pdfGenerator/types";
+import { useUsageLimit } from "@/lib/hooks/useUsageLimit";
+import { useUpgradeModal } from "@/lib/hooks/useUpgradeModal";
+import { useAntiBot } from "@/lib/antiBot";
+import { AntiBotPuzzle } from "@/components/shared/AntiBotPuzzle";
+import { UpgradeModal } from "@/components/shared/UpgradeModal";
 
 export type ReportBuilderApiSuccess = {
   ok: true;
@@ -25,6 +30,8 @@ type Props = {
   onSubmitLabel?: string;
   /** When the API returns structured report JSON (report builder v2), receive it here. */
   onReport?: (r: ReportBuilderApiSuccess) => void;
+  /** Tool ID for usage tracking and anti-bot protection */
+  toolId?: string;
 };
 
 export function AiToolSubmitBar({
@@ -34,11 +41,35 @@ export function AiToolSubmitBar({
   onReset,
   onSubmitLabel = "Generate",
   onReport,
+  toolId = "email",
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { usage, incrementUsage } = useUsageLimit(toolId);
+  const { isOpen: upgradeOpen, triggerSource, openUpgrade, closeUpgrade } = useUpgradeModal();
+  const {
+    isVerified,
+    showPuzzle,
+    puzzle,
+    puzzleError,
+    skippable,
+    requestVerification,
+    attemptPuzzle,
+    resetVerification,
+  } = useAntiBot();
 
   async function submit() {
+    if (usage.isBlocked) {
+      openUpgrade(toolId);
+      return;
+    }
+
+    // Require anti-bot puzzle
+    if (!isVerified && !skippable) {
+      requestVerification();
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
     try {
@@ -74,6 +105,16 @@ export function AiToolSubmitBar({
       setError(e instanceof Error ? e.message : "Network error. Try again.");
     } finally {
       setSubmitting(false);
+      resetVerification();
+      incrementUsage();
+    }
+  }
+
+  function handlePuzzleAnswer(answer: string | number) {
+    const success = attemptPuzzle(answer);
+    if (success) {
+      // Auto-submit after verification
+      submit();
     }
   }
 
@@ -94,6 +135,23 @@ export function AiToolSubmitBar({
           Clear output
         </button>
       </div>
+
+      {/* Anti-bot puzzle overlay */}
+      {showPuzzle && puzzle && (
+        <AntiBotPuzzle
+          puzzle={puzzle}
+          puzzleError={puzzleError}
+          onAnswer={handlePuzzleAnswer}
+          onClose={resetVerification}
+          skippable={skippable}
+          onSkip={() => {
+            resetVerification();
+            submit();
+          }}
+        />
+      )}
+
+      <UpgradeModal isOpen={upgradeOpen} onClose={closeUpgrade} triggerSource={triggerSource} />
     </div>
   );
 }

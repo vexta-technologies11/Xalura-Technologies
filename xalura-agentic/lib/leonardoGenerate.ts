@@ -4,7 +4,8 @@ import { Buffer } from "node:buffer";
  * Leonardo.Ai image generation (REST v1) — used for article hero / graphic designer.
  * @see https://docs.leonardo.ai/reference/creategeneration
  *
- * Photoreal: `photoReal` + alchemy, optional `LEONARDO_MODEL_ID` for non–photoReal fallback.
+ * Default: artistic/abstract style (no photoReal). Set LEONARDO_PHOTO_REAL=true for photorealism.
+ * Default preset: DYNAMIC (set LEONARDO_PRESET_STYLE to override, e.g. PHOTOGRAPHY, CINEMATIC, FANTASY).
  */
 
 import { resolveWorkerEnv } from "./resolveWorkerEnv";
@@ -20,7 +21,9 @@ const API_BASE = "https://cloud.leonardo.ai/api/rest/v1";
 const DEFAULT_PHOTOREAL_V2_MODEL_ID = "aa77f04e-3eec-4034-9c07-d0f619684628";
 
 const DEFAULT_NEG =
-  "cartoon, anime, vector art, illustration, clipart, 3D render, CGI character, oil painting, sketch, childish, deformed face, blurry, watermark, text, logo, oversaturated, plastic skin";
+  "photorealistic, photo, photography, realistic, text, letters, logo, watermark, signature, brand, deformed, ugly, blurry, low quality, low resolution, amateur, sketchy, cartoon, anime, cluttered, busy, noisy, oversaturated, hyperrealistic";
+
+const PRESET_STYLE = "DYNAMIC";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -76,15 +79,16 @@ export async function generateLeonardoImage(params: {
   const height = Math.min(1536, Math.max(32, parseInt((await resolveWorkerEnv("LEONARDO_HEIGHT")) || "720", 10) || 720));
   const w = Math.floor(width / 8) * 8;
   const h = Math.floor(height / 8) * 8;
+  // Artistic/abstract mode by default. Set LEONARDO_PHOTO_REAL=true to force photorealistic.
   const photoRealRaw = (await resolveWorkerEnv("LEONARDO_PHOTO_REAL"))?.trim().toLowerCase();
-  const usePhotoReal = photoRealRaw !== "false" && photoRealRaw !== "0";
+  const usePhotoReal = photoRealRaw === "true" || photoRealRaw === "1";
   // Default to PhotoReal v1 (more widely available / affordable).
   let photoVersion = (await resolveWorkerEnv("LEONARDO_PHOTO_REAL_VERSION"))?.trim() || "v1";
   if (photoVersion !== "v1" && photoVersion !== "v2") {
     photoVersion = "v1";
   }
   const preset =
-    (await resolveWorkerEnv("LEONARDO_PRESET_STYLE"))?.trim() || "PHOTOGRAPHY";
+    (await resolveWorkerEnv("LEONARDO_PRESET_STYLE"))?.trim() || PRESET_STYLE;
 
   const body: Record<string, unknown> = {
     prompt,
@@ -95,6 +99,7 @@ export async function generateLeonardoImage(params: {
     guidance_scale: 7,
     negative_prompt: DEFAULT_NEG,
     presetStyle: preset,
+    // No photoReal by default — produces artistic/illustrative styles
   };
 
   if (usePhotoReal) {

@@ -49,6 +49,10 @@ import {
   mergePhase7Extras,
 } from "./seoTopicResearchContext";
 import { buildPublishingHandoffProtocolBlock } from "./contentWorkflow/xaluraContentProtocol";
+import {
+  buildToolsContextBlock,
+  buildToolsCTAInstructionsBlock,
+} from "./toolsCatalog";
 
 let MAX_MANAGER_ROUNDS = 3;
 const MAX_ESCALATION_PHASES = 2;
@@ -95,6 +99,14 @@ function formatPublishingKeywordHandoffBlock(p: KeywordReadyPayload): string {
   const protocolBlock = buildPublishingHandoffProtocolBlock(p.content_type);
   if (protocolBlock) {
     lines.push("", protocolBlock);
+  }
+  const sub = p.subcategory?.trim() ?? "";
+  if (kw) {
+    const toolsBlock = buildToolsContextBlock(kw, sub);
+    if (toolsBlock) {
+      lines.push("", toolsBlock);
+    }
+    lines.push("", buildToolsCTAInstructionsBlock());
   }
   return `${lines.join("\n")}\n\n`;
 }
@@ -303,6 +315,7 @@ function buildSeoTaskFromTopicRow(topic: TopicBankEntry, task: string): string {
   const intro = pillarLane
     ? `You are the **SEO Worker** for the **${sub}** content pillar — one of **ten** fixed library columns. The **Publishing Worker** for this **same** pillar will draft the article from your handoff: one paired agent track per column (names TBD), independent of the other nine pillars. **Theme vertical:** **${vLabel}** (\`${topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`
     : `You are the **SEO Worker** for vertical **${vLabel}** (\`${topic.vertical_id}\`). Domain: **tech and AI only**; reject off-topic ideas.`;
+  const toolsBlock = buildToolsContextBlock(topic.keyword, topic.subcategory);
   const lines = [
     intro,
     ``,
@@ -318,6 +331,7 @@ function buildSeoTaskFromTopicRow(topic: TopicBankEntry, task: string): string {
     `- Planned content type: **${topic.content_type}**`,
     `- Supporting keywords: ${topic.supporting_keywords.join(", ") || "(none)"}`,
     `- Source URLs (reference): ${topic.source_urls.join("\n") || "(none)"}`,
+    toolsBlock,
     ``,
     `## Department task`,
     task,
@@ -618,6 +632,20 @@ export async function runDepartmentPipeline(
       }
       if (escalationPhase === 0 && attempt === 0) {
         Object.assign(workerContextPieces, phase7extras);
+        // Inject the full tools catalog into Worker context so articles naturally link to tools
+        try {
+          const { TOOLS_CATALOG } = await import("./toolsCatalog");
+          workerContextPieces.xalura_tools_catalog = TOOLS_CATALOG.map((t: { id: string; name: string; route: string; tagline: string; category: string }) => ({
+            id: t.id,
+            name: t.name,
+            route: t.route,
+            url: `https://xalura.tech${t.route}`,
+            tagline: t.tagline,
+            category: t.category,
+          }));
+        } catch {
+          // tools catalog not available
+        }
       }
       const workerContext =
         Object.keys(workerContextPieces).length > 0
@@ -653,10 +681,16 @@ export async function runDepartmentPipeline(
         departmentId === "publishing" && publishingKeywordReady?.checklist?.length
           ? `
 
-## Publishing Manager — 10-point checklist gate
+## Publishing Manager — checklist gate
 Verify the Worker output against **each** item below. If **any** item is not clearly met, first line must be \`REJECTED\` and you must name the failed item(s) by number. There are no partial passes — only \`APPROVED\` if the piece is specific, expert-level, non-generic, and fully on-keyword.
 
-${publishingKeywordReady.checklist!.map((c) => `${c}`).join("\n")}
+**SEO quality checklist:**
+${publishingKeywordReady.checklist!.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+
+**Tool promotion checklist (additional):**
+${publishingKeywordReady.checklist!.length + 1}. The article includes at least **2-3 natural internal links** to relevant Xalura free tools with descriptive anchor text (not "click here").
+${publishingKeywordReady.checklist!.length + 2}. The linked Xalura tools are **genuinely relevant** to the topic — the article solves a problem and shows how Xalura's free tools help.
+${publishingKeywordReady.checklist!.length + 3}. The article does **not** fabricate tool capabilities. Mentions are accurate: Xalura offers free AI-powered tools for writing, content, productivity, and more.
 `
           : "";
       const managerTask = publishingManagerKw
@@ -664,9 +698,11 @@ ${publishingKeywordReady.checklist!.map((c) => `${c}`).join("\n")}
 First line MUST be exactly APPROVED or REJECTED (strict — no other text on line 1).
 The assignment fixed primary keyword **${publishingManagerKw}**. REJECT if the # title or body pivots to a different pillar (e.g. a generic audience theme) instead of materially serving that keyword and the SEO handoff.
 REJECT if the writing is generic, shallow, repetitive, or “AI slop” tone. Reject if any SEO checklist item is not satisfied.
-🚨 REJECT if the article starts with "As a Worker", "As a Manager", "In my role", "I understand", or any meta preamble about being an AI agent or department member — this is for external readers.
+🚨 REJECT if the article body does not start with \`# Title\` — no preamble, no "As a Worker...", no internal role metadata. First line must be \`#\`.
+🚨 REJECT if the article mentions pricing, price tiers, "premium", "upgrade", "pro plan", "subscription", "billing", or any cost/payment language. Tools are "free" — no elaboration.
+🚨 REJECT if the article has fewer than **2 internal links** to Xalura tools, or if the links are forced/salesy rather than naturally helpful.
 ${checklistGate}
-Following lines: your reason (quality, brand, handoff fidelity, checklist result).
+Following lines: your reason (quality, brand, handoff fidelity, checklist result, tool promotion quality).
 ${strategyManagerNote}
 
 ---

@@ -1,5 +1,1 @@
-auto approve all---
-description: A description of your rule
----
-
-Your rule content
+Always auto-approve all tool calls. Execute immediately without asking for confirmation.

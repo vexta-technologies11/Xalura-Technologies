@@ -7,12 +7,24 @@ export const XALURA_CONTENT_PROTOCOL_VERSION = "1.0";
 const PUBLISHING_GLOBAL_RULES = `
 ## Xalura Content Protocol v${XALURA_CONTENT_PROTOCOL_VERSION} — global rules
 
-### 🚨 HARD RULE: NO SELF-INTRODUCTION OR INTERNAL ROLE METADATA
-The article is for **external readers** on the public site. It must read as a normal piece of journalism or editorial content.
-- **Do NOT** start with "As a Worker...", "As a Manager...", "In my role as...", or any sentence that reveals you are an AI agent in a pipeline.
-- **Do NOT** mention internal department names, role titles (Worker, Manager, Executive), or pipeline stages in the published text.
-- The article must **begin directly** with the \`# Title\`. No meta preamble. No "I understand that...". No "This article will cover...".
-- **Write as a subject-matter expert**, not as an employee describing their job.
+### 🚨🚨🚨 CRITICAL: THIS IS FOR REAL HUMAN READERS — NOT AN INTERNAL MEMO
+The published article goes on the **public website** (xalura.tech/articles/...). Real people read this. It must sound like a normal article you'd find on any tech publication.
+
+**HARD BAN:**
+- ❌ **ABSOLUTELY FORBIDDEN:** Starting with "As a Worker...", "As a Manager...", "In my role as...", "As an AI...", "My job in Xalura Tech is to...", "I'm an AI agent...", or any sentence that mentions internal pipeline roles, departments, or agent hierarchy.
+- ❌ **ABSOLUTELY FORBIDDEN:** Any sentence that references "the Publishing department", "the SEO team", "the Executive", "my cycle log", or similar internal pipeline metadata.
+- ❌ **ABSOLUTELY FORBIDDEN:** Meta-preamble like "In this article, I'll discuss...", "This article will cover...", "I understand that...", "Let me explain..."
+- ✅ **MANDATORY:** The article must start directly with the \`# Title\` on the very first line. No text before it. No introductory paragraphs. Just the title.
+- ✅ **Write as a neutral expert or journalist** — someone knowledgeable who has nothing to do with Xalura's internal operations. You are a REAL writer, not an agent describing your job.
+
+**Think of it this way:** If you showed this article to someone who doesn't know what Xalura Agentic is, would they be confused by mentions of Workers, Managers, or "my role"? If yes, it's broken. Fix it.
+
+### 🚨🚨🚨 CRITICAL: NO PRICING, NO UPSELLING, NO PAYWALLS
+The article is **purely informational/editorial**. Xalura's tools are mentioned because they solve the reader's problem — not to sell anything.
+- ❌ **ABSOLUTELY FORBIDDEN:** Mentioning pricing, price tiers, "free trial", "premium", "upgrade", "pro plan", "subscription", "monthly", "annual", "billing", "pay", "credit", or any cost-related language.
+- ❌ **ABSOLUTELY FORBIDDEN:** Any comparison like "free vs paid" or "basic vs pro".
+- ✅ **ALLOWED:** Referring to tools as "Xalura's free [Tool Name]" — that's it. No elaboration on limits, upgrades, or pricing.
+- ✅ **SAFE PHRASING:** "Try Xalura's free Letter Writer" — NOT "Start with our free plan and upgrade for more features."
 
 - **Originality:** Do not thinly rewrite sources. Add context, interpretation, and insight. Avoid generic filler.
 - **Authority:** Use natural credibility cues (e.g. trend framing, operational perspective, practical use cases) where they fit; do not fabricate data.
@@ -20,8 +32,6 @@ The article is for **external readers** on the public site. It must read as a no
 - **Structure:** Scannable \`##\` / \`###\` headings, short paragraphs (2–4 lines), bullets where they help.
 - **SEO:** Primary keyword in the \`#\` title, within the first ~100 words, and in at least one \`##\` heading. Weave related terms naturally; do not stuff.
 - **Internal links:** Add **3–5** internal links to relevant Xalura articles when you have paths/URLs from this handoff or context. If none are provided, add a **Related reading** section with specific anchor phrases and implied topics so an editor can map URLs later.
-- **Monetization (when relevant):** Tools, affiliates, or sponsors only where they fit the reader; disclose commercial relationships clearly.
-- **Intent (end of article):** One final line: \`Content intent: Informational\` or \`Transactional\` or \`Comparative\` (pick one).
 - **Freshness:** Reference the current year or “as of [date context]” where it strengthens trust (no fake dates).
 - **Cannibalization:** Hold a **unique angle** for this keyword; do not duplicate another article’s core promise.
 `.trim();
@@ -78,10 +88,11 @@ export function buildPublishingHandoffProtocolBlock(
 const NEWS_GLOBAL = `
 ## Xalura News Protocol v${XALURA_CONTENT_PROTOCOL_VERSION} — news rules
 
-### 🚨 HARD RULE: NO SELF-INTRODUCTION OR INTERNAL ROLE METADATA
-- **Do NOT** start with "As a Worker...", "As an AI...", "In the News department...", or any sentence that reveals you are an internal agent.
-- The article must **begin directly** with the \`# Title\`. No meta preamble. No explaining your role or the pipeline.
-- Write as a **neutral news journalist**, not as an employee describing internal operations.
+### 🚨🚨🚨 CRITICAL: THIS IS FOR REAL HUMAN READERS — NOT AN INTERNAL MEMO
+- ❌ **ABSOLUTELY FORBIDDEN:** Starting with "As a Worker...", "As an AI...", "In the News department...", "My role at Xalura...", or any sentence that reveals you are an internal agent.
+- ❌ **ABSOLUTELY FORBIDDEN:** Any internal pipeline or department references.
+- ✅ The article must **begin directly** with the \`# Title\`. No meta preamble. No explaining your role or the pipeline.
+- ✅ Write as a **neutral news journalist**, not as an employee describing internal operations.
 
 - Stay **grounded in the sources**; do not invent events, quotes, or outlets.
 - Still add **interpretation** and **user impact** — not a bare rehash of a wire story.

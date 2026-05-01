@@ -26,9 +26,25 @@ import {
   humanIncrementalSeoFailureMessage,
   humanIncrementalSiteFailureMessage,
 } from "./pipelineFailureHumanize";
+import { buildToolsContextBlock } from "./toolsCatalog";
 
-const DEFAULT_SEO_TASK =
-  "In 2–3 short paragraphs, justify why this bank keyword matters for Xalura Tech readers in **this vertical**. Every sentence must tie to the keyword; no fluff or generic audience essays. Explain **high real-world value** and why this is a **strong, safe** AI/tech topic (informational, product-focused — not medical, legal, or personal financial advice).";
+const DEFAULT_SEO_TASK = `Produce an **SEO brief** for the given bank keyword. Your job is to produce 2-3 short paragraphs covering:
+
+1. **Article concept** — What kind of article should this be? Pick one:
+   - *"Top N tools" roundup* — e.g. "Top 5 Free AI Document Summarizers" → feature Xalura's Summarizer
+   - *"How to" guide* — e.g. "How to Write a Professional Resignation Letter" → link to Letter Writer
+   - *"X vs Y" comparison* — e.g. "AI Resume Builder vs Traditional Templates" → feature Resume Builder
+   - *Problem/solution post* — e.g. "Struggling with Meeting Notes? Here's How to Fix Them" → link to Note Taker
+   - *Industry insight with tool tie-in* — e.g. "The Rise of AI-Powered Study Tools" → feature Study Guide
+   - *"Why Xalura" tool deep-dive* — e.g. "Why Xalura's Free PDF Invoice Generator Beats Templates"
+
+2. **Search-optimized title** (H1) that ranks for the keyword AND signals tool relevance
+
+3. **Which Xalura Tech free tool(s)** are naturally relevant to link from this article — pick from the provided tools catalog and explain why they fit
+
+Focus on **real-world value** — this article should help the reader AND naturally show them how Xalura's free tools solve their problems. Every article must have at least 2-3 internal links to Xalura tools with descriptive anchor text.
+
+This is NOT generic SEO research. You are designing an article that promotes Xalura's tools while delivering genuine, expert-level content — like a big tech company blog giving away insights while connecting everything to their product.`;
 
 /** Same default task as hourly incremental SEO (env `AGENTIC_INCREMENTAL_SEO_TASK` overrides). */
 export function getIncrementalSeoTask(): string {

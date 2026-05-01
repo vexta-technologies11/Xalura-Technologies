@@ -43,6 +43,7 @@ export function EmailToolClient() {
             onText={setOut}
             onReset={() => setOut("")}
             onSubmitLabel="Generate email"
+            toolId="email"
           />
         </form>
       </div>

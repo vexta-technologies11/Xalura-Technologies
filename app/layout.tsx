@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans, Libre_Bodoni } from "next/font/google";
+import { ClientShell } from "@/components/shared/ClientShell";
 import "./globals.css";
+import "./globals-shadcn.css";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -109,14 +111,32 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=GFS+Didot&display=swap"
           rel="stylesheet"
         />
+        {/* Flash-prevention: apply saved theme before paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var t = localStorage.getItem('xalura-theme');
+                  if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
+                  } else {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
       </head>
       <body className={`${dmSans.variable} ${cormorant.variable} ${founderBodoni.variable}`}>
-        {children}
+        <ClientShell>{children}</ClientShell>
       </body>
     </html>
   );
 }
+

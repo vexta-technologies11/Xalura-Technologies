@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/courses", label: "Courses" },
   { href: "/admin/content", label: "Page Content" },
   { href: "/admin/partners", label: "Partners" },
+  { href: "/admin/tool-categories", label: "Tool Categories" },
 ];
 
 export function AdminNav({ email }: { email: string }) {
@@ -34,6 +35,24 @@ export function AdminNav({ email }: { email: string }) {
             {l.label}
           </Link>
         ))}
+        <Link
+          href="/admin"
+          className="admin-nav-link"
+          style={{
+            background: "rgba(245,158,11,0.1)",
+            border: "1px solid rgba(245,158,11,0.2)",
+            borderRadius: "6px",
+            fontWeight: 700,
+            color: "#f59e0b",
+            fontSize: "0.75rem",
+            padding: "4px 10px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          ⭐ Pro Version
+        </Link>
       </nav>
       <div className="admin-nav-meta">
         <span className="admin-nav-email" title={email}>

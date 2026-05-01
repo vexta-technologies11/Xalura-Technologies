@@ -76,6 +76,7 @@ export function ReportToolClient() {
             onReport={onReport}
             onReset={onReset}
             onSubmitLabel="Generate report"
+            toolId="report"
           />
         </form>
         {out ? (
@@ -126,3 +127,4 @@ export function ReportToolClient() {
     </div>
   );
 }
+
