@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isAdminFromCookies } from "@/lib/adminAccess";
 import { AdminNav } from "@/components/admin/AdminNav";
 import "@/components/admin/admin-ui.css";
 
@@ -8,10 +9,22 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Check both Supabase session AND admin cookie
+  const isAdminByCookie = await isAdminFromCookies();
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
+    // Allow cookie auth even without Supabase (for admin panel basic access)
+    if (isAdminByCookie) {
+      return (
+        <div className="admin-root">
+          <AdminNav email="Admin (secret URL)" />
+          <main className="admin-main">{children}</main>
+        </div>
+      );
+    }
     return (
       <div className="admin-root">
         <div className="admin-main" style={{ paddingTop: 40 }}>
@@ -23,6 +36,16 @@ export default async function AdminLayout({
         </p>
         {children}
         </div>
+      </div>
+    );
+  }
+
+  // Allow cookie-based admin auth
+  if (isAdminByCookie) {
+    return (
+      <div className="admin-root">
+        <AdminNav email="Admin (secret URL)" />
+        <main className="admin-main">{children}</main>
       </div>
     );
   }

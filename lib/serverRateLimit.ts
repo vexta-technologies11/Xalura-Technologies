@@ -6,11 +6,13 @@
  * for persistence across edge function instances.
  *
  * Rate limit: FREE_DAILY_LIMIT generations per IP per 24h window.
+ * Admin users (detected via signed cookie) bypass all limits.
  *
  * Also exports an anti-bot proof verifier that all tool routes can call.
  */
 
 import { verifyAntiBotProof, type AntiBotProof } from "./antiBotChallenge";
+import { isAdminFromRequestCookie } from "./adminAccess";
 
 const FREE_DAILY_LIMIT = 15;
 const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -53,8 +55,14 @@ export interface RateLimitResult {
 /**
  * Check if a request is rate-limited.
  * Returns the rate limit status and headers-compatible info.
+ * Admin users (signed cookie) bypass all limits.
  */
 export function checkRateLimit(request: Request): RateLimitResult {
+  // Admin bypass
+  if (isAdminFromRequestCookie(request)) {
+    return { allowed: true, remaining: Infinity, limit: Infinity, retryAfter: null };
+  }
+
   const clientIp = getClientIp(request);
   const now = Date.now();
   const cutoff = now - WINDOW_MS;
@@ -84,8 +92,12 @@ export function checkRateLimit(request: Request): RateLimitResult {
 /**
  * Record a successful generation for rate limiting.
  * Call this AFTER a successful Gemini API response.
+ * Admin users are exempt from tracking.
  */
 export function recordGeneration(request: Request): void {
+  // Admin users are not tracked
+  if (isAdminFromRequestCookie(request)) return;
+
   const clientIp = getClientIp(request);
   const now = Date.now();
   const cutoff = now - WINDOW_MS;

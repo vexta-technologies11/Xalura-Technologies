@@ -4,7 +4,7 @@
  * even across browser restarts. Uses a device fingerprint (MAC-style)
  * for rate-limit identification without requiring auth.
  *
- * Admin users (identified by Supabase session) bypass all limits.
+ * Admin users (identified by xalura_is_admin cookie) bypass all limits.
  */
 
 const STORAGE_KEY = "xalura_usage_v2";
@@ -208,6 +208,32 @@ export function resetDailyUsage(): void {
 
 /**
  * Set admin mode. When admin, all generation limits are bypassed.
+ */
+/**
+ * Check if the admin cookie is set (client-side detection).
+ */
+function isAdminFromCookie(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some(c => c.trim().startsWith('xalura_is_admin=1'));
+}
+
+/**
+ * Auto-detect admin status from cookie on init.
+ * Call this once on app load.
+ */
+export function autoDetectAdmin(): boolean {
+  const isAdmin = isAdminFromCookie();
+  const storage = getStorage();
+  if (storage.isAdmin !== isAdmin) {
+    storage.isAdmin = isAdmin;
+    saveStorage(storage);
+  }
+  return isAdmin;
+}
+
+/**
+ * Set admin mode (legacy, kept for compatibility).
+ * Now auto-detects from cookie.
  */
 export function setAdminMode(isAdmin: boolean): void {
   const storage = getStorage();

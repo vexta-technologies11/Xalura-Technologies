@@ -21,9 +21,18 @@ export function AdminNav({ email }: { email: string }) {
   const router = useRouter();
 
   async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
+    // Clear admin cookie (if logged in via secret URL)
+    document.cookie = 'xalura_admin_token=; max-age=0; path=/';
+    document.cookie = 'xalura_is_admin=; max-age=0; path=/';
+    
+    // Also try Supabase sign-out (if logged in via email)
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Supabase may not be configured
+    }
+    router.replace("/");
     router.refresh();
   }
 
@@ -51,7 +60,7 @@ export function AdminNav({ email }: { email: string }) {
             gap: "4px",
           }}
         >
-          ⭐ Pro Version
+          ⭐ Unli Gen
         </Link>
       </nav>
       <div className="admin-nav-meta">

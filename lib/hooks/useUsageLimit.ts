@@ -6,6 +6,7 @@ import {
   incrementDailyUsage,
   getCooldownRemaining,
   formatCooldown,
+  autoDetectAdmin,
 } from "@/lib/usageStore";
 
 interface UsageInfo {
@@ -28,6 +29,8 @@ const POLL_INTERVAL = 5_000; // Poll every 5s to sync across tabs
  */
 export function useUsageLimit(toolId: string) {
   const [usage, setUsage] = useState<UsageInfo>(() => {
+    // Auto-detect admin on mount
+    autoDetectAdmin();
     const daily = getDailyUsage();
     const cooldownMs = getCooldownRemaining();
     return {

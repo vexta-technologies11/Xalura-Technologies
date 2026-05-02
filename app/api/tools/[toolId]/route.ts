@@ -7,7 +7,6 @@ import { buildDataCleanupPrompt } from "@/lib/services/prompts/dataCleanupPrompt
 import { buildBudgetPlannerPrompt } from "@/lib/services/prompts/budgetPlannerPrompt";
 import { buildMealPlannerPrompt } from "@/lib/services/prompts/mealPlannerPrompt";
 import { buildFlashcardPrompt as buildNewFlashcardPrompt } from "@/lib/services/prompts/flashcardPrompt";
-import { jsonError, jsonOk } from "@/lib/aiToolsPrompts";
 import { buildLetterPrompt } from "@/lib/services/prompts/letterPrompt";
 import { buildSummarizerPrompt } from "@/lib/services/prompts/summarizerPrompt";
 import { buildCaptionPrompt } from "@/lib/services/prompts/captionPrompt";
@@ -30,6 +29,8 @@ import { buildNoteTakerPrompt } from "@/lib/services/prompts/noteTakerPrompt";
 import { runAiToolsGeminiJson, runAiToolsGemini } from "@/lib/aiToolsGemini";
 import { checkRateLimit, recordGeneration, getRateLimitHeaders } from "@/lib/serverRateLimit";
 import { verifyAntiBotProof, extractAntiBotProof } from "@/lib/antiBotChallenge";
+import { isAdminFromRequestCookie } from "@/lib/adminAccess";
+import { jsonError, jsonOk } from "@/lib/aiToolsPrompts";
 
 interface Builders {
   json: Record<string, (args: any) => string>;
@@ -101,6 +102,9 @@ export async function POST(
 
     // Server-side anti-bot verification
     // Client must include antiBotAnswer, antiBotNonce, antiBotSignature, antiBotExpiresAt
+    // Admin users bypass anti-bot check
+    const isAdmin = isAdminFromRequestCookie(request);
+    if (!isAdmin) {
     const proof = extractAntiBotProof(body);
     const antiBotResult = verifyAntiBotProof(proof);
     if (!antiBotResult.valid) {
@@ -111,6 +115,7 @@ export async function POST(
           headers: { "Content-Type": "application/json" },
         },
       );
+    }
     }
 
     // Check JSON-mode builders first
@@ -150,3 +155,4 @@ export async function POST(
     return jsonError(msg, 500);
   }
 }
+

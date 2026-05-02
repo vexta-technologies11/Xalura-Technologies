@@ -40,16 +40,7 @@ export function Nav({ variant = "default" }: { variant?: "default" | "palantir" 
             <LogoMark />
             <span className="logo-wordmark">Xalura Tech</span>
           </a>
-          <a
-            className="nav-login nav-login--hide-mobile"
-            href="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Login
-          </a>
         </div>
-
         <div className="nav-right nav-right--desktop">
           <ul className="nav-links" role="list">
             {LINKS.map((l) => (
