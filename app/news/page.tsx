@@ -6,7 +6,7 @@ import { getPageContent } from "@/lib/data";
 
 export const metadata = {
   title: "News · Xalura Tech",
-  description: "Same-day tech and AI news, produced by the agentic News team.",
+  description: "Stay informed with same-day reporting on technology, AI, and industry shifts. News that explains what matters for your work.",
 };
 
 export default async function NewsPage() {
@@ -15,13 +15,12 @@ export default async function NewsPage() {
   return (
     <PublicPageShell footerContent={pageContent.footer}>
       <section className="wrap">
-        <p className="label r">Feed</p>
+        <p className="label r">Stay Informed</p>
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
           News
         </h1>
         <p className="body-text r" style={{ marginBottom: 40, maxWidth: 560 }}>
-          Same-day reporting from the News desk, with editorial review and audit behind every
-          story. Clean, sourced, and published as soon as it is ready.
+          What is changing in technology and industry, and what it means for your work. Same-day reporting that gives you context, not just headlines.
         </p>
         <Suspense
           fallback={

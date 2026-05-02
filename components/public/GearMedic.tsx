@@ -57,7 +57,7 @@ export function GearMedic({
               <li key={f}>{f}</li>
             ))}
           </ul>
-          <a className="product-link" href="#">
+          <a className="product-link" href="https://gearmedic.net" target="_blank" rel="noopener noreferrer">
             {content.cta}
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path

@@ -387,6 +387,86 @@
   margin-right: auto;
 }
 
+/* —— Founder (Palantir variant) —— */
+.public-home--palantir #founder {
+  background: #0a0a0a;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+  border-top: 1px solid var(--ph-line-w);
+}
+
+.public-home--palantir #founder .label {
+  color: var(--ph-fg-dim);
+}
+
+.public-home--palantir #founder .founder-name {
+  color: #fafaf9;
+}
+
+.public-home--palantir #founder .founder-name-suffix {
+  color: #a3a3a3;
+}
+
+.public-home--palantir #founder .founder-role {
+  color: #6b8bf5;
+}
+
+.public-home--palantir #founder .founder-quote {
+  color: #d4d4d4;
+  border-left-color: rgba(107, 139, 245, 0.3);
+}
+
+.public-home--palantir #founder .founder-prose {
+  color: #a3a3a3;
+}
+
+/* —— Closing (Palantir variant) —— */
+.public-home--palantir #closing.closing-section {
+  background: #050505 !important;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+
+.public-home--palantir #closing.closing-section .label {
+  color: #6b8bf5 !important;
+}
+
+.public-home--palantir #closing.closing-section .h2 {
+  color: #fafaf9 !important;
+}
+
+.public-home--palantir #closing.closing-section .h2 em {
+  color: #6b8bf5 !important;
+}
+
+.public-home--palantir #closing.closing-section .body-text {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* —— Partners (Palantir variant) —— */
+.public-home--palantir section.partners {
+  background: #0a0a0a;
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+  border-top: 1px solid var(--ph-line-w);
+}
+
+.public-home--palantir section.partners .label {
+  color: var(--ph-fg-dim);
+}
+
+.public-home--palantir section.partners .h2 {
+  color: #fafaf9 !important;
+}
+
+.public-home--palantir section.partners .h2 em {
+  color: #6b8bf5 !important;
+}
+
+.public-home--palantir section.partners .body-text {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
 /* ════════════════════════════════════════════════════════
    LIGHT MODE — LAST DEFINTION WINS (after all dark rules)
    ════════════════════════════════════════════════════════ */
@@ -555,4 +635,96 @@
 [data-theme="light"] .public-home--palantir #contact.footer--ph a:hover,
 [data-theme="light"] .public-home--palantir #contact a:hover {
   color: #1c1c1e !important;
+}
+
+/* —— Founder: light mode —— */
+[data-theme="light"] .public-home--palantir #founder {
+  background: #fafaf9;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .public-home--palantir #founder .label {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .public-home--palantir #founder .founder-name {
+  color: #1c1c1e;
+}
+
+[data-theme="light"] .public-home--palantir #founder .founder-name-suffix {
+  color: #6b7280;
+}
+
+[data-theme="light"] .public-home--palantir #founder .founder-role {
+  color: #3b82f6;
+}
+
+[data-theme="light"] .public-home--palantir #founder .founder-quote {
+  color: #6b7280;
+  border-left-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .public-home--palantir #founder .founder-prose {
+  color: #6b7280;
+}
+
+/* —— Closing: light mode —— */
+[data-theme="light"] .public-home--palantir #closing.closing-section {
+  background: #f0f2f5 !important;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .label {
+  color: #3b82f6 !important;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .h2 {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .h2 em {
+  color: #3b82f6 !important;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .body-text {
+  color: rgba(28, 28, 30, 0.45) !important;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .btn.btn-blue {
+  background: #1c1c1e;
+  color: #fafaf9;
+}
+
+[data-theme="light"] .public-home--palantir #closing.closing-section .btn.btn-blue:hover {
+  background: #374151;
+}
+
+/* —— Partners: light mode —— */
+[data-theme="light"] .public-home--palantir section.partners {
+  background: #fafaf9;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .public-home--palantir section.partners .label {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .public-home--palantir section.partners .h2 {
+  color: #1c1c1e !important;
+}
+
+[data-theme="light"] .public-home--palantir section.partners .h2 em {
+  color: #3b82f6 !important;
+}
+
+[data-theme="light"] .public-home--palantir section.partners .body-text {
+  color: rgba(28, 28, 30, 0.5) !important;
+}
+
+[data-theme="light"] .public-home--palantir section.partners .btn.btn-blue {
+  background: #1c1c1e;
+  color: #fafaf9;
+}
+
+[data-theme="light"] .public-home--palantir section.partners .btn.btn-blue:hover {
+  background: #374151;
 }

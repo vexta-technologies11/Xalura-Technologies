@@ -1,104 +1,9 @@
 import type { Employee, EmployeeStat } from "@/types/employee";
 import type { PageContentMap } from "@/types/content";
 
-/** Fallback stats when DB row has no `stats` JSON (keyed by employee name) — career-style highlights */
-export const EMPLOYEE_STATS_BY_NAME: Record<string, EmployeeStat[]> = {
-  Mochi: [
-    {
-      value: "70+",
-      label: "articles written and published for GearMedic from live trend intel",
-    },
-    {
-      value: "Daily",
-      label: "ship cadence — turns Kimmy's briefs into live explainers readers finish",
-    },
-  ],
-  Kimmy: [
-    {
-      value: "Live",
-      label: "real-time trend and demand research — what is hot and rising right now",
-    },
-    {
-      value: "Signal → queue",
-      label: "popular and latest topics routed straight into what Mochi writes next",
-    },
-  ],
-  Maldita: [
-    {
-      value: "Daily",
-      label: "site-wide SEO audit — deeplinking opportunities and crawl health",
-    },
-    {
-      value: "On-page",
-      label: "sentences and headings tuned to maximize SEO without sounding robotic",
-    },
-  ],
-  Milka: [
-    {
-      value: "Full-stack",
-      label: "visual systems — hero art, in-article media, thumbnails, and social-ready frames",
-    },
-    {
-      value: "Brand-locked",
-      label: "look and feel carried through every surface of GearMedic",
-    },
-  ],
-};
+export const EMPLOYEE_STATS_BY_NAME: Record<string, EmployeeStat[]> = {};
 
-export const DEFAULT_EMPLOYEES: Employee[] = [
-  {
-    id: "00000000-0000-0000-0000-000000000001",
-    name: "Mochi",
-    role: "Author and Publisher",
-    role_badge: "Author · Publisher",
-    description:
-      "Mochi writes and publishes GearMedic articles every day. She takes Kimmy's trend research on what is popular and rising, turns it into clear explainers, then edits and ships them live. She keeps the library growing and deadlines met whether you watch every draft or not.",
-    icon_type: "writer",
-    avatar_url: "/avatars/mochi.png",
-    stats: EMPLOYEE_STATS_BY_NAME.Mochi,
-    is_active: true,
-    display_order: 1,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000002",
-    name: "Maldita",
-    role: "SEO Manager",
-    role_badge: "SEO Manager",
-    description:
-      "Maldita audits the GearMedic site every day for SEO: where deeper internal links belong, which sentences and headings can rank better, and whether pages send the right signals to search. She finds deeplinking opportunities and reworks copy so the same traffic works harder — not keyword stuffing, just sharper on-page SEO.",
-    icon_type: "seo",
-    avatar_url: "/avatars/maldita.svg",
-    stats: EMPLOYEE_STATS_BY_NAME.Maldita,
-    is_active: true,
-    display_order: 2,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000003",
-    name: "Kimmy",
-    role: "Researcher and Data Analyst",
-    role_badge: "Data Analyst",
-    description:
-      "Kimmy runs real-time data and trend research — what people search for most, what is spiking, and what is next. She tracks the latest and most popular automotive topics and turns that into briefs so Mochi always knows what to write and publish while it still matters.",
-    icon_type: "analyst",
-    avatar_url: "/avatars/kimmy.png",
-    stats: EMPLOYEE_STATS_BY_NAME.Kimmy,
-    is_active: true,
-    display_order: 3,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000004",
-    name: "Milka",
-    role: "Graphic Designer",
-    role_badge: "Graphic Designer",
-    description:
-      "Milka handles everything visual. Thumbnails, banners, social graphics, layout ideas. She makes sure the content the team produces actually looks good when it reaches people.",
-    icon_type: "designer",
-    avatar_url: "/avatars/milka.png",
-    stats: EMPLOYEE_STATS_BY_NAME.Milka,
-    is_active: true,
-    display_order: 4,
-  },
-];
+export const DEFAULT_EMPLOYEES: Employee[] = [];
 
 export type PartnerRow = {
   id: string;
@@ -127,73 +32,73 @@ export const DEFAULT_PARTNERS: PartnerRow[] = [
 export const DEFAULT_PAGE_CONTENT: PageContentMap = {
   hero: {
     label: "Xalura",
-    headline: "The world is changing.\nBe the one who leads it.",
+    headline: "Empowering professionals\nto stay ahead.",
     subhead:
-      "News, articles, and courses for professionals who want to understand what is coming and build the knowledge to stay ahead of it.",
+      "News, articles, courses, and professional tools that help you understand what is changing and build the skills to lead through it.",
     primaryCta: "Why we exist",
     secondaryCta: "What we offer",
     bentoHint:
-      "Track what matters across AI and industry—news, deep dives, and courses in one place.",
+      "Track what matters across technology and industry. News, deep dives, tools, and courses in one place.",
   },
   mission: {
     label: "Why we exist",
-    headline: "This is ours.",
+    headline: "The world is shifting.\nYou should not have to catch up alone.",
     body: [
-      "Every generation faces a moment when the rules of work and industry shift beneath their feet. This is ours.",
-      "The tools reshaping how business gets done, how decisions get made, and how industries are organized are no longer on the horizon. They are already here. And the gap between those who understand them and those who do not is widening every year.",
-      "Xalura was founded on a straightforward belief: that gap is not inevitable.",
-      "We are a technology company that sits at the front edge of this shift. We build tools and platforms that make modern technology useful and accessible. And through our content, we give professionals, learners, and leaders the knowledge they need to move with confidence through a world that will not wait for anyone to catch up.",
+      "Every generation faces a moment when the rules of work change beneath their feet. This is ours.",
+      "The tools reshaping how business gets done, how decisions are made, and how industries are organized are no longer coming. They are already here. And the gap between those who understand them and those who do not keeps getting wider every year.",
+      "Xalura was built on a simple belief: that gap is not inevitable.",
+      "We give you a single place to track what matters, understand what it means, and build the knowledge to move with confidence. News that explains consequences, not just events. Articles that are practical enough to use. Courses that leave you more capable than when you started. Professional tools that help you get things done every day, from email drafts to reports to presentations.",
+      "You do not have to figure this out alone.",
     ].join("\n\n"),
   },
   brand: {
     offerLabel: "What we offer",
-    offerBlockHeadline: "From daily signal to long-term skills—news, articles, and courses in one place.",
+    offerBlockHeadline: "Everything you need to stay sharp: news, articles, courses, and tools in one place.",
     offerNews:
-      "We track what is changing across technology and industry and explain what it means in plain terms. The goal is not to inform you of events. It is to help you understand consequences.",
+      "We track what is changing across technology and industry and explain what it means in plain language. Not just what happened, but why it matters for your work, your team, and your decisions.",
     offerArticles:
-      "Honest, well-researched writing on the tools, strategies, and ideas defining the next era of work. Practical enough to use. Deep enough to matter.",
+      "Honest, well-researched writing on the tools, strategies, and ideas shaping the next era of work. Practical enough to use tomorrow. Deep enough to change how you think.",
     offerCourses:
-      "Structured learning built around real outcomes. Whether you are building a foundation or advancing an existing career, our courses are designed with one measure of success: are you more capable when you finish than when you started?",
+      "Structured learning with real outcomes. Whether you are building a foundation or advancing your career, our courses leave you measurably more capable than when you started.",
     howLabel: "How it works",
     howBody: [
-      "Xalura is built on systems that allow us to move quickly, stay current, and keep our content organized and accessible.",
-      "But our value is not the technology behind the platform. It is the clarity we create for the people using it.",
+      "Xalura brings together everything you need to stay ahead. News and articles keep you informed. Courses build your skills. Professional tools help you do the work, from writing emails to building presentations to analyzing data.",
+      "You get one platform where the information, the learning, and the tools all connect.",
     ].join("\n\n"),
     whoLabel: "Who this is for",
     whoBody: [
-      "Professionals who want to lead their industry rather than react to it.",
+      "Professionals who want to lead their field instead of reacting to it.",
       "Learners who take their development seriously and want their time to count.",
-      "Anyone who recognizes that the shift already underway requires new knowledge and is ready to build it.",
+      "Anyone who sees that the world is changing fast and wants to be ready for it.",
+      "If you have ever felt like you are falling behind while the industry moves ahead, this is for you.",
     ].join("\n\n"),
-    apartLabel: "What sets Xalura apart",
+    apartLabel: "What makes Xalura different",
     apartBody: [
-      "Most platforms give you information. We give you the context to do something with it.",
-      "Xalura connects what is happening today to what it means for your work, your career, and your industry tomorrow. We were built by people who believe this kind of knowledge should not be the exclusive property of those already inside the room.",
-      "Our standard is simple: everything we publish or teach should make you measurably more capable of leading in the world as it actually is, not as it was five years ago.",
+      "Most platforms give you information. We give you the full picture: what is happening, what it means, how to learn it, and the tools to apply it.",
+      "Everything we publish and teach is built for one purpose: to make you more capable of leading in the world as it actually is, not as it was five years ago.",
     ].join("\n\n"),
-    approachLabel: "How we work",
+    approachLabel: "Our approach",
     approachBody: [
-      "Xalura is a technology company building at the intersection of modern automation and human capability. Our platform and content exist to close the knowledge gap between where industries are heading and where most professionals currently stand. We do not chase trends. We track what is consequential, explain it clearly, and build the courses that turn understanding into competence.",
-      "The message is never about technology for its own sake. It is always about what a person can do with the right knowledge: grounded, relevant, and fit for the world as it is now.",
+      "We do not chase trends. We track what is consequential, explain it clearly, and build the tools and courses that turn understanding into action.",
+      "The technology is never the point. The point is what a person can do with the right knowledge, at the right time, with the right tools in hand.",
     ].join("\n\n"),
   },
   gearmedic: {
     label: "Featured Product",
-    headline: "GearMedic: because the\nmechanic bill should not surprise you.",
+    headline: "GearMedic: know what is wrong\nbefore you walk into the shop.",
     body:
-      "Anyone who has ever seen a check engine light knows the feeling. You do not know if it is a ten dollar fix or a two thousand dollar one. You take it to a shop and hope for the best. GearMedic changes that. You enter your car, your mileage, and the fault code if you have it. The system gives you a straight answer. What the problem likely is, what it means, and what part you probably need.",
+      "That check engine light turns on and your mind goes straight to the worst case. Is it a $10 sensor or a $2,000 repair? GearMedic gives you a straight answer. Enter your car, mileage, and fault code and get a clear diagnosis: what the problem likely is, what it means, and what part you probably need. No guessing. No upselling. Just the facts so you walk in informed.",
     body2:
-      "Behind the scenes, Kimmy watches trends in real time, Mochi writes and publishes explainers from that intel, and Maldita audits the site daily for SEO, deeplinks, and sharper copy — so more people find answers before they step into a shop.",
+      "GearMedic is built by the same team behind Xalura. The same approach of clarity and usefulness that drives everything we do.",
     features: [
       "Fault code and symptom-based diagnostic guidance",
       "Built using data patterns from Ford, Chevrolet, and others",
-      "Trend-led publishing — Kimmy surfaces demand, Mochi ships articles, Maldita tunes pages for SEO",
       "Parts matched to your diagnosis from real retailers",
-      "Always-on publishing — new knowledge ships while you use the tool",
+      "Clear answers. No jargon. No upselling.",
     ],
     metrics: [
-      { value: "70+", label: "indexed articles in the GearMedic library" },
-      { value: "Live", label: "fault-code intelligence refined as new patterns emerge" },
+      { value: "70+", label: "articles in the GearMedic library" },
+      { value: "Live", label: "fault-code intelligence refined daily" },
     ],
     cta: "Learn more",
   },
@@ -205,43 +110,45 @@ export const DEFAULT_PAGE_CONTENT: PageContentMap = {
     quote:
       "I started Xalura because the work that should stay in the background kept taking the foreground, and I believed that tension was not mine alone.",
     bio:
-      "I keep running into the same limit: the tasks that must happen every day, writing, research, publishing, and coordination, consume the hours that should go to strategy, growth, and craft. I founded Xalura to change that balance. My mission is to build systems that shoulder the recurring load with discipline, so individuals and lean teams can return attention to what only they can decide and create.",
+      "I kept running into the same limit: the tasks that have to happen every day, writing, research, publishing, and coordination, consume the hours that should go to strategy, growth, and craft. I founded Xalura to change that balance. My mission is to build systems that handle the recurring load so people can focus on what only they can decide and create.",
     bio2:
-      "My vision is to extend serious operational leverage to people who still do everything themselves. I want the clarity, reliability, and continuity that large organizations assume to become available without pretense: systems that run without constant intervention, respect context, and make outcomes legible. Xalura is young; we are building it to earn trust slowly and to widen access responsibly.",
+      "My vision is to give serious leverage to people who still do everything themselves. I want the clarity and continuity that large organizations take for granted to become available without the overhead. Xalura is young. We are building it to earn trust slowly and to open access responsibly.",
   },
   closing: {
-    label: "Where We Are Going",
+    label: "Where we are going",
     headline: "We are just getting\nstarted.",
     body:
-      "Xalura is early. GearMedic is the first product — Kimmy on trends, Mochi on writing and publishing, Maldita on site SEO, Milka on visuals — and there is a lot more planned. If you are tired of doing everything yourself and want to see what a small AI-powered team can do for your operation, we would love to talk.",
+      "Xalura is early. GearMedic is the first product and there is a lot more planned. If you want a platform that helps you stay ahead, we would love to talk.",
     cta: "Start a Conversation",
   },
   homePage: {
     everydayLabel: "Tools",
-    everydayHeadline: "Everyday tools",
+    everydayHeadline: "Professional tools to help you get things done",
     everydaySubhead:
-      "Professional-grade tools that work for you, every day—clear drafts, structured content, and printable reports when you need them.",
+      "Draft emails, generate content, build reports, create presentations, translate text, analyze data, and more. Every tool is built to save you time and deliver results you can use immediately.",
     toolEmailTitle: "Email generator",
-    toolEmailBlurb: "Shape the message; get subject lines and a full draft you can send as-is.",
+    toolEmailBlurb: "Describe what you need and get a full draft with subject lines ready to send.",
     toolContentTitle: "Content generator",
-    toolContentBlurb: "Go from a topic to structured, web-ready copy with headings you can ship.",
+    toolContentBlurb: "Turn any topic into structured, web-ready copy with headings you can ship.",
     toolReportTitle: "Report builder",
-    toolReportBlurb: "Turn rough notes into a clean report, then print or save as a PDF in one step.",
-    allToolsCta: "All tools",
+    toolReportBlurb: "Turn rough notes into a clean, professional report ready to print or share.",
+    allToolsCta: "See all tools",
     allToolsHref: "/ai-tools",
     newsLabel: "News",
-    newsLede: "Same-day reporting and analysis—what changed, and what it means for your work.",
+    newsLede: "Same-day reporting and analysis on what is changing in technology and industry, and what it means for your work.",
     newsViewAll: "View all news",
     articlesLabel: "Articles",
-    articlesLede: "Long-form guides and explainers on tools, strategy, and the next era of work.",
+    articlesLede: "Long-form guides and explainers on the tools, strategies, and ideas defining the next era of work.",
     articlesViewAll: "View all articles",
     tickerItems: [
+      "Artificial Intelligence",
       "Machine Learning",
-      "Autonomous Systems",
-      "Human-Centered AI",
-      "Diagnostic Intelligence",
-      "Autonomous Content",
-      "Affiliate Intelligence",
+      "Automotive Tech",
+      "Diagnostic Tools",
+      "Content Strategy",
+      "Industry Analysis",
+      "Professional Development",
+      "Tech Trends",
     ].join("\n"),
   },
   teamPage: {
@@ -252,6 +159,6 @@ export const DEFAULT_PAGE_CONTENT: PageContentMap = {
     footerStripHref: "/team",
   },
   footer: {
-    tagline: "The context to do something with it—news, articles, and courses for people who want to lead.",
+    tagline: "News, articles, courses, and tools for people who want to lead. Xalura helps you stay ahead.",
   },
 };

@@ -7,7 +7,7 @@ import { isArticleSubcategoryLabel } from "@/lib/articleSubcategoryGate";
 
 export const metadata = {
   title: "Articles · Xalura Tech",
-  description: "GearMedic and Xalura articles on SEO, research, and publishing.",
+  description: "Practical, well-researched articles on the tools, strategies, and ideas shaping the next era of work.",
 };
 
 export default async function ArticlesPage({
@@ -39,12 +39,12 @@ export default async function ArticlesPage({
   return (
     <PublicPageShell footerContent={pageContent.footer}>
       <section className="wrap">
-        <p className="label r">Library</p>
+        <p className="label r">Learn</p>
         <h1 className="h2 r" style={{ marginBottom: 16 }}>
           Articles
         </h1>
         <p className="body-text r" style={{ marginBottom: 40, maxWidth: 560 }}>
-          Long-form notes from the team — research, SEO, and production craft.
+          Long-form guides and explainers on the tools, strategies, and ideas defining the next era of work. Practical enough to use. Deep enough to matter.
         </p>
         <Suspense
           fallback={

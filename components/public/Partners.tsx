@@ -6,16 +6,15 @@ export function Partners({ partners }: { partners: PartnerRow[] }) {
   return (
     <section className="partners wrap" id="contact">
       <p className="label r">Distribution</p>
-      <h2 className="h2 r" style={{ transitionDelay: "0.1s", color: "white" }}>
+      <h2 className="h2 r" style={{ transitionDelay: "0.1s" }}>
         The parts are already
         <br />
-        <em style={{ color: "#6B8BF5" }}>where people shop.</em>
+        <em>where people shop.</em>
       </h2>
       <p
         className="body-text r"
         style={{
           transitionDelay: "0.2s",
-          color: "rgba(255,255,255,.4)",
           marginBottom: 48,
         }}
       >
@@ -53,3 +52,4 @@ export function Partners({ partners }: { partners: PartnerRow[] }) {
     </section>
   );
 }
+

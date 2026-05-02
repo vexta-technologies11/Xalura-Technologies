@@ -53,13 +53,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(home),
   title: "Xalura Tech",
   description:
-    "Practical AI systems for real-world operations — autonomous content, diagnostics, and operations.",
+    "News, articles, courses, and 23 professional tools to help you stay ahead. Xalura helps professionals understand what is changing and build the skills to lead.",
   openGraph: {
     type: "website",
     siteName: "Xalura Tech",
     title: "Xalura Tech",
     description:
-      "Practical AI systems for real-world operations — autonomous content, diagnostics, and operations.",
+      "News, articles, courses, and 23 professional tools to help you stay ahead. Xalura helps professionals understand what is changing and build the skills to lead.",
     images: [
       {
         url: "/email/xalura-xt-logo.png",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Xalura Tech",
     description:
-      "Practical AI systems for real-world operations — autonomous content, diagnostics, and operations.",
+      "News, articles, courses, and 23 professional tools to help you stay ahead. Xalura helps professionals understand what is changing and build the skills to lead.",
     images: ["/email/xalura-xt-logo.png"],
   },
   appleWebApp: {

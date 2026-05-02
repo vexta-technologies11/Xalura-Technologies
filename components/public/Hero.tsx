@@ -50,7 +50,7 @@ export function Hero({
       <div className="hero-veil" aria-hidden />
       <p className="hero-bento-hint">
         {content.bentoHint?.trim() ||
-          "Track what matters across AI and industry—news, deep dives, and courses in one place."}
+          "Track what matters across technology and industry. News, deep dives, tools, and courses in one place."}
       </p>
       <div className="hero-content">
         <p className="label">{content.label}</p>

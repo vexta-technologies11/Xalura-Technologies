@@ -9,7 +9,7 @@ import { useTheme } from "@/components/shared/ThemeProvider";
 const LINKS: { href: string; label: string }[] = [
   { href: "/team", label: "Team" },
   { href: "/#mission", label: "Mission" },
-  { href: "/ai-tools", label: "Everyday tools" },
+  { href: "/ai-tools", label: "Tools" },
   { href: "/news", label: "News" },
   { href: "/articles", label: "Articles" },
   { href: "/courses", label: "Courses" },

@@ -54,7 +54,7 @@ export function Footer({
             <h4>Products</h4>
             <ul>
               <li>
-                <a href="#products">GearMedic</a>
+                <a href="https://gearmedic.net" target="_blank" rel="noopener noreferrer">GearMedic</a>
               </li>
               <li>
                 <a href="/dashboard">Dashboard</a>
