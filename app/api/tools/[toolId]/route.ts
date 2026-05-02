@@ -28,6 +28,7 @@ import { buildCitationPrompt } from "@/lib/services/prompts/citationPrompt";
 import { buildEssayOutlinerPrompt } from "@/lib/services/prompts/essayOutlinerPrompt";
 import { buildNoteTakerPrompt } from "@/lib/services/prompts/noteTakerPrompt";
 import { runAiToolsGeminiJson, runAiToolsGemini } from "@/lib/aiToolsGemini";
+import { checkRateLimit, recordGeneration, getRateLimitHeaders } from "@/lib/serverRateLimit";
 
 interface Builders {
   json: Record<string, (args: any) => string>;
@@ -71,6 +72,28 @@ export async function POST(
 ) {
   const { toolId } = await params;
 
+  // Server-side rate limiting: enforce 15 generations/day per IP
+  const rateLimit = checkRateLimit(request);
+  if (!rateLimit.allowed) {
+    const headers = getRateLimitHeaders(rateLimit);
+    const retrySeconds = rateLimit.retryAfter
+      ? Math.ceil(rateLimit.retryAfter / 1000)
+      : 86400;
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: `Daily limit reached. Try again in ${retrySeconds > 3600 ? `${Math.ceil(retrySeconds / 3600)}h` : `${Math.ceil(retrySeconds / 60)}m`}.`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+      },
+    );
+  }
+
   try {
     const body = await request.json();
     const toolArgs = body.params || body;
@@ -85,6 +108,8 @@ export async function POST(
       }
       try {
         const data = JSON.parse(result.text);
+        // Record successful generation for rate limiting
+        recordGeneration(request);
         return jsonOk(JSON.stringify(data));
       } catch {
         return jsonError("Failed to parse AI response as JSON", 500);
@@ -99,6 +124,8 @@ export async function POST(
       if (!result.ok) {
         return jsonError(result.error, 500);
       }
+      // Record successful generation for rate limiting
+      recordGeneration(request);
       return jsonOk(JSON.stringify({ text: result.text }));
     }
 
@@ -108,4 +135,3 @@ export async function POST(
     return jsonError(msg, 500);
   }
 }
-

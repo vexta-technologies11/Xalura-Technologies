@@ -5,6 +5,8 @@ import { parseAndNormalizeDocument, extractJsonText } from "@/lib/pdfGenerator/p
 import { buildStructuredReportPrompt } from "@/lib/pdfGenerator/structuredReportPrompt";
 import { selectPdfTemplate } from "@/lib/pdfGenerator/selectTemplate";
 import { templateLabel } from "@/lib/pdfGenerator/templateMeta";
+import { checkRateLimit, recordGeneration, getRateLimitHeaders } from "@/lib/serverRateLimit";
+
 export const runtime = "nodejs";
 
 type Body = {
@@ -23,6 +25,27 @@ function firstLine(s: string): string {
 }
 
 export async function POST(req: Request) {
+  // Server-side rate limiting
+  const rateLimit = checkRateLimit(req);
+  if (!rateLimit.allowed) {
+    const retrySeconds = rateLimit.retryAfter
+      ? Math.ceil(rateLimit.retryAfter / 1000)
+      : 86400;
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: `Daily limit reached. Try again in ${retrySeconds > 3600 ? `${Math.ceil(retrySeconds / 3600)}h` : `${Math.ceil(retrySeconds / 60)}m`}.`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          ...getRateLimitHeaders(rateLimit),
+        },
+      },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -64,6 +87,9 @@ export async function POST(req: Request) {
   }
 
   const document = parseAndNormalizeDocument(parsed, { title, request });
+
+  // Record successful generation
+  recordGeneration(req);
 
   return jsonOkReport({
     document,

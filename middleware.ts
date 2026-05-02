@@ -1,7 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Skip auth check for static assets, API health, and Next.js internals
+const SKIP_AUTH_PATTERNS = [
+  /^\/_next\//,
+  /^\/api\/health/,
+  /^\/favicon/,
+  /^\/icon\./,
+  /^\/apple-icon/,
+  /^\/robots\.txt/,
+];
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip auth for static assets to reduce Supabase load
+  if (SKIP_AUTH_PATTERNS.some((p) => p.test(pathname))) {
+    return NextResponse.next();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -33,13 +50,13 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
+  if (pathname.startsWith("/admin") && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (request.nextUrl.pathname === "/login" && user) {
+  if (pathname === "/login" && user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/admin";
     return NextResponse.redirect(redirectUrl);

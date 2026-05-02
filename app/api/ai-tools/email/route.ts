@@ -1,6 +1,7 @@
 import { runAiToolsGemini } from "@/lib/aiToolsGemini";
 import { lengthWordsLabel } from "@/lib/aiToolFormConfig";
 import { buildEmailPrompt, jsonError, jsonOk } from "@/lib/aiToolsPrompts";
+import { checkRateLimit, recordGeneration, getRateLimitHeaders } from "@/lib/serverRateLimit";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,27 @@ type Body = {
 };
 
 export async function POST(req: Request) {
+  // Server-side rate limiting
+  const rateLimit = checkRateLimit(req);
+  if (!rateLimit.allowed) {
+    const retrySeconds = rateLimit.retryAfter
+      ? Math.ceil(rateLimit.retryAfter / 1000)
+      : 86400;
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: `Daily limit reached. Try again in ${retrySeconds > 3600 ? `${Math.ceil(retrySeconds / 3600)}h` : `${Math.ceil(retrySeconds / 60)}m`}.`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          ...getRateLimitHeaders(rateLimit),
+        },
+      },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -40,5 +62,8 @@ export async function POST(req: Request) {
   if (!result.ok) {
     return jsonError(result.error, 502);
   }
+
+  // Record successful generation
+  recordGeneration(req);
   return jsonOk(result.text);
 }
