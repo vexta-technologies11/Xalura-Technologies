@@ -4,28 +4,22 @@ import { useState } from "react";
 import type { PuzzleConfig } from "@/lib/antiBot";
 
 /**
- * Renders the anti-bot puzzle UI.
+ * Renders the server-verified anti-bot puzzle.
+ * Only renders math puzzles (emoji puzzles removed — they bypassed server verification).
+ * Every generation requires solving a new puzzle — no skip, no bypass.
  */
 export function AntiBotPuzzle({
   puzzle,
   puzzleError,
   onAnswer,
   onClose,
-  skippable,
-  onSkip,
 }: {
   puzzle: PuzzleConfig;
   puzzleError: string | null;
   onAnswer: (answer: string | number) => void;
   onClose: () => void;
-  skippable: boolean;
-  onSkip?: () => void;
 }) {
   const [mathInput, setMathInput] = useState("");
-
-  const handleEmojiClick = (index: number) => {
-    onAnswer(index);
-  };
 
   return (
     <div
@@ -64,7 +58,7 @@ export function AntiBotPuzzle({
             marginBottom: "12px",
           }}
         >
-          Are you human?
+          Verify you&apos;re human
         </div>
 
         <p
@@ -75,13 +69,11 @@ export function AntiBotPuzzle({
             lineHeight: 1.5,
           }}
         >
-          {puzzle.instructions}
+          Solve this math problem to continue. Required before every generation.
         </p>
 
-        {puzzle.type === "math" && (
-          <div>
-            <div
-              style={{
+        <div
+          style={{
                 fontSize: "2rem",
                 fontWeight: 700,
                 color: "rgba(240,245,255,0.95)",
@@ -89,8 +81,9 @@ export function AntiBotPuzzle({
                 marginBottom: "16px",
               }}
             >
-              {puzzle.challenge}
+          {puzzle.text}
             </div>
+
             <input
               type="number"
               value={mathInput}
@@ -116,6 +109,7 @@ export function AntiBotPuzzle({
               }}
               autoFocus
             />
+
             <button
               className="ai-tools__btn ai-tools__btn--primary"
               style={{ width: "100%", padding: "12px" }}
@@ -128,69 +122,6 @@ export function AntiBotPuzzle({
             >
               Submit
             </button>
-          </div>
-        )}
-
-        {puzzle.type === "align" && (() => {
-          try {
-            const data = JSON.parse(puzzle.challenge);
-            const items = Array.from({ length: 6 }, (_, i) => ({
-              emoji: i === data.position ? data.emoji : data.wrong,
-              index: i,
-            }));
-            // Shuffle
-            for (let i = items.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [items[i], items[j]] = [items[j], items[i]];
-            }
-
-            return (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: "10px",
-                }}
-              >
-                {items.map((item, idx) => (
-                  <button
-                    key={idx}
-                    style={{
-                      padding: "16px 12px",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      cursor: "pointer",
-                      fontSize: "2rem",
-                      transition: "all 0.15s",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(124,58,237,0.15)";
-                      e.currentTarget.style.borderColor = "rgba(124,58,237,0.3)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(0,0,0,0.2)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                    }}
-                    onClick={() => handleEmojiClick(item.index)}
-                  >
-                    <span>{item.emoji}</span>
-                    <span style={{ fontSize: "0.6rem", color: "rgba(200,210,230,0.4)" }}>
-                      {item.emoji === data.emoji ? data.label : "Decoy"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            );
-          } catch {
-            return <div>Invalid puzzle</div>;
-          }
-        })()}
-
         {puzzleError && (
           <p
             style={{
@@ -204,19 +135,10 @@ export function AntiBotPuzzle({
           </p>
         )}
 
-        {skippable && onSkip && (
-          <button
-            className="ai-tools__btn ai-tools__btn--ghost"
-            style={{ marginTop: "16px", fontSize: "0.8rem" }}
-            onClick={onSkip}
-          >
-            Skip (verified)
-          </button>
-        )}
-
+        {/* No skip button — every generation requires solving the puzzle */}
         <button
           className="ai-tools__btn ai-tools__btn--ghost"
-          style={{ marginTop: "8px", fontSize: "0.75rem", color: "rgba(200,210,230,0.4)" }}
+          style={{ marginTop: "16px", fontSize: "0.75rem", color: "rgba(200,210,230,0.4)" }}
           onClick={onClose}
         >
           Cancel
@@ -225,3 +147,4 @@ export function AntiBotPuzzle({
     </div>
   );
 }
+

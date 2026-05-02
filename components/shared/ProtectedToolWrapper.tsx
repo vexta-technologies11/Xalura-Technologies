@@ -17,7 +17,7 @@ interface ProtectedToolWrapperProps {
 
 /**
  * Wraps any tool's form with:
- * 1. Anti-bot puzzle before every generation
+ * 1. Server-verified anti-bot puzzle before EVERY generation (no bypass)
  * 2. Hard minimum 5 usage limit (cross-tool tracked)
  * 3. Pro upgrade modal when limit hit
  */
@@ -31,9 +31,8 @@ export function ProtectedToolWrapper({ toolId, children }: ProtectedToolWrapperP
     showPuzzle,
     puzzle,
     puzzleError,
-    skippable,
+    isLoading,
     handlePuzzleAnswer,
-    handleSkip,
     handleClosePuzzle,
   } = useProtectedGenerate({
     toolId,
@@ -51,18 +50,16 @@ export function ProtectedToolWrapper({ toolId, children }: ProtectedToolWrapperP
       {children({
         usage,
         handleGenerate,
-        isProcessing: false,
+        isProcessing: isLoading,
       })}
 
-      {/* Anti-bot puzzle overlay */}
+      {/* Anti-bot puzzle overlay — required for EVERY generation */}
       {showPuzzle && puzzle && (
         <AntiBotPuzzle
           puzzle={puzzle}
           puzzleError={puzzleError}
           onAnswer={handlePuzzleAnswer}
           onClose={handleClosePuzzle}
-          skippable={skippable}
-          onSkip={handleSkip}
         />
       )}
 

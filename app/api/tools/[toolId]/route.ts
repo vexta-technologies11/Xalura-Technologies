@@ -29,6 +29,7 @@ import { buildEssayOutlinerPrompt } from "@/lib/services/prompts/essayOutlinerPr
 import { buildNoteTakerPrompt } from "@/lib/services/prompts/noteTakerPrompt";
 import { runAiToolsGeminiJson, runAiToolsGemini } from "@/lib/aiToolsGemini";
 import { checkRateLimit, recordGeneration, getRateLimitHeaders } from "@/lib/serverRateLimit";
+import { verifyAntiBotProof, extractAntiBotProof } from "@/lib/antiBotChallenge";
 
 interface Builders {
   json: Record<string, (args: any) => string>;
@@ -97,6 +98,20 @@ export async function POST(
   try {
     const body = await request.json();
     const toolArgs = body.params || body;
+
+    // Server-side anti-bot verification
+    // Client must include antiBotAnswer, antiBotNonce, antiBotSignature, antiBotExpiresAt
+    const proof = extractAntiBotProof(body);
+    const antiBotResult = verifyAntiBotProof(proof);
+    if (!antiBotResult.valid) {
+      return new Response(
+        JSON.stringify({ ok: false, error: antiBotResult.reason || "Anti-bot verification required" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Check JSON-mode builders first
     const jsonBuilder = BUILDERS.json[toolId];

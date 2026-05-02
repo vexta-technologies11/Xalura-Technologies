@@ -31,7 +31,6 @@ export function DocumentSummarizer() {
     showPuzzle,
     puzzle,
     puzzleError,
-    skippable,
     requestVerification,
     attemptPuzzle,
     resetVerification,
@@ -66,7 +65,7 @@ export function DocumentSummarizer() {
       openUpgrade("Document Summarizer");
       return;
     }
-    if (!isVerified && !skippable) {
+    if (!isVerified) {
       requestVerification();
       return;
     }
@@ -91,7 +90,7 @@ export function DocumentSummarizer() {
     } finally {
       setIsGenerating(false);
     }
-  }, [inputText, inputWords, summaryLength, summaryFormat, focusArea, audienceLevel, usage.isBlocked, isVerified, skippable, openUpgrade, incrementUsage, requestVerification, resetVerification]);
+  }, [inputText, inputWords, summaryLength, summaryFormat, focusArea, audienceLevel, usage.isBlocked, isVerified, openUpgrade, incrementUsage, requestVerification, resetVerification]);
 
   function handlePuzzleAnswer(answer: string | number) {
     const success = attemptPuzzle(answer);
@@ -127,11 +126,6 @@ export function DocumentSummarizer() {
           puzzleError={puzzleError}
           onAnswer={handlePuzzleAnswer}
           onClose={resetVerification}
-          skippable={skippable}
-          onSkip={() => {
-            resetVerification();
-            handleGenerate();
-          }}
         />
       )}
 

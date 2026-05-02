@@ -18,7 +18,7 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     showPuzzle,
     puzzle,
     puzzleError,
-    skippable,
+    isLoading,
     requestVerification,
     attemptPuzzle,
     resetVerification,
@@ -27,7 +27,7 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleGenerate = useCallback(async () => {
-    if (isProcessing) return;
+    if (isProcessing || isLoading) return;
 
     // Check usage limit first
     if (usage.isBlocked) {
@@ -35,8 +35,8 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
       return;
     }
 
-    // Require anti-bot verification
-    if (!isVerified && !skippable) {
+    // Require anti-bot verification for EVERY generation
+    if (!isVerified) {
       requestVerification();
       return;
     }
@@ -45,7 +45,7 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     try {
       await onGenerate();
       incrementUsage();
-      // Reset anti-bot for next generation
+      // Reset anti-bot so user must re-verify for next generation
       resetVerification();
     } catch (err) {
       console.error("Generation failed:", err);
@@ -54,9 +54,9 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     }
   }, [
     isProcessing,
+    isLoading,
     usage.isBlocked,
     isVerified,
-    skippable,
     toolId,
     onGenerate,
     incrementUsage,
@@ -76,10 +76,7 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     [attemptPuzzle, handleGenerate],
   );
 
-  const handleSkip = useCallback(() => {
-    resetVerification();
-    handleGenerate();
-  }, [resetVerification, handleGenerate]);
+  // No skip — every generation requires solving a puzzle
 
   return {
     usage,
@@ -91,9 +88,10 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     showPuzzle,
     puzzle,
     puzzleError,
-    skippable,
+    isLoading,
+    skippable: false,
     handlePuzzleAnswer,
-    handleSkip,
+    handleSkip: undefined,
     handleClosePuzzle: resetVerification,
   };
 }

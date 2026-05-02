@@ -52,7 +52,6 @@ export function AiToolSubmitBar({
     showPuzzle,
     puzzle,
     puzzleError,
-    skippable,
     requestVerification,
     attemptPuzzle,
     resetVerification,
@@ -65,7 +64,7 @@ export function AiToolSubmitBar({
     }
 
     // Require anti-bot puzzle
-    if (!isVerified && !skippable) {
+    if (!isVerified) {
       requestVerification();
       return;
     }
@@ -143,11 +142,6 @@ export function AiToolSubmitBar({
           puzzleError={puzzleError}
           onAnswer={handlePuzzleAnswer}
           onClose={resetVerification}
-          skippable={skippable}
-          onSkip={() => {
-            resetVerification();
-            submit();
-          }}
         />
       )}
 
