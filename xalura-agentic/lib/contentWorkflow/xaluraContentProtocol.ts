@@ -8,7 +8,7 @@ const PUBLISHING_GLOBAL_RULES = `
 ## Xalura Content Protocol v${XALURA_CONTENT_PROTOCOL_VERSION} — global rules
 
 ### 🚨🚨🚨 CRITICAL: THIS IS FOR REAL HUMAN READERS — NOT AN INTERNAL MEMO
-The published article goes on the **public website** (xalura.tech/articles/...). Real people read this. It must sound like a normal article you'd find on any tech publication.
+The published article goes on the **public website** (www.xaluratech.com/articles/...). Real people read this. It must sound like a normal article you'd find on any tech publication.
 
 **HARD BAN:**
 - ❌ **ABSOLUTELY FORBIDDEN:** Starting with "As a Worker...", "As a Manager...", "In my role as...", "As an AI...", "My job in Xalura Tech is to...", "I'm an AI agent...", or any sentence that mentions internal pipeline roles, departments, or agent hierarchy.

@@ -300,7 +300,7 @@ export function buildToolsContextBlock(
   ];
 
   for (const { tool } of relevant) {
-    const toolUrl = `https://xalura.tech${tool.route}`;
+    const toolUrl = `https://www.xaluratech.com${tool.route}`;
     lines.push(`- **[${tool.name}](${toolUrl})** — ${tool.tagline}. Use anchor text like "${tool.name.toLowerCase()}" or "${tool.tagline.toLowerCase()}".`);
   }
 
@@ -334,11 +334,11 @@ This article should **naturally promote Xalura's free AI tools** when relevant. 
 6. **Don't overdo it** — the article must first serve the reader. Tool mentions should feel additive, not promotional.
 
 **Example of good linking:**
-> "If you need to draft a professional response quickly, Xalura's free [Email Reply Generator](https://xalura.tech/ai-tools/email-reply) can help you craft the perfect reply in seconds."
+> "If you need to draft a professional response quickly, Xalura's free [Email Reply Generator](https://www.xaluratech.com/ai-tools/email-reply) can help you craft the perfect reply in seconds."
 
 **Example CTA section:**
 > ### Related Xalura Tools
-> - **[Document Summarizer](https://xalura.tech/ai-tools/summarizer)** — Compress lengthy documents into key insights and takeaways.
-> - **[Resume Builder](https://xalura.tech/ai-tools/resume)** — Build ATS-optimized resumes with live scoring.
+> - **[Document Summarizer](https://www.xaluratech.com/ai-tools/summarizer)** — Compress lengthy documents into key insights and takeaways.
+> - **[Resume Builder](https://www.xaluratech.com/ai-tools/resume)** — Build ATS-optimized resumes with live scoring.
 `.trim();
 }

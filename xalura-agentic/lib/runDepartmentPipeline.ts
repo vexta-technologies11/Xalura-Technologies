@@ -639,7 +639,7 @@ export async function runDepartmentPipeline(
             id: t.id,
             name: t.name,
             route: t.route,
-            url: `https://xalura.tech${t.route}`,
+            url: `https://www.xaluratech.com${t.route}`,
             tagline: t.tagline,
             category: t.category,
           }));
