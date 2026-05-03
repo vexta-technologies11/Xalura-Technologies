@@ -21,7 +21,7 @@ const API_BASE = "https://cloud.leonardo.ai/api/rest/v1";
 const DEFAULT_PHOTOREAL_V2_MODEL_ID = "aa77f04e-3eec-4034-9c07-d0f619684628";
 
 const DEFAULT_NEG =
-  "photorealistic, photo, photography, realistic, text, letters, logo, watermark, signature, brand, deformed, ugly, blurry, low quality, low resolution, amateur, sketchy, cartoon, anime, cluttered, busy, noisy, oversaturated, hyperrealistic";
+  "photorealistic, photo, photography, realistic,no text,no letters, logo, watermark, signature, brand, deformed, ugly, blurry, low quality, low resolution, amateur, sketchy, cartoon, anime, cluttered, busy, noisy, oversaturated, hyperrealistic";
 
 const PRESET_STYLE = "DYNAMIC";
 

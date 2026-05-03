@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { SplitPanel } from "@/components/shared/SplitPanel";
 import { TextArea } from "@/components/shared/TextArea";
 import { SelectInput } from "@/components/shared/SelectInput";
@@ -36,6 +36,10 @@ export function DocumentSummarizer() {
     resetVerification,
   } = useAntiBot();
 
+  // Ref tracks latest isVerified so handlers avoid stale closure loops.
+  const verifiedRef = useRef(isVerified);
+  verifiedRef.current = isVerified;
+
   const [inputText, setInputText] = useState("");
   const [inputWords, setInputWords] = useState(0);
 
@@ -65,7 +69,8 @@ export function DocumentSummarizer() {
       openUpgrade("Document Summarizer");
       return;
     }
-    if (!isVerified) {
+    // Use ref to avoid stale closure after puzzle solve
+    if (!verifiedRef.current) {
       requestVerification();
       return;
     }
@@ -90,11 +95,12 @@ export function DocumentSummarizer() {
     } finally {
       setIsGenerating(false);
     }
-  }, [inputText, inputWords, summaryLength, summaryFormat, focusArea, audienceLevel, usage.isBlocked, isVerified, openUpgrade, incrementUsage, requestVerification, resetVerification]);
+  }, [inputText, inputWords, summaryLength, summaryFormat, focusArea, audienceLevel, usage.isBlocked, openUpgrade, incrementUsage, requestVerification, resetVerification]);
 
   function handlePuzzleAnswer(answer: string | number) {
     const success = attemptPuzzle(answer);
     if (success) {
+      verifiedRef.current = true;
       handleGenerate();
     }
   }

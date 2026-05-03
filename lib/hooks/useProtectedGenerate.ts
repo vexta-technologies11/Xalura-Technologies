@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useUsageLimit } from "./useUsageLimit";
 import { useUpgradeModal } from "./useUpgradeModal";
 import { useAntiBot } from "@/lib/antiBot";
@@ -24,6 +24,10 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     resetVerification,
   } = useAntiBot();
 
+  // Use a ref to track the latest isVerified value so callbacks read it synchronously.
+  const verifiedRef = useRef(isVerified);
+  verifiedRef.current = isVerified;
+
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleGenerate = useCallback(async () => {
@@ -35,8 +39,8 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
       return;
     }
 
-    // Require anti-bot verification for EVERY generation
-    if (!isVerified) {
+    // Read latest verification state from ref (avoids stale closure bug after puzzle solve)
+    if (!verifiedRef.current) {
       requestVerification();
       return;
     }
@@ -56,7 +60,6 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     isProcessing,
     isLoading,
     usage.isBlocked,
-    isVerified,
     toolId,
     onGenerate,
     incrementUsage,
@@ -69,6 +72,8 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     (answer: string | number) => {
       const success = attemptPuzzle(answer);
       if (success) {
+        // Update ref synchronously before calling handleGenerate
+        verifiedRef.current = true;
         // Auto-trigger generation after verification
         handleGenerate();
       }
