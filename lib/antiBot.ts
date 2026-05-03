@@ -17,6 +17,9 @@ import { useState, useCallback, useRef } from "react";
  * - Replaying old challenges (expire in 60s)
  * - Skipping verification (API rejects requests without valid proof)
  * - Calling the API directly (every generation requires solving a puzzle)
+ *
+ * NOTE: Once verified, the user stays verified for the session (no re-puzzle
+ * on every generation). Call resetVerification() to force re-verify.
  */
 
 export type PuzzleType = "math";

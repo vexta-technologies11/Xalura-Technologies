@@ -49,8 +49,8 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     try {
       await onGenerate();
       incrementUsage();
-      // Reset anti-bot so user must re-verify for next generation
-      resetVerification();
+      // NOTE: intentionally NOT resetting verification here so the user
+      // stays verified for the session — no re-puzzle on every generation.
     } catch (err) {
       console.error("Generation failed:", err);
     } finally {
@@ -65,7 +65,6 @@ export function useProtectedGenerate({ toolId, onGenerate }: UseProtectedGenerat
     incrementUsage,
     openUpgrade,
     requestVerification,
-    resetVerification,
   ]);
 
   const handlePuzzleAnswer = useCallback(

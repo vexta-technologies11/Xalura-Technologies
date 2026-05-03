@@ -6,7 +6,7 @@ import type { PuzzleConfig } from "@/lib/antiBot";
 /**
  * Renders the server-verified anti-bot puzzle.
  * Only renders math puzzles (emoji puzzles removed — they bypassed server verification).
- * Every generation requires solving a new puzzle — no skip, no bypass.
+ * Solved once per session — no re-puzzle on every generation.
  */
 export function AntiBotPuzzle({
   puzzle,
@@ -69,7 +69,7 @@ export function AntiBotPuzzle({
             lineHeight: 1.5,
           }}
         >
-          Solve this math problem to continue. Required before every generation.
+          Solve this math problem to continue. Required once per session.
         </p>
 
         <div
@@ -135,7 +135,7 @@ export function AntiBotPuzzle({
           </p>
         )}
 
-        {/* No skip button — every generation requires solving the puzzle */}
+        {/* No skip button — puzzle required once per session */}
         <button
           className="ai-tools__btn ai-tools__btn--ghost"
           style={{ marginTop: "16px", fontSize: "0.75rem", color: "rgba(200,210,230,0.4)" }}

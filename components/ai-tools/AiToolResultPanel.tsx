@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy, Check, Loader2 } from "lucide-react";
@@ -57,14 +57,18 @@ export function AiToolSubmitBar({
     resetVerification,
   } = useAntiBot();
 
+  // Ref avoids stale closure after puzzle solve
+  const verifiedRef = useRef(isVerified);
+  verifiedRef.current = isVerified;
+
   async function submit() {
     if (usage.isBlocked) {
       openUpgrade(toolId);
       return;
     }
 
-    // Require anti-bot puzzle
-    if (!isVerified) {
+    // Require anti-bot puzzle — read ref directly for latest value
+    if (!verifiedRef.current) {
       requestVerification();
       return;
     }
@@ -104,7 +108,8 @@ export function AiToolSubmitBar({
       setError(e instanceof Error ? e.message : "Network error. Try again.");
     } finally {
       setSubmitting(false);
-      resetVerification();
+      // NOTE: intentionally NOT resetting verification here so the user
+      // stays verified for the session — no re-puzzle on every generation.
       incrementUsage();
     }
   }
@@ -112,6 +117,7 @@ export function AiToolSubmitBar({
   function handlePuzzleAnswer(answer: string | number) {
     const success = attemptPuzzle(answer);
     if (success) {
+      verifiedRef.current = true;
       // Auto-submit after verification
       submit();
     }
